@@ -1,0 +1,52 @@
+.app-content {
+  padding-bottom: 1rem;
+}
+
+.calendar-surface {
+  width: 100%;
+  background: var(--bs-body-bg);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+}
+
+.appointment-popover {
+  position: fixed;
+  z-index: 1200;
+  width: min(300px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  pointer-events: auto;
+}
+
+.appointment-edit-modal-backdrop {
+  z-index: 1290;
+}
+
+.appointment-edit-modal.modal {
+  z-index: 1300;
+}
+
+
+/* FullCalendar Employee Grid */
+
+.employee-grid {
+  display: flex;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.employee-column {
+  flex: 1;
+  min-width: 320px;
+  border-right: 1px solid #dee2e6;
+}
+
+.employee-header {
+  padding: 12px;
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 1px solid #dee2e6;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
