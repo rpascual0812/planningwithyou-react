@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 
 type SettingsSection =
   | 'account'
@@ -10,7 +9,6 @@ type SettingsSection =
   | 'permissions'
   | 'subscription'
   | 'connection'
-  | 'delete'
 
 type NavItem = {
   id: SettingsSection
@@ -19,25 +17,215 @@ type NavItem = {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'account', label: 'Account', icon: 'bi-person-gear' },
+  { id: 'account', label: 'Account', icon: 'bi-person-vcard' },
   { id: 'companies', label: 'Companies', icon: 'bi-building' },
-  { id: 'form-designs', label: 'Form Designs', icon: 'bi-pencil' },
+  { id: 'form-designs', label: 'Form Designs', icon: 'bi-ui-checks-grid' },
   { id: 'calendar', label: 'Calendar', icon: 'bi-calendar3' },
-  { id: 'bookings', label: 'Bookings', icon: 'bi-kanban' },
-  { id: 'permissions', label: 'User Permissions', icon: 'bi-people' },
+  { id: 'bookings', label: 'Bookings', icon: 'bi-bookmark-check' },
+  { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock' },
+  { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
   { id: 'subscription', label: 'Subscription', icon: 'bi-credit-card' },
-  { id: 'connection', label: 'Connections', icon: 'bi-diagram-3' },
-  { id: 'delete', label: 'Delete', icon: 'bi-trash' },
 ]
 
-type PushChoice = 'everything' | 'same-as-email' | 'no-push'
+// ---------------------------------------------------------------------------
+// FAQs accordion (rendered inside the settings tabs that don't have a custom
+// view yet: Account, Companies, Form Designs, Calendar, Bookings, User
+// Permissions).
+// ---------------------------------------------------------------------------
 
-type DevicePush = {
-  id: 'mobile' | 'desktop' | 'smartwatch'
-  label: string
-  description: string
+type FaqItem = {
+  id: string
   icon: string
-  tone: 'green' | 'navy' | 'red'
+  question: string
+  answer: string
+}
+
+type FaqSectionId =
+  | 'account'
+  | 'companies'
+  | 'form-designs'
+  | 'calendar'
+  | 'bookings'
+  | 'permissions'
+
+const FAQS_BY_SECTION: Record<FaqSectionId, FaqItem[]> = {
+  account: [
+    {
+      id: 'account-update',
+      icon: 'bi-person-circle',
+      question: 'How do I update my account details?',
+      answer:
+        'Open your profile, edit the fields you want to change, and click Save. Updates take effect immediately on your account.',
+    },
+    {
+      id: 'account-multi',
+      icon: 'bi-people-fill',
+      question: 'Can I have multiple accounts?',
+      answer:
+        'Yes. Each account is tied to a unique email address. Switch between accounts using the avatar menu in the top navbar.',
+    },
+    {
+      id: 'account-email',
+      icon: 'bi-envelope-at',
+      question: 'How do I change my account email?',
+      answer:
+        'From Settings → Account, enter a new email and confirm it via the verification link we send you.',
+    },
+  ],
+  companies: [
+    {
+      id: 'company-add',
+      icon: 'bi-building-add',
+      question: 'How do I add a new company?',
+      answer:
+        'Use the “New Company” button on the companies page. Provide a name, address, and optional logo to get started.',
+    },
+    {
+      id: 'company-multi',
+      icon: 'bi-buildings',
+      question: 'Can a user belong to multiple companies?',
+      answer:
+        'Yes. Invite the same user into each company; they can switch between them from their avatar menu without signing out.',
+    },
+    {
+      id: 'company-logo',
+      icon: 'bi-image',
+      question: 'How do I assign a company logo?',
+      answer:
+        'Open the company detail page and drag a PNG/SVG up to 2MB into the logo slot. Square images look best.',
+    },
+  ],
+  'form-designs': [
+    {
+      id: 'form-create',
+      icon: 'bi-input-cursor-text',
+      question: 'How do I create a new form design?',
+      answer:
+        'Click “New Form”, choose a template or start blank, and drop fields from the palette onto the canvas to compose your form.',
+    },
+    {
+      id: 'form-duplicate',
+      icon: 'bi-files',
+      question: 'Can I duplicate an existing form?',
+      answer:
+        'Yes. Open the form, hit the “Duplicate” action in the toolbar, and a copy will be saved next to the original.',
+    },
+    {
+      id: 'form-submissions',
+      icon: 'bi-inbox',
+      question: 'Where do submitted form entries appear?',
+      answer:
+        'Every submission lands in the Inbox tab of the form and is also available via webhook if you’ve configured one.',
+    },
+  ],
+  calendar: [
+    {
+      id: 'calendar-sync',
+      icon: 'bi-arrow-repeat',
+      question: 'How do I sync external calendars?',
+      answer:
+        'Go to Settings → Calendar, connect Google or iCloud, and pick which calendars you’d like to mirror in both directions.',
+    },
+    {
+      id: 'calendar-colors',
+      icon: 'bi-palette',
+      question: 'Can I customise event colours?',
+      answer:
+        'Yes. Each event type carries its own colour; you can edit the palette in Settings → Calendar → Event Categories.',
+    },
+    {
+      id: 'calendar-share',
+      icon: 'bi-share',
+      question: 'How do I share my calendar with others?',
+      answer:
+        'Open the share menu, choose a teammate or paste an external email, and assign view-only or editor access.',
+    },
+  ],
+  bookings: [
+    {
+      id: 'booking-confirm',
+      icon: 'bi-check2-circle',
+      question: 'How do I confirm a booking?',
+      answer:
+        'Open the booking detail panel and hit Confirm. The guest will receive a confirmation email automatically.',
+    },
+    {
+      id: 'booking-reschedule',
+      icon: 'bi-arrow-left-right',
+      question: 'Can guests reschedule their booking?',
+      answer:
+        'If you allow self-service rescheduling, guests can pick a new slot from the confirmation email up to 24 hours before.',
+    },
+    {
+      id: 'booking-refund',
+      icon: 'bi-cash-stack',
+      question: 'How do I refund a cancelled booking?',
+      answer:
+        'Cancellations within the refund window trigger an automatic refund. You can also issue manual refunds from the payments tab.',
+    },
+  ],
+  permissions: [
+    {
+      id: 'perm-roles',
+      icon: 'bi-person-check',
+      question: 'How do I assign roles to users?',
+      answer:
+        'On the Users page, open a user and pick a role (Owner, Admin, Member, or any custom role) from the role selector.',
+    },
+    {
+      id: 'perm-custom',
+      icon: 'bi-shield-plus',
+      question: 'Can I create custom permission sets?',
+      answer:
+        'Yes. Define a new role under Roles and Permissions, toggle the granular permissions, and assign it to as many users as you’d like.',
+    },
+    {
+      id: 'perm-revoke',
+      icon: 'bi-person-x',
+      question: 'How do I revoke access for a deactivated user?',
+      answer:
+        'Deactivating a user immediately invalidates their sessions and revokes their API tokens. You can re-activate them later if needed.',
+    },
+  ],
+}
+
+type FaqsCardProps = {
+  items: FaqItem[]
+}
+
+const FaqsCard = ({ items }: FaqsCardProps) => {
+  const [openId, setOpenId] = useState<string | null>(null)
+  return (
+    <div className="faq-card">
+      <header className="faq-card-head">
+        <h6 className="faq-card-title">FAQs with Left Icons</h6>
+      </header>
+      <ul className="faq-list">
+        {items.map((it) => {
+          const isOpen = openId === it.id
+          return (
+            <li key={it.id} className={`faq-item${isOpen ? ' is-open' : ''}`}>
+              <button
+                type="button"
+                className="faq-toggle"
+                aria-expanded={isOpen}
+                onClick={() => setOpenId(isOpen ? null : it.id)}
+              >
+                <span className="faq-icon" aria-hidden="true">
+                  <i className={`bi ${it.icon}`} />
+                </span>
+                <span className="faq-question">{it.question}</span>
+                <span className="faq-chevron" aria-hidden="true">
+                  <i className="bi bi-chevron-down" />
+                </span>
+              </button>
+              {isOpen && <div className="faq-answer">{it.answer}</div>}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -295,41 +483,8 @@ const formatPrice = (n: number) =>
     maximumFractionDigits: 2,
   })}`
 
-const DEVICE_PUSH: DevicePush[] = [
-  {
-    id: 'mobile',
-    label: 'Mobile push notification',
-    description: 'Receive all notifications via your mobile app',
-    icon: 'bi-phone',
-    tone: 'navy',
-  },
-  {
-    id: 'desktop',
-    label: 'Desktop push notification',
-    description: 'Receive all notifications via your desktop app',
-    icon: 'bi-display',
-    tone: 'green',
-  },
-  {
-    id: 'smartwatch',
-    label: 'Smartwatch push notification',
-    description: 'Receive all notifications via your smartwatch app',
-    icon: 'bi-smartwatch',
-    tone: 'red',
-  },
-]
-
 const SettingsPage = () => {
-  const [activeNav, setActiveNav] = useState<SettingsSection>('notification')
-  const [emailComments, setEmailComments] = useState(false)
-  const [emailCandidates, setEmailCandidates] = useState(false)
-  const [emailOffers, setEmailOffers] = useState(false)
-  const [pushChoice, setPushChoice] = useState<PushChoice>('everything')
-  const [devices, setDevices] = useState<Record<DevicePush['id'], boolean>>({
-    mobile: true,
-    desktop: false,
-    smartwatch: false,
-  })
+  const [activeNav, setActiveNav] = useState<SettingsSection>('account')
   const [integrations, setIntegrations] = useState<Record<IntegrationId, boolean>>(
     () =>
       INTEGRATIONS.reduce<Record<IntegrationId, boolean>>(
@@ -352,10 +507,6 @@ const SettingsPage = () => {
   const [selectedCardId, setSelectedCardId] = useState<string>('master-6790')
   const [discountCode, setDiscountCode] = useState<string>('20FGJKYSD')
   const [discountApplied, setDiscountApplied] = useState<boolean>(true)
-
-  const toggleDevice = (id: DevicePush['id']) => {
-    setDevices((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
 
   const toggleIntegration = (id: IntegrationId) => {
     setIntegrations((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -387,21 +538,6 @@ const SettingsPage = () => {
   return (
     <div className="app-content">
       <div className="container-fluid">
-        <nav className="settings-breadcrumb" aria-label="Breadcrumb">
-          <ol>
-            <li>
-              <i className="bi bi-grid" aria-hidden="true" />
-              <Link to="/">Apps</Link>
-            </li>
-            <li className="settings-breadcrumb-sep" aria-hidden="true">
-              /
-            </li>
-            <li className="is-current" aria-current="page">
-              Setting
-            </li>
-          </ol>
-        </nav>
-
         <div className="settings-layout">
           <aside className="settings-nav-card">
             <h5 className="settings-card-title">Settings</h5>
@@ -429,139 +565,7 @@ const SettingsPage = () => {
               {NAV_ITEMS.find((n) => n.id === activeNav)?.label ?? 'Settings'}
             </h5>
 
-            {activeNav === 'permissions' ? (
-              <div className="settings-notification">
-                <div className="settings-row">
-                  {/* By Email column */}
-                  <div className="settings-col">
-                    <h6 className="settings-section-title">By Email</h6>
-                    <p className="settings-section-text">
-                      These are delivered via mail to your Email.
-                    </p>
-                    <ul className="settings-check-list">
-                      <li>
-                        <label className="settings-check">
-                          <input
-                            type="checkbox"
-                            checked={emailComments}
-                            onChange={(e) => setEmailComments(e.target.checked)}
-                          />
-                          <span>
-                            <strong>Comments</strong>
-                            <span className="settings-check-detail">
-                              - notified posts on comment
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                      <li>
-                        <label className="settings-check">
-                          <input
-                            type="checkbox"
-                            checked={emailCandidates}
-                            onChange={(e) => setEmailCandidates(e.target.checked)}
-                          />
-                          <span>
-                            <strong>Candidates</strong>
-                            <span className="settings-check-detail">
-                              - notified candidate applies
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                      <li>
-                        <label className="settings-check">
-                          <input
-                            type="checkbox"
-                            checked={emailOffers}
-                            onChange={(e) => setEmailOffers(e.target.checked)}
-                          />
-                          <span>
-                            <strong>Offers</strong>
-                            <span className="settings-check-detail">
-                              - notified accepts or rejects
-                            </span>
-                          </span>
-                        </label>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Push Notification column */}
-                  <div className="settings-col">
-                    <h6 className="settings-section-title">Push Notification</h6>
-                    <p className="settings-section-text">
-                      These are delivered via SMS to your mobile phone.
-                    </p>
-                    <ul className="settings-radio-list">
-                      <li>
-                        <label className="settings-radio">
-                          <input
-                            type="radio"
-                            name="push-choice"
-                            checked={pushChoice === 'everything'}
-                            onChange={() => setPushChoice('everything')}
-                          />
-                          <span>Everything</span>
-                        </label>
-                      </li>
-                      <li>
-                        <label className="settings-radio">
-                          <input
-                            type="radio"
-                            name="push-choice"
-                            checked={pushChoice === 'same-as-email'}
-                            onChange={() => setPushChoice('same-as-email')}
-                          />
-                          <span>Same as email</span>
-                        </label>
-                      </li>
-                      <li>
-                        <label className="settings-radio">
-                          <input
-                            type="radio"
-                            name="push-choice"
-                            checked={pushChoice === 'no-push'}
-                            onChange={() => setPushChoice('no-push')}
-                          />
-                          <span>No push notification</span>
-                        </label>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                <ul className="settings-device-list">
-                  {DEVICE_PUSH.map((d) => {
-                    const on = devices[d.id]
-                    return (
-                      <li key={d.id} className="settings-device-card">
-                        <span
-                          className={`settings-device-icon settings-device-icon--${d.tone}`}
-                          aria-hidden="true"
-                        >
-                          <i className={`bi ${d.icon}`} />
-                        </span>
-                        <div className="settings-device-meta">
-                          <span className="settings-device-label">{d.label}</span>
-                          <span className="settings-device-desc">{d.description}</span>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={on}
-                          aria-label={`Toggle ${d.label}`}
-                          className={`settings-switch${on ? ' is-on' : ''}`}
-                          onClick={() => toggleDevice(d.id)}
-                        >
-                          <span className="settings-switch-thumb" aria-hidden="true" />
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            ) : activeNav === 'subscription' ? (
+            {activeNav === 'subscription' ? (
               <SubscriptionView
                 billingCycle={billingCycle}
                 onBillingCycleChange={setBillingCycle}
@@ -617,15 +621,7 @@ const SettingsPage = () => {
                 })}
               </ul>
             ) : (
-              <div className="settings-placeholder">
-                <i className="bi bi-tools" aria-hidden="true" />
-                <p>
-                  <strong>
-                    {NAV_ITEMS.find((n) => n.id === activeNav)?.label}
-                  </strong>{' '}
-                  settings will live here.
-                </p>
-              </div>
+              <FaqsCard items={FAQS_BY_SECTION[activeNav]} />
             )}
           </section>
         </div>
