@@ -4587,9 +4587,9 @@ body,
   color: var(--brand-navy);
 }
 
-/* ----- FAQs accordion card ----- */
+/* ----- Custom Accordion card ----- */
 
-.faq-card {
+.custom-accordion-card {
   border: 1px solid var(--brand-border);
   border-radius: 0.65rem;
   background: #ffffff;
@@ -4597,7 +4597,7 @@ body,
   overflow: hidden;
 }
 
-.faq-card-head {
+.custom-accordion-card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4605,14 +4605,14 @@ body,
   padding: 1.1rem 1.25rem;
 }
 
-.faq-card-title {
+.custom-accordion-card-title {
   color: var(--brand-navy);
   font-size: 1.05rem;
   font-weight: 800;
   margin: 0;
 }
 
-.faq-list {
+.custom-accordion-list {
   list-style: none;
   margin: 0;
   padding: 0 1.25rem 1.25rem;
@@ -4621,19 +4621,19 @@ body,
   gap: 0.55rem;
 }
 
-.faq-item {
+.custom-accordion-item {
   border: 1px solid var(--brand-border);
   border-radius: 0.5rem;
   background: #ffffff;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-.faq-item.is-open {
+.custom-accordion-item.is-open {
   border-color: rgba(31, 58, 95, 0.22);
   box-shadow: 0 2px 6px rgba(31, 58, 95, 0.06);
 }
 
-.faq-toggle {
+.custom-accordion-toggle {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 22px;
   align-items: center;
@@ -4647,31 +4647,31 @@ body,
   color: var(--brand-navy);
 }
 
-.faq-toggle:focus-visible {
+.custom-accordion-toggle:focus-visible {
   outline: 2px solid rgba(31, 58, 95, 0.25);
   outline-offset: -2px;
   border-radius: 0.5rem;
 }
 
-.faq-icon {
+.custom-accordion-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--brand-navy);
 }
 
-.faq-icon i {
+.custom-accordion-icon i {
   font-size: 1rem;
 }
 
-.faq-question {
+.custom-accordion-question {
   color: var(--brand-navy);
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.3;
 }
 
-.faq-chevron {
+.custom-accordion-chevron {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4679,12 +4679,12 @@ body,
   transition: transform 160ms ease, color 160ms ease;
 }
 
-.faq-item.is-open .faq-chevron {
+.custom-accordion-item.is-open .custom-accordion-chevron {
   transform: rotate(180deg);
   color: var(--brand-navy);
 }
 
-.faq-answer {
+.custom-accordion-answer {
   padding: 0 1rem 0.95rem calc(28px + 1rem + 0.75rem);
   color: #5b6671;
   font-size: 0.84rem;
@@ -4692,7 +4692,7 @@ body,
 }
 
 @media (max-width: 575.98px) {
-  .faq-answer {
+  .custom-accordion-answer {
     padding-left: 1rem;
   }
 }
@@ -4722,5 +4722,265 @@ body,
     height: 80px;
     top: 0.75rem;
     left: 0.75rem;
+  }
+}
+
+/* ============================================================
+   FAQ accordion card (used by every FAQ-backed settings tab and
+   the new Account Information accordion).
+   ============================================================ */
+.faq-card {
+  background: var(--brand-surface-2);
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+
+.account-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.faq-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem 0.75rem;
+}
+
+.faq-card-title {
+  margin: 0;
+  color: var(--brand-ink);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.faq-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.faq-item {
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.6);
+  transition: border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.faq-item.is-open {
+  background: #ffffff;
+  border-color: rgba(28, 54, 90, 0.18);
+  box-shadow: var(--shadow-1);
+}
+
+.faq-toggle {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: var(--brand-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.faq-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: rgba(28, 54, 90, 0.06);
+  color: var(--brand-navy);
+}
+
+.faq-icon i {
+  font-size: 0.95rem;
+}
+
+.faq-question {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.faq-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand-mute);
+  transition: transform 200ms var(--ease-out), color 200ms var(--ease-out);
+}
+
+.faq-chevron i {
+  font-size: 0.85rem;
+}
+
+.faq-item.is-open .faq-chevron {
+  transform: rotate(180deg);
+  color: var(--brand-green-dark);
+}
+
+.faq-answer {
+  padding: 0 0.9rem 0.85rem 3.2rem;
+  color: var(--brand-mute);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.faq-answer--form {
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+  padding-bottom: 1rem;
+  color: var(--brand-ink);
+}
+
+@media (max-width: 575.98px) {
+  .faq-answer {
+    padding-left: 0.9rem;
+  }
+}
+
+/* ============================================================
+   Account Information form (inside the Account Information
+   accordion under Settings > Account).
+   ============================================================ */
+.account-info-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--brand-line);
+}
+
+.account-info-field {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.95rem;
+  margin: 0;
+}
+
+.account-info-label {
+  color: var(--brand-ink);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: -0.005em;
+}
+
+.account-info-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--brand-surface-2);
+  border: 1px solid var(--brand-line-strong);
+  border-radius: var(--r-md);
+  transition: border-color 160ms var(--ease-out),
+    box-shadow 160ms var(--ease-out);
+}
+
+.account-info-control:focus-within {
+  border-color: var(--brand-green);
+  box-shadow: var(--focus-ring);
+}
+
+.account-info-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--brand-mute);
+  font-size: 1rem;
+  pointer-events: none;
+}
+
+.account-info-control input,
+.account-info-control select {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--brand-ink);
+  font-size: 0.9rem;
+  padding: 0.7rem 0.95rem 0.7rem 2.55rem;
+  font-family: inherit;
+  letter-spacing: -0.005em;
+}
+
+.account-info-control input::placeholder {
+  color: #98a2ad;
+}
+
+.account-info-control--select {
+  cursor: pointer;
+}
+
+.account-info-control--select select {
+  padding-left: 0.95rem;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+}
+
+.account-info-chevron {
+  position: absolute;
+  right: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--brand-mute);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.account-info-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+
+.account-info-save {
+  border: 0;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-dark));
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  padding: 0.65rem 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(42, 142, 106, 0.22);
+  transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.account-info-save:hover,
+.account-info-save:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 26px rgba(42, 142, 106, 0.28);
+  outline: none;
+}
+
+@media (max-width: 575.98px) {
+  .account-info-field {
+    grid-template-columns: 1fr;
+    row-gap: 0.4rem;
   }
 }

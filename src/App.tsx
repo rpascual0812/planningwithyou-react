@@ -12,7 +12,7 @@ import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
-import SettingsPage from './pages/SettingsPage'
+import SettingsPage from './pages/settings/SettingsPage'
 
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const BookingsPage = lazy(() => import('./pages/BookingsPage'))
