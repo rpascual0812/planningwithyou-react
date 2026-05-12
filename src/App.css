@@ -4984,3 +4984,7 @@ body,
     row-gap: 0.4rem;
   }
 }
+
+.sidebar-wrapper .nav-item {
+  margin-right: 0.5rem;
+}
