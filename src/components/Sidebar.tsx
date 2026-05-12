@@ -8,7 +8,7 @@ const Sidebar = () => {
     <aside className="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
       <div className="sidebar-brand">
         <NavLink to="/" className="brand-link">
-          <span className="brand-text fw-light">AdminLTE 4 + React</span>
+          <span className="brand-text fw-light">Planning With You</span>
         </NavLink>
       </div>
 
@@ -30,6 +30,24 @@ const Sidebar = () => {
               <NavLink to="/calendar" className={linkClassName}>
                 <i className="nav-icon bi bi-calendar3" />
                 <p>Calendar</p>
+              </NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink to="/bookings" className={linkClassName}>
+                <i className="nav-icon bi bi-kanban" />
+                <p>Bookings</p>
+              </NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink to="/users" className={linkClassName}>
+                <i className="nav-icon bi bi-people" />
+                <p>Users</p>
+              </NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink to="/file-manager" className={linkClassName}>
+                <i className="nav-icon bi bi-folder2-open" />
+                <p>File Manager</p>
               </NavLink>
             </li>
             <li className="nav-item">
