@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 
 // ---------------------------------------------------------------------------
@@ -167,12 +168,57 @@ function firstWordInitial(name: string): string {
   return name.charAt(0).toUpperCase()
 }
 
+type Countdown = {
+  days: number
+  hours: number
+  minutes: number
+  seconds: number
+}
+
+function computeRemaining(targetMs: number): Countdown {
+  const diff = Math.max(0, targetMs - Date.now())
+  return {
+    days: Math.floor(diff / 86_400_000),
+    hours: Math.floor((diff % 86_400_000) / 3_600_000),
+    minutes: Math.floor((diff % 3_600_000) / 60_000),
+    seconds: Math.floor((diff % 60_000) / 1000),
+  }
+}
+
+const COUNTDOWN_TILES = [
+  { key: 'days' as const, label: 'Day', tone: 'navy' as const },
+  { key: 'hours' as const, label: 'Hour', tone: 'gray' as const },
+  { key: 'minutes' as const, label: 'Minutes', tone: 'green' as const },
+  { key: 'seconds' as const, label: 'Seconds', tone: 'blue' as const },
+]
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 const ProjectPage = () => {
   const { projectId } = useParams<{ projectId: string }>()
+
+  // Countdown target = the project end date shown in Project Details. Falls
+  // back to "now + 30 days" if the demo date is already in the past so the
+  // timer keeps ticking rather than sitting at all zeros forever.
+  const targetMs = useMemo(() => {
+    const explicit = new Date('2026-07-20T00:00:00').getTime()
+    return explicit > Date.now()
+      ? explicit
+      : Date.now() + 30 * 86_400_000
+  }, [])
+
+  const [countdown, setCountdown] = useState<Countdown>(() =>
+    computeRemaining(targetMs),
+  )
+
+  useEffect(() => {
+    const tick = () => setCountdown(computeRemaining(targetMs))
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [targetMs])
 
   // Restrict the route to alphanumeric segments – anything else (e.g. slugs
   // with dashes) gets sent back to the dashboard so we don't shadow it.
@@ -187,6 +233,29 @@ const ProjectPage = () => {
             Left column: project details + team
             ============================================================ */}
         <aside className="project-col project-col--left">
+          <section
+            className="project-card project-countdown-card"
+            aria-label="Project countdown"
+          >
+            <ul className="project-countdown-grid">
+              {COUNTDOWN_TILES.map((tile) => (
+                <li key={tile.key} className="project-countdown-item">
+                  <span
+                    className={`project-countdown-circle project-countdown-circle--${tile.tone}`}
+                    aria-hidden="true"
+                  >
+                    {countdown[tile.key]}
+                  </span>
+                  <span
+                    className={`project-countdown-label project-countdown-label--${tile.tone}`}
+                  >
+                    {tile.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <section className="project-card">
             <h6 className="project-card-title">Project Details</h6>
             <dl className="project-details">

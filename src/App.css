@@ -1,20 +1,56 @@
 /* ============================================================
-   Brand palette – sampled from the "PY" logo (navy + emerald).
+   Brand palette – sampled from the "PY" logo (navy + emerald),
+   tuned for a premium, modern, sleek finish.
    ============================================================ */
 :root {
-  --brand-navy: #1f3a5f;
-  --brand-navy-dark: #152741;
-  --brand-navy-darker: #0d1a2c;
-  --brand-navy-light: #2c537f;
-  --brand-navy-soft: #e6ecf3;
+  /* Cooler, deeper navy with a hint of indigo for a more premium feel. */
+  --brand-navy: #1c365a;
+  --brand-navy-dark: #122846;
+  --brand-navy-darker: #081427;
+  --brand-navy-light: #2d527e;
+  --brand-navy-soft: #eaeff5;
 
-  --brand-green: #52b585;
-  --brand-green-dark: #3a9870;
-  --brand-green-light: #86ccaa;
-  --brand-green-soft: #e6f4ec;
+  /* Slightly more saturated emerald that reads as confident, not pastel. */
+  --brand-green: #3eb085;
+  --brand-green-dark: #2a8e6a;
+  --brand-green-light: #7ed0ad;
+  --brand-green-soft: #e6f5ed;
 
-  --brand-surface: #f3f6f9;
-  --brand-border: rgba(31, 58, 95, 0.12);
+  /* Warm accent for premium highlights (gold). Used sparingly. */
+  --brand-gold: #d4af6a;
+
+  /* Surfaces, borders, and neutrals tuned for elevation. */
+  --brand-ink: #0c1b32;
+  --brand-ink-soft: #233755;
+  --brand-mute: #6b7889;
+  --brand-line: rgba(12, 27, 50, 0.08);
+  --brand-line-strong: rgba(12, 27, 50, 0.14);
+  --brand-surface: #f1f4f8;
+  --brand-surface-2: #ffffff;
+  --brand-border: rgba(28, 54, 90, 0.1);
+
+  /* Radii. */
+  --r-xs: 0.4rem;
+  --r-sm: 0.55rem;
+  --r-md: 0.75rem;
+  --r-lg: 1rem;
+  --r-pill: 999px;
+
+  /* Layered elevation scale. */
+  --shadow-1: 0 1px 1px rgba(8, 20, 39, 0.04),
+    0 1px 2px rgba(8, 20, 39, 0.06);
+  --shadow-2: 0 1px 2px rgba(8, 20, 39, 0.05),
+    0 8px 18px rgba(8, 20, 39, 0.06);
+  --shadow-3: 0 2px 4px rgba(8, 20, 39, 0.05),
+    0 16px 32px rgba(8, 20, 39, 0.08);
+  --shadow-4: 0 8px 16px rgba(8, 20, 39, 0.08),
+    0 28px 56px rgba(8, 20, 39, 0.14);
+
+  /* Focus ring. */
+  --focus-ring: 0 0 0 3px rgba(62, 176, 133, 0.28);
+
+  /* Easings. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Re-map Bootstrap "primary" to the brand navy so links, focus rings and
@@ -53,7 +89,12 @@
 
 body,
 .app-wrapper {
-  background-color: var(--brand-surface);
+  background:
+    radial-gradient(1100px 600px at 100% -10%, rgba(62, 176, 133, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(28, 54, 90, 0.07), transparent 60%),
+    var(--brand-surface);
+  background-attachment: fixed;
+  color: var(--brand-ink);
 }
 
 /* Make .app-main fill the viewport so its body content can reach the
@@ -66,7 +107,7 @@ body,
 
 .app-content {
   flex: 1 1 auto;
-  padding-bottom: 1rem;
+  padding-bottom: 1.25rem;
 }
 
 /* When the page hosts a kanban board, chain flex through so the board (and
@@ -85,27 +126,46 @@ body,
   min-height: 0;
 }
 
+/* Refined page title – larger, lighter weight, optical letter-spacing. */
+.app-content-header {
+  padding-top: 1.1rem;
+  padding-bottom: 0.4rem;
+}
+
 .app-content-header h3 {
-  color: var(--brand-navy);
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  color: var(--brand-ink);
+  font-weight: 700;
+  font-size: 1.55rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 /* Generic Bootstrap card polish – picked up by Dashboard/Reports/Settings. */
 .app-main .card {
   border: 1px solid var(--brand-border);
-  box-shadow: 0 2px 8px rgba(31, 58, 95, 0.04);
+  border-radius: var(--r-md);
+  background: var(--brand-surface-2);
+  box-shadow: var(--shadow-1);
+  transition: box-shadow 220ms var(--ease-out),
+    transform 220ms var(--ease-out);
+}
+
+.app-main .card:hover {
+  box-shadow: var(--shadow-2);
 }
 
 .app-main .card > .card-header {
-  background: rgba(82, 181, 133, 0.08);
-  color: var(--brand-navy);
+  background: linear-gradient(180deg, rgba(62, 176, 133, 0.07), rgba(62, 176, 133, 0.02));
+  color: var(--brand-ink);
   font-weight: 600;
-  border-bottom: 1px solid var(--brand-border);
+  letter-spacing: -0.005em;
+  border-bottom: 1px solid var(--brand-line);
 }
 
 .app-main .card .card-body h4 {
-  color: var(--brand-navy);
+  color: var(--brand-ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 /* ============================================================
@@ -430,17 +490,53 @@ body,
    Sidebar – navy gradient with green active accent.
    ============================================================ */
 .app-sidebar {
-  background: linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-dark) 100%) !important;
-  border-right: 1px solid rgba(82, 181, 133, 0.18);
+  background:
+    radial-gradient(900px 400px at -30% 0%, rgba(62, 176, 133, 0.10), transparent 55%),
+    radial-gradient(700px 400px at 130% 110%, rgba(45, 82, 126, 0.18), transparent 60%),
+    linear-gradient(180deg, var(--brand-navy) 0%, var(--brand-navy-darker) 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
 }
 
 .app-sidebar .sidebar-brand {
-  background: rgba(0, 0, 0, 0.18);
+  background: transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0.75rem 1rem;
 }
 
 .app-sidebar .brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
   color: #ffffff !important;
+  text-decoration: none;
+  padding: 0;
+}
+
+.app-sidebar .brand-mark {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2d527e 0%, #081427 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 6px 14px rgba(0, 0, 0, 0.24);
+}
+
+.app-sidebar .brand-mark svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+}
+
+.app-sidebar .brand-text-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
 }
 
 .app-sidebar .brand-text {
@@ -449,29 +545,71 @@ body,
           background-clip: text;
   -webkit-text-fill-color: transparent;
           color: transparent;
-  font-weight: 500;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.app-sidebar .brand-subtitle {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: 0.18rem;
+}
+
+.app-sidebar .sidebar-menu {
+  padding: 0.35rem 0;
 }
 
 .app-sidebar .sidebar-menu .nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
   color: rgba(255, 255, 255, 0.78);
-  border-radius: 6px;
-  margin: 2px 8px;
-  transition: background-color 120ms ease, color 120ms ease,
-    box-shadow 120ms ease;
+  border-radius: 8px;
+  margin: 2px 10px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.86rem;
+  letter-spacing: -0.005em;
+  transition: background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out), box-shadow 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
 }
 
 .app-sidebar .sidebar-menu .nav-link:hover {
-  background: rgba(82, 181, 133, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
 .app-sidebar .sidebar-menu .nav-link.active {
-  background: var(--brand-green-light);
+  background: linear-gradient(95deg, var(--brand-green) 0%, var(--brand-green-light) 100%);
   color: #ffffff;
+  box-shadow: 0 6px 16px rgba(42, 142, 106, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.app-sidebar .sidebar-menu .nav-link.active::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: -10px;
+  width: 3px;
+  border-radius: var(--r-pill);
+  background: var(--brand-green-light);
+  box-shadow: 0 0 8px rgba(126, 208, 173, 0.55);
 }
 
 .app-sidebar .sidebar-menu .nav-link .nav-icon {
   color: var(--brand-green-light);
+  transition: color 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.app-sidebar .sidebar-menu .nav-link:hover .nav-icon {
+  transform: translateX(1px);
 }
 
 .app-sidebar .sidebar-menu .nav-link.active .nav-icon {
@@ -480,20 +618,28 @@ body,
 
 /* Mobile drawer overlay – tint to navy. */
 .sidebar-overlay {
-  background-color: rgba(31, 58, 95, 0.45) !important;
+  background-color: rgba(8, 20, 39, 0.55) !important;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 /* ============================================================
-   Top navbar – white with subtle navy shadow and green badge.
+   Top navbar – frosted glass with subtle navy shadow and green badge.
    ============================================================ */
 .app-header.navbar {
-  background-color: #ffffff !important;
-  border-bottom: 1px solid var(--brand-border);
-  box-shadow: 0 4px 10px rgba(31, 58, 95, 0.04);
+  background-color: rgba(255, 255, 255, 0.78) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--brand-line);
+  box-shadow: 0 1px 0 rgba(8, 20, 39, 0.03),
+    0 10px 24px rgba(8, 20, 39, 0.04);
 }
 
 .app-header.navbar .nav-link {
-  color: var(--brand-navy);
+  color: var(--brand-ink-soft);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  transition: color 160ms var(--ease-out);
 }
 
 .app-header.navbar .nav-link:hover,
@@ -502,8 +648,10 @@ body,
 }
 
 .app-header.navbar .navbar-badge {
-  background-color: var(--brand-green) !important;
+  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-light)) !important;
   color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: 0 4px 10px rgba(42, 142, 106, 0.32);
 }
 
 /* User profile dropdown in the top navbar */
@@ -2297,6 +2445,115 @@ body,
   font-size: 0.95rem;
   font-weight: 700;
   margin: 0 0 1rem;
+}
+
+/* ----- Countdown card ----- */
+.project-countdown-card {
+  padding: 0.95rem 0.85rem;
+}
+
+.project-countdown-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.project-countdown-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.project-countdown-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.08rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  background: rgba(28, 54, 90, 0.06);
+  color: var(--brand-navy);
+  box-shadow: inset 0 0 0 1px rgba(28, 54, 90, 0.08);
+}
+
+.project-countdown-circle--navy {
+  background: rgba(28, 54, 90, 0.08);
+  color: var(--brand-navy);
+  box-shadow: inset 0 0 0 1px rgba(28, 54, 90, 0.12);
+}
+
+.project-countdown-circle--gray {
+  background: rgba(107, 120, 137, 0.12);
+  color: #4b5563;
+  box-shadow: inset 0 0 0 1px rgba(107, 120, 137, 0.2);
+}
+
+.project-countdown-circle--green {
+  background: rgba(62, 176, 133, 0.14);
+  color: var(--brand-green-dark);
+  box-shadow: inset 0 0 0 1px rgba(62, 176, 133, 0.22);
+}
+
+.project-countdown-circle--blue {
+  background: rgba(74, 144, 226, 0.14);
+  color: #2f6bbf;
+  box-shadow: inset 0 0 0 1px rgba(74, 144, 226, 0.22);
+}
+
+.project-countdown-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 0.26rem 0.55rem;
+  border-radius: var(--r-xs);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.005em;
+  box-shadow: var(--shadow-1);
+}
+
+.project-countdown-label--navy {
+  background: var(--brand-navy);
+}
+
+.project-countdown-label--gray {
+  background: #6b7889;
+}
+
+.project-countdown-label--green {
+  background: var(--brand-green);
+}
+
+.project-countdown-label--blue {
+  background: #4a90e2;
+}
+
+@media (max-width: 575.98px) {
+  .project-countdown-grid {
+    gap: 0.35rem;
+  }
+  .project-countdown-circle {
+    width: 44px;
+    height: 44px;
+    font-size: 0.95rem;
+  }
+  .project-countdown-label {
+    min-width: 48px;
+    padding: 0.22rem 0.4rem;
+    font-size: 0.62rem;
+  }
 }
 
 /* ----- Project Details ----- */
