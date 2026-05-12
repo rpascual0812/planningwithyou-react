@@ -30,7 +30,6 @@ const Sidebar = () => {
           </span>
           <span className="brand-text-wrap">
             <span className="brand-text">Planning With You</span>
-            <span className="brand-subtitle">Premium Admin</span>
           </span>
         </NavLink>
       </div>
