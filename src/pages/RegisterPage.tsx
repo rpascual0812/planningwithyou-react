@@ -50,7 +50,11 @@ const RegisterPage = () => {
 
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
-          <img src="/src/assets/images/logo.png" alt="Logo" width="64" height="64" />
+          <img 
+                src="/src/assets/images/logo.png"
+                alt="Planning With You"
+                width="84"
+              />
         </div>
 
         <div className="auth-card">

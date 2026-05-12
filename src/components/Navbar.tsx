@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { logout } from '../services/auth'
 
 type NavbarProps = {
   onToggleSidebar: () => void
@@ -127,6 +128,7 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
                 type="button"
                 className="dropdown-item nav-profile-logout"
                 onClick={() => {
+                  logout()
                   navigate('/login')
                 }}
               >

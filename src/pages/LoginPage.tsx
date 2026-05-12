@@ -1,23 +1,36 @@
-import { useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { loginWithJwt } from '../services/auth'
 
 const LoginPage = () => {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit: NonNullable<React.ComponentProps<'form'>['onSubmit']> =
+    async (e) => {
     e.preventDefault()
-    // Demo only – there's no backend, so the form just lands the user on the
-    // dashboard. Real apps would call an auth endpoint here.
-    navigate('/', { replace: true })
-  }
+    setError(null)
+    setIsSubmitting(true)
+    try {
+      await loginWithJwt({ email, password, remember })
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to log in. Please try again.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
+    }
 
   return (
     <div className="auth-page">
-      {/* Decorative dotted square in the top-left corner. */}
-      <span className="auth-bg-dots" aria-hidden="true" />
 
       {/* Layered soft waves at the bottom of the viewport. */}
       <svg
@@ -42,21 +55,11 @@ const LoginPage = () => {
 
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
-          <svg viewBox="0 0 64 64" width="64" height="64">
-            <circle cx="32" cy="32" r="32" fill="var(--brand-navy)" />
-            <text
-              x="50%"
-              y="58%"
-              textAnchor="middle"
-              fill="#ffffff"
-              fontSize="26"
-              fontWeight="800"
-              fontFamily="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-              fontStyle="italic"
-            >
-              Ki
-            </text>
-          </svg>
+          <img 
+                src="/src/assets/images/logo.png"
+                alt="Planning With You"
+                width="84"
+              />
         </div>
 
         <div className="auth-card">
@@ -72,9 +75,13 @@ const LoginPage = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setError(null)
+                }}
                 autoComplete="email"
                 required
+                disabled={isSubmitting}
               />
               <small className="auth-hint">
                 We'll never share your email with anyone else.
@@ -86,9 +93,13 @@ const LoginPage = () => {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError(null)
+                }}
                 autoComplete="current-password"
                 required
+                disabled={isSubmitting}
               />
             </label>
 
@@ -97,9 +108,16 @@ const LoginPage = () => {
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
+                disabled={isSubmitting}
               />
               <span>remember me</span>
             </label>
+
+            {error && (
+              <p className="auth-error" role="alert">
+                {error}
+              </p>
+            )}
 
             <p className="auth-switch">
               <Link to="/reset-password" className="auth-switch-link">
@@ -107,8 +125,8 @@ const LoginPage = () => {
               </Link>
             </p>
 
-            <button type="submit" className="auth-button">
-              Continue
+            <button type="submit" className="auth-button" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing in...' : 'Continue'}
             </button>
           </form>
 

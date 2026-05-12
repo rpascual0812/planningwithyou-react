@@ -63,21 +63,11 @@ const ResetPasswordConfirmPage = () => {
 
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
-          <svg viewBox="0 0 64 64" width="64" height="64">
-            <circle cx="32" cy="32" r="32" fill="var(--brand-navy)" />
-            <text
-              x="50%"
-              y="58%"
-              textAnchor="middle"
-              fill="#ffffff"
-              fontSize="26"
-              fontWeight="800"
-              fontFamily="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-              fontStyle="italic"
-            >
-              Ki
-            </text>
-          </svg>
+          <img 
+                src="/src/assets/images/logo.png"
+                alt="Planning With You"
+                width="84"
+              />
         </div>
 
         <div className="auth-card">
@@ -141,7 +131,7 @@ const ResetPasswordConfirmPage = () => {
             </button>
           </form>
 
-          <p className="auth-switch">
+          <p className="auth-switch mt-4">
             Remembered your password?{' '}
             <Link to="/login" className="auth-switch-link">
               Login
