@@ -9,24 +9,7 @@ const Sidebar = () => {
       <div className="sidebar-brand">
         <NavLink to="/" className="brand-link">
           <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 32 32" role="img">
-              <rect width="32" height="32" rx="9" fill="url(#brandMarkBg)" />
-              <path
-                d="M8.2 22.8V8.4h6.4c3.3 0 5.3 1.8 5.3 4.7 0 2.9-2 4.7-5.3 4.7h-2.4v5H8.2Zm4-8.1h2.1c1.2 0 1.9-.6 1.9-1.6s-.7-1.6-1.9-1.6h-2.1v3.2Z"
-                fill="#ffffff"
-              />
-              <path
-                d="M19.5 22.8v-5.1l-5-9.3h4.2l2.8 5.6 2.8-5.6h3.9l-4.9 9.2v5.2h-3.8Z"
-                fill="#7ed0ad"
-              />
-              <defs>
-                <linearGradient id="brandMarkBg" x1="4" y1="4" x2="28" y2="28">
-                  <stop stopColor="#2d527e" />
-                  <stop offset="0.55" stopColor="#1c365a" />
-                  <stop offset="1" stopColor="#081427" />
-                </linearGradient>
-              </defs>
-            </svg>
+            <img src="/src/assets/images/logo.png" alt="Planning With You" width="32" />
           </span>
           <span className="brand-text-wrap">
             <span className="brand-text">Planning With You</span>
