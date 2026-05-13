@@ -1,0 +1,27 @@
+---
+description: Preserve Planning With You branding and custom UI as project baseline
+alwaysApply: true
+---
+
+# Brand and UI baseline
+
+This repository’s **intended baseline** is the current product shell, not stock AdminLTE defaults.
+
+## Do not revert or replace without explicit user request
+
+- **Product identity**: “Planning With You” (sidebar brand text, document title, visible naming).
+- **Logo asset**: `src/assets/images/logo.png` — keep this file and all references (sidebar brand image, favicon link in `index.html`).
+- **Package name**: `package.json` field `name` is `planning-with-you`; align docs/scripts with the product, not the old template name.
+- **Global look**: `src/App.css` holds the custom brand palette, Bootstrap variable overrides, layout/login/dashboard styling, and sidebar-related tweaks. Treat large removals or wholesale replacement as **destructive** unless the user asks to redesign.
+- **Sidebar spacing**: Keep this block in `src/App.css` intact (do not drop when editing or merging):
+
+```css
+.sidebar-wrapper {
+  padding-right: 1rem;
+}
+```
+- **Shell components**: `src/components/Sidebar.tsx` (brand block + nav), `src/components/Navbar.tsx`, and auth-related pages under `src/pages/` (e.g. login/register/reset) carry product-specific UI.
+
+## When updating dependencies or merging template/upstream changes
+
+Prefer **minimal diffs** that keep the files above consistent with this baseline. If a merge would overwrite branding, **re-apply** the product logo, title, `Sidebar` brand markup, `App.css` theme (including `.sidebar-wrapper { padding-right: 1rem; }`), rather than restoring generic AdminLTE branding.
