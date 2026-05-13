@@ -127,8 +127,8 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               <button
                 type="button"
                 className="dropdown-item nav-profile-logout"
-                onClick={() => {
-                  logout()
+                onClick={async () => {
+                  await logout()
                   navigate('/login')
                 }}
               >

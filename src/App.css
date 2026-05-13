@@ -254,7 +254,7 @@ body,
 
 .users-table {
   width: 100%;
-  min-width: 880px;
+  min-width: 960px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.88rem;
@@ -348,6 +348,25 @@ body,
 
 .users-status--pending {
   background: #5d666f;
+}
+
+.users-status--inactive {
+  background: #8a939c;
+}
+
+.users-toolbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.users-add-btn {
+  white-space: nowrap;
+}
+
+.users-table-actions-col {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .users-table tbody tr:nth-child(3n) .users-status--pending {

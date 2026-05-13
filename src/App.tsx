@@ -1,5 +1,5 @@
 import './App.css'
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
 import {
   Navigate,
   Outlet,
@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
+import { getAccessToken } from './services/auth'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
@@ -69,6 +70,20 @@ function CalendarRoute() {
  * of this layout by being declared as siblings of `<DashboardLayout>` in the
  * top-level `<Routes>`.
  */
+function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
+  if (getAccessToken()) {
+    return <Navigate to="/" replace />
+  }
+  return children
+}
+
+function RequireAuth() {
+  if (!getAccessToken()) {
+    return <Navigate to="/login" replace />
+  }
+  return <Outlet />
+}
+
 function DashboardLayout() {
   const location = useLocation()
   const isMobile = useIsMobileViewport()
@@ -174,16 +189,18 @@ function DashboardLayout() {
 function App() {
   return (
     <Routes>
-      {/* Pages wrapped in the dashboard chrome (sidebar + navbar). */}
-      <Route element={<DashboardLayout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/calendar" element={<CalendarRoute />} />
-        <Route path="/bookings" element={<BookingsPage />} />
-        <Route path="/users" element={<UsersPage />} />
-        <Route path="/file-manager" element={<FileManagerPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/reports" element={<ReportsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+      {/* Authenticated app: dashboard chrome (sidebar + navbar). */}
+      <Route element={<RequireAuth />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/calendar" element={<CalendarRoute />} />
+          <Route path="/bookings" element={<BookingsPage />} />
+          <Route path="/users" element={<UsersPage />} />
+          <Route path="/file-manager" element={<FileManagerPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
       </Route>
 
       {/* Public, chrome-less sign-in page. Declared before `/:projectId`
@@ -192,31 +209,37 @@ function App() {
       <Route
         path="/login"
         element={
-          <Suspense
-            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
-          >
-            <LoginPage />
-          </Suspense>
+          <RedirectIfAuthenticated>
+            <Suspense
+              fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+            >
+              <LoginPage />
+            </Suspense>
+          </RedirectIfAuthenticated>
         }
       />
       <Route
         path="/register"
         element={
-          <Suspense
-            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
-          >
-            <RegisterPage />
-          </Suspense>
+          <RedirectIfAuthenticated>
+            <Suspense
+              fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+            >
+              <RegisterPage />
+            </Suspense>
+          </RedirectIfAuthenticated>
         }
       />
       <Route
         path="/reset-password"
         element={
-          <Suspense
-            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
-          >
-            <ResetPasswordPage />
-          </Suspense>
+          <RedirectIfAuthenticated>
+            <Suspense
+              fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+            >
+              <ResetPasswordPage />
+            </Suspense>
+          </RedirectIfAuthenticated>
         }
       />
       <Route
