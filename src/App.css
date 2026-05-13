@@ -254,7 +254,7 @@ body,
 
 .users-table {
   width: 100%;
-  min-width: 960px;
+  min-width: 880px;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.88rem;
@@ -348,25 +348,6 @@ body,
 
 .users-status--pending {
   background: #5d666f;
-}
-
-.users-status--inactive {
-  background: #8a939c;
-}
-
-.users-toolbar-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.users-add-btn {
-  white-space: nowrap;
-}
-
-.users-table-actions-col {
-  width: 1%;
-  white-space: nowrap;
 }
 
 .users-table tbody tr:nth-child(3n) .users-status--pending {
@@ -502,6 +483,112 @@ body,
 @media (max-width: 575.98px) {
   .user-details-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Users page – toolbar right section */
+.users-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.users-btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--brand-navy);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.84rem;
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  border: none;
+  transition: background 150ms ease;
+}
+.users-btn-add:hover {
+  background: var(--brand-navy-light);
+  color: #fff;
+}
+
+.users-btn-save {
+  background: var(--brand-green);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+}
+.users-btn-save:hover {
+  background: var(--brand-green-light);
+  color: #fff;
+}
+
+/* Action buttons in each row */
+.users-th-actions {
+  text-align: center;
+  width: 100px;
+}
+.users-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+.users-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #6b7785;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.users-action-edit:hover {
+  background: rgba(82, 181, 133, 0.12);
+  color: var(--brand-green);
+}
+.users-action-delete:hover {
+  background: rgba(214, 90, 90, 0.12);
+  color: #d65a5a;
+}
+
+/* Staff badge */
+.users-badge-staff {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.18rem 0.52rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: lowercase;
+  background: rgba(90, 142, 219, 0.14);
+  color: #3b6cb5;
+}
+
+/* Empty / loading state wrapper */
+.users-table-empty-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+}
+.users-table-error {
+  color: #d65a5a !important;
+}
+
+@media (max-width: 575.98px) {
+  .users-toolbar-right {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .users-btn-add {
+    justify-content: center;
   }
 }
 

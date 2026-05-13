@@ -11,8 +11,6 @@ type DjangoJwtResponse = {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const JWT_LOGIN_PATH = import.meta.env.VITE_JWT_LOGIN_PATH
-const JWT_REFRESH_PATH =
-  import.meta.env.VITE_JWT_REFRESH_PATH ?? '/api/token/refresh/'
 
 /** SimpleJWT blacklist URL by default; set `VITE_JWT_LOGOUT_PATH=` to disable server round-trip. */
 const JWT_LOGOUT_PATH =
@@ -25,7 +23,7 @@ const TOKEN_STORAGE_KEYS = {
   refresh: 'auth.refreshToken',
 } as const
 
-export function buildApiUrl(path: string): string {
+function buildApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path
   const base = (API_BASE_URL ?? '').replace(/\/+$/, '')
   const suffix = path.startsWith('/') ? path : `/${path}`
@@ -44,10 +42,9 @@ function clearOppositeStorage(remember: boolean) {
 
 function persistTokens(tokens: DjangoJwtResponse, remember: boolean) {
   const storage = getTokenStorage(remember)
-  const access = tokens.access.trim()
-  storage.setItem(TOKEN_STORAGE_KEYS.access, access)
+  storage.setItem(TOKEN_STORAGE_KEYS.access, tokens.access)
   if (tokens.refresh) {
-    storage.setItem(TOKEN_STORAGE_KEYS.refresh, tokens.refresh.trim())
+    storage.setItem(TOKEN_STORAGE_KEYS.refresh, tokens.refresh)
   } else {
     storage.removeItem(TOKEN_STORAGE_KEYS.refresh)
   }
@@ -109,84 +106,11 @@ export async function loginWithJwt({
   return jwtTokens
 }
 
-function looksLikeJwt(value: string): boolean {
-  const parts = value.split('.')
-  return parts.length === 3 && parts.every((p) => p.length > 0)
-}
-
-/**
- * Returns the stored access token, trimmed. Invalid or empty values are
- * treated as missing so we never send `Bearer ` garbage to the API.
- */
 export function getAccessToken(): string | null {
-  for (const storage of [localStorage, sessionStorage] as const) {
-    const raw = storage.getItem(TOKEN_STORAGE_KEYS.access)
-    if (!raw) {
-      continue
-    }
-    const token = raw.trim().replace(/^Bearer\s+/i, '')
-    if (token && looksLikeJwt(token)) {
-      return token
-    }
-  }
-  return null
-}
-
-function getRefreshSource(): { token: string; remember: boolean } | null {
-  const fromLocal = localStorage.getItem(TOKEN_STORAGE_KEYS.refresh)
-  if (fromLocal) {
-    const token = fromLocal.trim()
-    if (token && looksLikeJwt(token)) {
-      return { token, remember: true }
-    }
-  }
-  const fromSession = sessionStorage.getItem(TOKEN_STORAGE_KEYS.refresh)
-  if (fromSession) {
-    const token = fromSession.trim()
-    if (token && looksLikeJwt(token)) {
-      return { token, remember: false }
-    }
-  }
-  return null
-}
-
-/**
- * Uses the stored refresh token to obtain a new access token (SimpleJWT).
- * Returns true when a new access token was stored.
- */
-export async function refreshAccessToken(): Promise<boolean> {
-  const src = getRefreshSource()
-  if (!src) {
-    return false
-  }
-  const response = await fetch(buildApiUrl(JWT_REFRESH_PATH), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify({ refresh: src.token }),
-  })
-  if (!response.ok) {
-    return false
-  }
-  let data: { access?: string; refresh?: string } | null = null
-  try {
-    data = (await response.json()) as { access?: string; refresh?: string }
-  } catch {
-    return false
-  }
-  const access = typeof data?.access === 'string' ? data.access.trim() : ''
-  if (!access || !looksLikeJwt(access)) {
-    return false
-  }
-  const storage = src.remember ? localStorage : sessionStorage
-  storage.setItem(TOKEN_STORAGE_KEYS.access, access)
-  if (typeof data?.refresh === 'string' && data.refresh.trim()) {
-    storage.setItem(TOKEN_STORAGE_KEYS.refresh, data.refresh.trim())
-  }
-  clearOppositeStorage(src.remember)
-  return true
+  return (
+    localStorage.getItem(TOKEN_STORAGE_KEYS.access) ??
+    sessionStorage.getItem(TOKEN_STORAGE_KEYS.access)
+  )
 }
 
 function clearStoredTokens() {
@@ -197,7 +121,10 @@ function clearStoredTokens() {
 }
 
 function getRefreshToken(): string | null {
-  return getRefreshSource()?.token ?? null
+  return (
+    localStorage.getItem(TOKEN_STORAGE_KEYS.refresh) ??
+    sessionStorage.getItem(TOKEN_STORAGE_KEYS.refresh)
+  )
 }
 
 /**

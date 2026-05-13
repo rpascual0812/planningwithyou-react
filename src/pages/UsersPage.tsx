@@ -1,260 +1,185 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getAccessToken } from '../services/auth'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ApiRequestError,
-  createUser,
-  deleteUser,
-  fetchAuthMe,
   fetchUsers,
+  createUser,
   updateUser,
-  type ApiUser,
-  type AuthMe,
-  type UserCreatePayload,
-  type UserUpdatePayload,
-} from '../services/usersApi'
+  deleteUser,
+  type UserRecord,
+  type UserPayload,
+} from '../services/users'
 
-const USER_PARAM = 'user'
-
-const AVATAR_PALETTE = [
-  '#9c6cd0',
-  '#6b7785',
-  '#52b585',
-  '#5a8edb',
-  '#f0a830',
-  '#d65a5a',
-  '#1f3a5f',
-  '#c45c9c',
+const AVATAR_COLORS = [
+  '#9c6cd0', '#6b7785', '#52b585', '#5a8edb',
+  '#f0a830', '#d65a5a', '#3e8c84', '#c66bbd',
 ]
 
 function avatarColor(id: number): string {
-  return AVATAR_PALETTE[Math.abs(id) % AVATAR_PALETTE.length]
+  return AVATAR_COLORS[id % AVATAR_COLORS.length]
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
-}
-
-function formatJoined(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    })
-  } catch {
-    return iso
+function initials(first: string, last: string, username: string): string {
+  if (first && last) {
+    return `${first[0]}${last[0]}`.toUpperCase()
   }
+  if (first) return first.slice(0, 2).toUpperCase()
+  return username.slice(0, 2).toUpperCase()
 }
 
-const SEARCH_DEBOUNCE_MS = 350
+function displayName(u: UserRecord): string {
+  const full = [u.first_name, u.last_name].filter(Boolean).join(' ')
+  return full || u.username
+}
+
+const EMPTY_FORM: UserPayload = {
+  username: '',
+  email: '',
+  first_name: '',
+  last_name: '',
+  is_active: true,
+  is_staff: false,
+  password: '',
+}
 
 const UsersPage = () => {
-  const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [searchInput, setSearchInput] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [users, setUsers] = useState<ApiUser[]>([])
+  const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [me, setMe] = useState<AuthMe | null>(null)
 
-  const [selectedUser, setSelectedUser] = useState<ApiUser | null>(null)
-  const [formMode, setFormMode] = useState<'create' | 'edit' | null>(null)
-  const [userToDelete, setUserToDelete] = useState<ApiUser | null>(null)
-  const [formSubmitting, setFormSubmitting] = useState(false)
-  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
+  const [form, setForm] = useState<UserPayload>(EMPTY_FORM)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setDebouncedSearch(searchInput.trim())
-    }, SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(t)
-  }, [searchInput])
-
-  const loadUsers = useCallback(async () => {
-    if (!getAccessToken()) {
-      setUsers([])
-      setLoading(false)
-      setError('You need to sign in to manage users.')
-      return
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
     }
+  }, [search])
+
+  const loadUsers = useCallback(async (q = '') => {
     setLoading(true)
     setError(null)
     try {
-      const [list, profile] = await Promise.all([
-        fetchUsers(debouncedSearch),
-        fetchAuthMe().catch(() => null),
-      ])
-      setUsers(list)
-      setMe(profile)
+      const data = await fetchUsers(q)
+      setUsers(data)
     } catch (e) {
-      const message =
-        e instanceof Error ? e.message : 'Failed to load users.'
-      setError(message)
-      setUsers([])
-      if (e instanceof ApiRequestError && e.status === 401) {
-        navigate('/login', { replace: true })
-      }
+      setError(e instanceof Error ? e.message : 'Failed to load users')
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, navigate])
+  }, [])
 
   useEffect(() => {
-    void loadUsers()
-  }, [loadUsers])
+    loadUsers(debouncedSearch)
+  }, [debouncedSearch, loadUsers])
 
-  const clearUserParam = () => {
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (!next.has(USER_PARAM)) {
-          return prev
+  // Add / Edit modal helpers
+  const openAdd = () => {
+    setEditingUser(null)
+    setForm(EMPTY_FORM)
+    setFormError(null)
+    setModalOpen(true)
+  }
+
+  const openEdit = (u: UserRecord) => {
+    setEditingUser(u)
+    setForm({
+      username: u.username,
+      email: u.email,
+      first_name: u.first_name,
+      last_name: u.last_name,
+      is_active: u.is_active,
+      is_staff: u.is_staff,
+      password: '',
+    })
+    setFormError(null)
+    setModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setModalOpen(false)
+    setEditingUser(null)
+    setFormError(null)
+  }
+
+  const handleSave = async () => {
+    setFormError(null)
+    setSaving(true)
+    try {
+      if (editingUser) {
+        const payload: Partial<UserPayload> = { ...form }
+        if (!payload.password) delete payload.password
+        await updateUser(editingUser.id, payload)
+      } else {
+        if (!form.password) {
+          setFormError('Password is required for new users.')
+          setSaving(false)
+          return
         }
-        next.delete(USER_PARAM)
-        return next
-      },
-      { replace: true },
-    )
+        await createUser(form)
+      }
+      closeModal()
+      await loadUsers(debouncedSearch)
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const openUser = (user: ApiUser) => {
-    setSelectedUser(user)
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        next.set(USER_PARAM, String(user.id))
-        return next
-      },
-      { replace: true },
-    )
+  // Delete helpers
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteUser(deleteTarget.id)
+      setDeleteTarget(null)
+      await loadUsers(debouncedSearch)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
   }
 
-  const closeUser = () => {
-    setSelectedUser(null)
-    clearUserParam()
-  }
-
+  // Escape to close modals
   useEffect(() => {
-    const targetId = searchParams.get(USER_PARAM)
-    if (!targetId) {
-      return
-    }
-    const idNum = Number(targetId)
-    if (!Number.isFinite(idNum)) {
-      clearUserParam()
-      return
-    }
-    const user = users.find((u) => u.id === idNum)
-    if (!user && !loading) {
-      clearUserParam()
-      return
-    }
-    if (user && selectedUser?.id !== user.id) {
-      setSelectedUser(user)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, users, loading])
-
-  useEffect(() => {
-    if (!selectedUser && !userToDelete && !formMode) {
-      return
-    }
-    const prevOverflow = document.body.style.overflow
+    if (!modalOpen && !deleteTarget) return
+    const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const onKeyDown = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (userToDelete) {
-          setUserToDelete(null)
-        } else if (formMode) {
-          setFormMode(null)
-        } else {
-          closeUser()
-        }
+        if (deleteTarget) setDeleteTarget(null)
+        else closeModal()
       }
     }
-    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keydown', handler)
     return () => {
-      document.body.style.overflow = prevOverflow
-      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', handler)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUser, userToDelete, formMode])
+  }, [modalOpen, deleteTarget])
 
-  const displayName = (u: ApiUser) => u.full_name || u.username
-
-  const totalLabel = useMemo(() => {
-    if (debouncedSearch) {
-      return `${users.length} match${users.length === 1 ? '' : 'es'}`
-    }
-    return `${users.length} user${users.length === 1 ? '' : 's'}`
-  }, [users.length, debouncedSearch])
-
-  const handleCreated = async (payload: UserCreatePayload) => {
-    setFormSubmitting(true)
-    setError(null)
-    try {
-      await createUser(payload)
-      setFormMode(null)
-      await loadUsers()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create user.')
-    } finally {
-      setFormSubmitting(false)
-    }
-  }
-
-  const handleUpdated = async (id: number, payload: UserUpdatePayload) => {
-    setFormSubmitting(true)
-    setError(null)
-    try {
-      await updateUser(id, payload)
-      setFormMode(null)
-      setSelectedUser(null)
-      clearUserParam()
-      await loadUsers()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not update user.')
-    } finally {
-      setFormSubmitting(false)
-    }
-  }
-
-  const handleDeleteConfirm = async () => {
-    if (!userToDelete) {
-      return
-    }
-    setDeleteSubmitting(true)
-    setError(null)
-    try {
-      await deleteUser(userToDelete.id)
-      setUserToDelete(null)
-      if (selectedUser?.id === userToDelete.id) {
-        setSelectedUser(null)
-        clearUserParam()
-      }
-      await loadUsers()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not delete user.')
-    } finally {
-      setDeleteSubmitting(false)
-    }
-  }
+  const setField = <K extends keyof UserPayload>(key: K, val: UserPayload[K]) =>
+    setForm((prev) => ({ ...prev, [key]: val }))
 
   return (
     <div className="app-content">
       <div className="container-fluid">
-        {error && (
-          <div className="alert alert-danger mb-3" role="alert">
-            {error}
-          </div>
-        )}
-
         <div className="users-table-card">
           <div className="users-table-toolbar">
             <div className="users-search">
@@ -262,17 +187,16 @@ const UsersPage = () => {
               <input
                 type="search"
                 className="users-search-input"
-                placeholder="Search by name, username, or email…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search users..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search users"
-                disabled={!getAccessToken()}
               />
-              {searchInput && (
+              {search && (
                 <button
                   type="button"
                   className="users-search-clear"
-                  onClick={() => setSearchInput('')}
+                  onClick={() => setSearch('')}
                   aria-label="Clear search"
                 >
                   <i className="bi bi-x-lg" />
@@ -280,59 +204,45 @@ const UsersPage = () => {
               )}
             </div>
             <div className="users-toolbar-right">
-              <span className="users-search-count">{totalLabel}</span>
+              <span className="users-search-count">
+                {users.length} user{users.length !== 1 && 's'}
+              </span>
               <button
                 type="button"
-                className="btn btn-primary btn-sm users-add-btn"
-                disabled={!getAccessToken() || loading}
-                onClick={() => {
-                  setError(null)
-                  setFormMode('create')
-                }}
+                className="btn users-btn-add"
+                onClick={openAdd}
               >
-                <i className="bi bi-person-plus me-1" aria-hidden="true" />
-                Add user
+                <i className="bi bi-plus-lg" /> Add User
               </button>
             </div>
           </div>
+
           <div className="users-table-scroll">
-            <table className="users-table">
-              <thead>
-                <tr>
-                  <th>Id</th>
-                  <th>Name</th>
-                  <th>Username</th>
-                  <th>Email</th>
-                  <th>Active</th>
-                  <th>Staff</th>
-                  <th>Joined</th>
-                  <th className="users-table-actions-col">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
+            {loading && users.length === 0 ? (
+              <div className="users-table-empty-wrap">
+                <span className="users-table-empty">Loading users...</span>
+              </div>
+            ) : error ? (
+              <div className="users-table-empty-wrap">
+                <span className="users-table-empty users-table-error">{error}</span>
+              </div>
+            ) : (
+              <table className="users-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} className="users-table-empty">
-                      Loading users…
-                    </td>
+                    <th>Id</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Username</th>
+                    <th>Status</th>
+                    <th>Staff</th>
+                    <th>Joined</th>
+                    <th className="users-th-actions">Actions</th>
                   </tr>
-                )}
-                {!loading &&
-                  users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className="users-table-row"
-                      onClick={() => openUser(user)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault()
-                          openUser(user)
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Open details for ${displayName(user)}`}
-                    >
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className="users-table-row">
                       <td className="users-table-id">{user.id}</td>
                       <td>
                         <div className="users-table-person">
@@ -341,139 +251,124 @@ const UsersPage = () => {
                             style={{ backgroundColor: avatarColor(user.id) }}
                             aria-hidden="true"
                           >
-                            {initials(displayName(user))}
+                            {initials(user.first_name, user.last_name, user.username)}
                           </span>
                           <span className="users-table-name">
                             {displayName(user)}
                           </span>
                         </div>
                       </td>
-                      <td className="users-table-office">{user.username}</td>
                       <td className="users-table-contact">{user.email}</td>
+                      <td className="users-table-position">{user.username}</td>
                       <td>
                         <span
-                          className={`users-status users-status--${user.is_active ? 'active' : 'inactive'}`}
+                          className={`users-status users-status--${user.is_active ? 'active' : 'pending'}`}
                         >
                           {user.is_active ? 'active' : 'inactive'}
                         </span>
                       </td>
-                      <td className="users-table-position">
-                        {user.is_staff ? (
-                          <span className="badge text-bg-secondary">Staff</span>
-                        ) : (
-                          '—'
+                      <td>
+                        {user.is_staff && (
+                          <span className="users-badge-staff">staff</span>
                         )}
                       </td>
-                      <td className="users-table-salary text-body-secondary small">
-                        {formatJoined(user.date_joined)}
+                      <td className="users-table-office">
+                        {new Date(user.date_joined).toLocaleDateString()}
                       </td>
-                      <td className="users-table-actions-col">
-                        <div
-                          className="users-table-actions"
-                          role="presentation"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
+                      <td>
+                        <div className="users-actions">
                           <button
                             type="button"
-                            className="btn btn-link btn-sm text-decoration-none p-0 me-2"
-                            aria-label={`Edit ${displayName(user)}`}
-                            onClick={() => {
-                              setError(null)
-                              setSelectedUser(user)
-                              setFormMode('edit')
-                            }}
+                            className="users-action-btn users-action-edit"
+                            title="Edit user"
+                            onClick={() => openEdit(user)}
                           >
                             <i className="bi bi-pencil-square" />
                           </button>
                           <button
                             type="button"
-                            className="btn btn-link btn-sm text-danger text-decoration-none p-0"
-                            aria-label={`Delete ${displayName(user)}`}
-                            disabled={me?.id === user.id}
-                            title={
-                              me?.id === user.id
-                                ? 'You cannot delete your own account'
-                                : undefined
-                            }
-                            onClick={() => {
-                              setError(null)
-                              setUserToDelete(user)
-                            }}
+                            className="users-action-btn users-action-delete"
+                            title="Delete user"
+                            onClick={() => setDeleteTarget(user)}
                           >
-                            <i className="bi bi-trash" />
+                            <i className="bi bi-trash3" />
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
-                {!loading && users.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="users-table-empty">
-                      {debouncedSearch
-                        ? `No users found for "${debouncedSearch}".`
-                        : 'No users yet. Add a user to get started.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {users.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={8} className="users-table-empty">
+                        {search
+                          ? `No users found for "${search}".`
+                          : 'No users yet. Click "Add User" to create one.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
 
-      {selectedUser && !formMode && (
-        <UserDetailsModal
-          user={selectedUser}
-          onClose={closeUser}
-          onEdit={() => {
-            setError(null)
-            setFormMode('edit')
-          }}
-        />
-      )}
-
-      {formMode === 'create' && (
+      {/* Add / Edit modal */}
+      {modalOpen && (
         <UserFormModal
-          mode="create"
-          canManageSuperuser={me?.is_superuser ?? false}
-          submitting={formSubmitting}
-          onClose={() => setFormMode(null)}
-          onSubmitCreate={handleCreated}
+          editing={editingUser}
+          form={form}
+          setField={setField}
+          error={formError}
+          saving={saving}
+          onSave={handleSave}
+          onClose={closeModal}
         />
       )}
 
-      {formMode === 'edit' && selectedUser && (
-        <UserFormModal
-          mode="edit"
-          user={selectedUser}
-          canManageSuperuser={me?.is_superuser ?? false}
-          submitting={formSubmitting}
-          onClose={() => setFormMode(null)}
-          onSubmitUpdate={handleUpdated}
-        />
-      )}
-
-      {userToDelete && (
-        <ConfirmDeleteModal
-          name={displayName(userToDelete)}
-          submitting={deleteSubmitting}
-          onCancel={() => setUserToDelete(null)}
-          onConfirm={() => void handleDeleteConfirm()}
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <DeleteConfirmModal
+          user={deleteTarget}
+          deleting={deleting}
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteTarget(null)}
         />
       )}
     </div>
   )
 }
 
-type UserDetailsModalProps = {
-  user: ApiUser
+/* ------------------------------------------------------------------ */
+/*  Add / Edit form modal                                              */
+/* ------------------------------------------------------------------ */
+
+type UserFormModalProps = {
+  editing: UserRecord | null
+  form: UserPayload
+  setField: <K extends keyof UserPayload>(key: K, val: UserPayload[K]) => void
+  error: string | null
+  saving: boolean
+  onSave: () => void
   onClose: () => void
-  onEdit: () => void
 }
 
-const UserDetailsModal = ({ user, onClose, onEdit }: UserDetailsModalProps) => {
-  const name = user.full_name || user.username
+const UserFormModal = ({
+  editing,
+  form,
+  setField,
+  error,
+  saving,
+  onSave,
+  onClose,
+}: UserFormModalProps) => {
+  const title = editing ? 'Edit User' : 'Add User'
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onSave()
+  }
+
   return (
     <>
       <div
@@ -484,166 +379,9 @@ const UserDetailsModal = ({ user, onClose, onEdit }: UserDetailsModalProps) => {
         className="user-details-modal modal fade show d-block"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="userDetailsModalTitle"
-      >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h1 id="userDetailsModalTitle" className="modal-title fs-5">
-                User details
-              </h1>
-              <button
-                type="button"
-                className="btn-close"
-                aria-label="Close"
-                onClick={onClose}
-              />
-            </div>
-            <div className="modal-body">
-              <div className="user-details-head">
-                <span
-                  className="user-details-avatar"
-                  style={{ backgroundColor: avatarColor(user.id) }}
-                  aria-hidden="true"
-                >
-                  {initials(name)}
-                </span>
-                <div>
-                  <div className="user-details-name">{name}</div>
-                  <div className="user-details-position text-muted small">
-                    @{user.username}
-                  </div>
-                </div>
-              </div>
-
-              <dl className="user-details-grid">
-                <div>
-                  <dt>Id</dt>
-                  <dd>{user.id}</dd>
-                </div>
-                <div>
-                  <dt>Email</dt>
-                  <dd>{user.email}</dd>
-                </div>
-                <div>
-                  <dt>Active</dt>
-                  <dd>
-                    <span
-                      className={`users-status users-status--${user.is_active ? 'active' : 'inactive'}`}
-                    >
-                      {user.is_active ? 'active' : 'inactive'}
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Staff</dt>
-                  <dd>{user.is_staff ? 'Yes' : 'No'}</dd>
-                </div>
-                <div>
-                  <dt>Superuser</dt>
-                  <dd>{user.is_superuser ? 'Yes' : 'No'}</dd>
-                </div>
-                <div className="user-details-grid-wide">
-                  <dt>Joined</dt>
-                  <dd>{formatJoined(user.date_joined)}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
-                Close
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={onEdit}
-              >
-                <i className="bi bi-pencil-square me-1" aria-hidden="true" />
-                Edit
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
-type UserFormModalProps = {
-  mode: 'create' | 'edit'
-  user?: ApiUser
-  canManageSuperuser: boolean
-  submitting: boolean
-  onClose: () => void
-  onSubmitCreate?: (payload: UserCreatePayload) => void
-  onSubmitUpdate?: (id: number, payload: UserUpdatePayload) => void
-}
-
-const UserFormModal = ({
-  mode,
-  user,
-  canManageSuperuser,
-  submitting,
-  onClose,
-  onSubmitCreate,
-  onSubmitUpdate,
-}: UserFormModalProps) => {
-  const [username, setUsername] = useState(user?.username ?? '')
-  const [email, setEmail] = useState(user?.email ?? '')
-  const [password, setPassword] = useState('')
-  const [firstName, setFirstName] = useState(user?.first_name ?? '')
-  const [lastName, setLastName] = useState(user?.last_name ?? '')
-  const [isActive, setIsActive] = useState(user?.is_active ?? true)
-  const [isStaff, setIsStaff] = useState(user?.is_staff ?? false)
-  const [isSuperuser, setIsSuperuser] = useState(user?.is_superuser ?? false)
-
-  const title = mode === 'create' ? 'Add user' : 'Edit user'
-
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (mode === 'create') {
-      onSubmitCreate?.({
-        username: username.trim(),
-        email: email.trim(),
-        password,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        is_active: isActive,
-        is_staff: isStaff,
-        is_superuser: canManageSuperuser ? isSuperuser : false,
-      })
-    } else if (user) {
-      const payload: UserUpdatePayload = {
-        username: username.trim(),
-        email: email.trim(),
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        is_active: isActive,
-        is_staff: isStaff,
-      }
-      if (canManageSuperuser) {
-        payload.is_superuser = isSuperuser
-      }
-      if (password.trim()) {
-        payload.password = password
-      }
-      onSubmitUpdate?.(user.id, payload)
-    }
-  }
-
-  return (
-    <>
-      <div
-        className="user-details-modal-backdrop modal-backdrop fade show"
-        onClick={() => !submitting && onClose()}
-      />
-      <div
-        className="user-details-modal modal fade show d-block"
-        role="dialog"
-        aria-modal="true"
         aria-labelledby="userFormModalTitle"
       >
-        <div className="modal-dialog modal-dialog-centered modal-lg">
+        <div className="modal-dialog modal-dialog-centered">
           <div className="modal-content">
             <div className="modal-header">
               <h1 id="userFormModalTitle" className="modal-title fs-5">
@@ -653,131 +391,92 @@ const UserFormModal = ({
                 type="button"
                 className="btn-close"
                 aria-label="Close"
-                disabled={submitting}
                 onClick={onClose}
               />
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
+                {error && (
+                  <div className="alert alert-danger py-2" role="alert">
+                    {error}
+                  </div>
+                )}
                 <div className="row g-3">
-                  <div className="col-md-6">
-                    <label className="form-label" htmlFor="user-username">
-                      Username
-                    </label>
+                  <div className="col-sm-6">
+                    <label className="form-label">First Name</label>
                     <input
-                      id="user-username"
                       className="form-control"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      autoComplete="username"
-                      disabled={submitting}
+                      value={form.first_name}
+                      onChange={(e) => setField('first_name', e.target.value)}
                     />
                   </div>
-                  <div className="col-md-6">
-                    <label className="form-label" htmlFor="user-email">
-                      Email
-                    </label>
+                  <div className="col-sm-6">
+                    <label className="form-label">Last Name</label>
                     <input
-                      id="user-email"
+                      className="form-control"
+                      value={form.last_name}
+                      onChange={(e) => setField('last_name', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-sm-6">
+                    <label className="form-label">Username *</label>
+                    <input
+                      className="form-control"
+                      value={form.username}
+                      onChange={(e) => setField('username', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-sm-6">
+                    <label className="form-label">Email *</label>
+                    <input
                       type="email"
                       className="form-control"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={form.email}
+                      onChange={(e) => setField('email', e.target.value)}
                       required
-                      autoComplete="email"
-                      disabled={submitting}
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label" htmlFor="user-first">
-                      First name
-                    </label>
-                    <input
-                      id="user-first"
-                      className="form-control"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      autoComplete="given-name"
-                      disabled={submitting}
-                    />
-                  </div>
-                  <div className="col-md-6">
-                    <label className="form-label" htmlFor="user-last">
-                      Last name
-                    </label>
-                    <input
-                      id="user-last"
-                      className="form-control"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      autoComplete="family-name"
-                      disabled={submitting}
                     />
                   </div>
                   <div className="col-12">
-                    <label className="form-label" htmlFor="user-password">
-                      Password
-                      {mode === 'edit' && (
-                        <span className="text-muted fw-normal ms-1">
-                          (leave blank to keep current)
-                        </span>
-                      )}
+                    <label className="form-label">
+                      Password{editing ? ' (leave blank to keep current)' : ' *'}
                     </label>
                     <input
-                      id="user-password"
                       type="password"
                       className="form-control"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required={mode === 'create'}
-                      minLength={mode === 'create' ? 8 : undefined}
+                      value={form.password ?? ''}
+                      onChange={(e) => setField('password', e.target.value)}
+                      {...(!editing && { required: true, minLength: 8 })}
                       autoComplete="new-password"
-                      disabled={submitting}
                     />
                   </div>
-                  <div className="col-12 d-flex flex-wrap gap-3">
-                    <div className="form-check">
+                  <div className="col-sm-6">
+                    <div className="form-check form-switch mt-1">
                       <input
-                        id="user-active"
-                        type="checkbox"
                         className="form-check-input"
-                        checked={isActive}
-                        onChange={(e) => setIsActive(e.target.checked)}
-                        disabled={submitting}
+                        type="checkbox"
+                        id="userIsActive"
+                        checked={form.is_active}
+                        onChange={(e) => setField('is_active', e.target.checked)}
                       />
-                      <label className="form-check-label" htmlFor="user-active">
+                      <label className="form-check-label" htmlFor="userIsActive">
                         Active
                       </label>
                     </div>
-                    <div className="form-check">
+                  </div>
+                  <div className="col-sm-6">
+                    <div className="form-check form-switch mt-1">
                       <input
-                        id="user-staff"
-                        type="checkbox"
                         className="form-check-input"
-                        checked={isStaff}
-                        onChange={(e) => setIsStaff(e.target.checked)}
-                        disabled={submitting}
+                        type="checkbox"
+                        id="userIsStaff"
+                        checked={form.is_staff}
+                        onChange={(e) => setField('is_staff', e.target.checked)}
                       />
-                      <label className="form-check-label" htmlFor="user-staff">
+                      <label className="form-check-label" htmlFor="userIsStaff">
                         Staff
                       </label>
                     </div>
-                    {canManageSuperuser && (
-                      <div className="form-check">
-                        <input
-                          id="user-super"
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={isSuperuser}
-                          onChange={(e) => setIsSuperuser(e.target.checked)}
-                          disabled={submitting}
-                        />
-                        <label className="form-check-label" htmlFor="user-super">
-                          Superuser
-                        </label>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -785,13 +484,21 @@ const UserFormModal = ({
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  disabled={submitting}
                   onClick={onClose}
+                  disabled={saving}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Saving…' : mode === 'create' ? 'Create user' : 'Save changes'}
+                <button
+                  type="submit"
+                  className="btn users-btn-save"
+                  disabled={saving}
+                >
+                  {saving
+                    ? 'Saving...'
+                    : editing
+                      ? 'Update'
+                      : 'Create'}
                 </button>
               </div>
             </form>
@@ -802,63 +509,69 @@ const UserFormModal = ({
   )
 }
 
-type ConfirmDeleteModalProps = {
-  name: string
-  submitting: boolean
-  onCancel: () => void
+/* ------------------------------------------------------------------ */
+/*  Delete confirmation modal                                          */
+/* ------------------------------------------------------------------ */
+
+type DeleteConfirmModalProps = {
+  user: UserRecord
+  deleting: boolean
   onConfirm: () => void
+  onClose: () => void
 }
 
-const ConfirmDeleteModal = ({
-  name,
-  submitting,
-  onCancel,
+const DeleteConfirmModal = ({
+  user,
+  deleting,
   onConfirm,
-}: ConfirmDeleteModalProps) => (
+  onClose,
+}: DeleteConfirmModalProps) => (
   <>
     <div
       className="user-details-modal-backdrop modal-backdrop fade show"
-      onClick={() => !submitting && onCancel()}
+      onClick={onClose}
     />
     <div
       className="user-details-modal modal fade show d-block"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="confirmDeleteTitle"
+      aria-labelledby="deleteUserModalTitle"
     >
-      <div className="modal-dialog modal-dialog-centered">
+      <div className="modal-dialog modal-dialog-centered modal-sm">
         <div className="modal-content">
           <div className="modal-header">
-            <h1 id="confirmDeleteTitle" className="modal-title fs-5">
-              Delete user
+            <h1 id="deleteUserModalTitle" className="modal-title fs-5">
+              Delete User
             </h1>
             <button
               type="button"
               className="btn-close"
               aria-label="Close"
-              disabled={submitting}
-              onClick={onCancel}
+              onClick={onClose}
             />
           </div>
           <div className="modal-body">
-            Delete <strong>{name}</strong>? This cannot be undone.
+            <p className="mb-0">
+              Are you sure you want to delete{' '}
+              <strong>{displayName(user)}</strong>? This action cannot be undone.
+            </p>
           </div>
           <div className="modal-footer">
             <button
               type="button"
               className="btn btn-secondary"
-              disabled={submitting}
-              onClick={onCancel}
+              onClick={onClose}
+              disabled={deleting}
             >
               Cancel
             </button>
             <button
               type="button"
               className="btn btn-danger"
-              disabled={submitting}
               onClick={onConfirm}
+              disabled={deleting}
             >
-              {submitting ? 'Deleting…' : 'Delete'}
+              {deleting ? 'Deleting...' : 'Delete'}
             </button>
           </div>
         </div>
