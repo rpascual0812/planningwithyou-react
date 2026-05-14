@@ -1,135 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import {
+  type BookingColumnRecord,
+  type BookingItemRecord,
+  createBookingColumn,
+  createBookingItem,
+  deleteBookingColumn,
+  deleteBookingItem,
+  fetchBookingColumns,
+  fetchBookingItems,
+  moveBookingItem,
+  reorderBookingItems,
+  updateBookingColumn,
+  updateBookingItem,
+} from '../services/bookings'
+import BookingEditModal, { type BookingFormState } from '../components/BookingEditModal'
+import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
 
-type BookingItem = {
-  id: string
-  columnId: string
-  title: string
-  notes: string
-}
-
-type BookingColumn = {
-  id: string
-  title: string
-  description: string
-  color: string
-  wipLimit: number | null
-}
+type BookingColumn = BookingColumnRecord
+type BookingItem = BookingItemRecord
 
 type DragState = {
-  itemId: string
-  sourceColumnId: string
-  targetColumnId: string
-  /**
-   * Position the drop placeholder should occupy in the target column's
-   * *currently rendered* item list (source card included). Using a "rendered
-   * position" rather than a post-move index keeps the source card in the DOM
-   * during the drag so the browser doesn't abort the gesture.
-   */
+  itemId: number
+  sourceColumnId: number
+  targetColumnId: number
   targetIndex: number
 }
 
-type ColumnFormState = {
-  mode: 'create' | 'edit'
-  id: string | null
-  title: string
-  description: string
-  color: string
-  /** Kept as a string while editing so the empty state means "no limit". */
-  wipLimit: string
-}
-
-type ItemFormState = {
-  mode: 'create' | 'edit'
-  id: string | null
-  columnId: string
-  title: string
-  notes: string
-}
 
 type BookingsView = 'board' | 'cards' | 'list'
 
-/** URL query param key used to deep-link / restore an open edit modal. */
 const EDIT_PARAM = 'edit'
 
-const COLOR_SWATCHES = [
-  '#1f3a5f',
-  '#52b585',
-  '#f0a830',
-  '#5a8edb',
-  '#d65a5a',
-  '#9c6cd0',
-  '#3a9870',
-  '#152741',
-]
-
-const DEFAULT_COLUMNS: BookingColumn[] = [
-  {
-    id: 'col-new',
-    title: 'New',
-    description: 'Recently submitted bookings awaiting review.',
-    color: '#1f3a5f',
-    wipLimit: null,
-  },
-  {
-    id: 'col-confirmed',
-    title: 'Confirmed',
-    description: 'Customer has confirmed date and scope.',
-    color: '#52b585',
-    wipLimit: null,
-  },
-  {
-    id: 'col-in-progress',
-    title: 'In progress',
-    description: 'Work is currently being delivered.',
-    color: '#f0a830',
-    wipLimit: 5,
-  },
-  {
-    id: 'col-completed',
-    title: 'Completed',
-    description: 'Successfully completed bookings.',
-    color: '#5a8edb',
-    wipLimit: null,
-  },
-]
-
-const DEFAULT_ITEMS: BookingItem[] = [
-  {
-    id: 'itm-1',
-    columnId: 'col-new',
-    title: 'Alice — Curtain consult',
-    notes: 'Wants Roman blinds in master bedroom.',
-  },
-  {
-    id: 'itm-2',
-    columnId: 'col-new',
-    title: 'Acme Inc — Office shades',
-    notes: 'Suite 4B, 12 windows total.',
-  },
-  {
-    id: 'itm-3',
-    columnId: 'col-confirmed',
-    title: 'Bob Smith — Measure',
-    notes: 'Confirmed for Tue 3pm.',
-  },
-  {
-    id: 'itm-4',
-    columnId: 'col-in-progress',
-    title: 'Carla — Installation',
-    notes: 'Awaiting fabric delivery (ETA Mon).',
-  },
-  {
-    id: 'itm-5',
-    columnId: 'col-completed',
-    title: 'Dan — Final payment',
-    notes: 'Paid in full on May 9.',
-  },
-]
-
-const STORAGE_KEY_COLUMNS = 'pwy.bookings.columns.v1'
-const STORAGE_KEY_ITEMS = 'pwy.bookings.items.v1'
 
 // --- Helpers for the Cards view (deterministic synthesised details) -------
 
@@ -188,14 +91,10 @@ function deriveBookingCardDetails(
   columnIndex: number,
   totalColumns: number,
 ): BookingCardDetails {
-  const h = stableHash(item.id)
-
+  const h = stableHash(String(item.id))
   const iconClass = CARD_ICONS[h % CARD_ICONS.length]
-
   const subtitle = (column?.title ?? 'Booking').trim()
 
-  // Deterministic start date roughly within the last/next ~90 days, plus a
-  // duration of 30–180 days. Just enough variety to look real.
   const startOffsetDays = (h % 180) - 60
   const durationDays = 30 + ((h >> 3) % 150)
   const today = new Date()
@@ -206,7 +105,6 @@ function deriveBookingCardDetails(
 
   const priceBuckets = [280, 400, 1000, 2500, 10000, 25000, 100000, 200000, 400000]
   const price = formatPrice(priceBuckets[h % priceBuckets.length])
-
   const members = 3 + ((h >> 5) % 35)
 
   const lowerTitle = (column?.title ?? '').toLowerCase()
@@ -235,7 +133,7 @@ function deriveBookingCardDetails(
     month: 'long',
     day: 'numeric',
   })
-  const shortId = `#${100 + (h % 900)}`
+  const shortId = `#${item.id}`
 
   return {
     iconClass,
@@ -275,41 +173,6 @@ const MEMBER_AVATAR_COLORS = [
   '#9c6cd0',
 ]
 
-function makeId(prefix: string): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `${prefix}-${crypto.randomUUID().slice(0, 8)}`
-  }
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-function useLocalStorageState<T>(key: string, initial: T) {
-  const [state, setState] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initial
-    }
-    try {
-      const raw = window.localStorage.getItem(key)
-      return raw ? (JSON.parse(raw) as T) : initial
-    } catch {
-      return initial
-    }
-  })
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(key, JSON.stringify(state))
-    } catch {
-      // ignore quota / serialisation errors
-    }
-  }, [key, state])
-  return [state, setState] as const
-}
-
-/**
- * Compute the placeholder index inside a column's card list given a drag-over
- * event. The index is relative to the *currently rendered* cards (the source
- * card is intentionally included so it remains visible during the drag), so
- * the placeholder slot can sit immediately before/after the source as well.
- */
 function computeDropIndex(
   e: DragEvent<HTMLElement>,
   listEl: HTMLElement,
@@ -327,31 +190,45 @@ function computeDropIndex(
 }
 
 const BookingsPage = () => {
-  const [columns, setColumns] = useLocalStorageState<BookingColumn[]>(
-    STORAGE_KEY_COLUMNS,
-    DEFAULT_COLUMNS,
-  )
-  const [items, setItems] = useLocalStorageState<BookingItem[]>(
-    STORAGE_KEY_ITEMS,
-    DEFAULT_ITEMS,
-  )
+  const [columns, setColumns] = useState<BookingColumn[]>([])
+  const [items, setItems] = useState<BookingItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState<BookingsView>('board')
   const [drag, setDrag] = useState<DragState | null>(null)
-  const [columnModal, setColumnModal] = useState<ColumnFormState | null>(null)
-  const [itemModal, setItemModal] = useState<ItemFormState | null>(null)
+  const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
+  const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
   const [search, setSearch] = useState('')
   const isSearching = search.trim().length > 0
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Item matcher used by every tab so the same search query filters Board,
-  // Cards, and List consistently.
+  // --- Data loading --------------------------------------------------------
+
+  const loadData = useCallback(async () => {
+    try {
+      const [cols, itms] = await Promise.all([
+        fetchBookingColumns(),
+        fetchBookingItems(),
+      ])
+      setColumns(cols)
+      setItems(itms)
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   const matchesSearch = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) {
       return () => true
     }
     return (item: BookingItem) => {
-      const column = columns.find((c) => c.id === item.columnId)
+      const column = columns.find((c) => c.id === item.column)
       return [item.title, item.notes, column?.title ?? '']
         .join(' ')
         .toLowerCase()
@@ -364,16 +241,11 @@ const BookingsPage = () => {
     [items, matchesSearch],
   )
 
-  const listRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
-  /**
-   * Synchronous mirror of `drag` so handlers fired in the same task as
-   * `dragstart` (e.g. an early `dragover`) can read the current drag even
-   * before the React state update has flushed.
-   */
+  const listRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
   const dragRef = useRef<DragState | null>(null)
 
   // --- Cards grid drag-reorder --------------------------------------------
-  type CardsDragState = { itemId: string; targetIndex: number }
+  type CardsDragState = { itemId: number; targetIndex: number }
   const [cardsDrag, setCardsDrag] = useState<CardsDragState | null>(null)
   const cardsDragRef = useRef<CardsDragState | null>(null)
   const cardsGridRef = useRef<HTMLDivElement | null>(null)
@@ -383,8 +255,6 @@ const BookingsPage = () => {
     item: BookingItem,
     sourceIndex: number,
   ) => {
-    // Bail out if the drag started on an action button (trash) so trashing
-    // a card never accidentally starts a reorder.
     const target = e.target as HTMLElement
     if (target.closest('button, [data-no-drag]')) {
       e.preventDefault()
@@ -392,7 +262,7 @@ const BookingsPage = () => {
     }
     e.dataTransfer.effectAllowed = 'move'
     try {
-      e.dataTransfer.setData('text/plain', item.id)
+      e.dataTransfer.setData('text/plain', String(item.id))
     } catch {
       // ignore
     }
@@ -405,13 +275,6 @@ const BookingsPage = () => {
     }, 0)
   }
 
-  /**
-   * Compute the insertion slot in a wrapping grid by reading order.
-   * - Insert before any card whose top edge is below the cursor.
-   * - Insert before any card on the same row whose horizontal midpoint is
-   *   to the right of the cursor.
-   * - Otherwise append at the end.
-   */
   const computeGridInsertIndex = (
     e: DragEvent<HTMLDivElement>,
     grid: HTMLDivElement,
@@ -471,6 +334,13 @@ const BookingsPage = () => {
       const clamped = Math.max(0, Math.min(postMoveIndex, without.length))
       const next = [...without]
       next.splice(clamped, 0, source)
+      // Persist new order
+      const updates = next.map((it, idx) => ({
+        id: it.id,
+        column: it.column,
+        sort_order: idx,
+      }))
+      reorderBookingItems(updates).catch(() => {})
       return next
     })
     cardsDragRef.current = null
@@ -483,7 +353,7 @@ const BookingsPage = () => {
   }
 
   // --- List drag-reorder ---------------------------------------------------
-  type ListDragState = { itemId: string; targetIndex: number }
+  type ListDragState = { itemId: number; targetIndex: number }
   const [listDrag, setListDrag] = useState<ListDragState | null>(null)
   const listDragRef = useRef<ListDragState | null>(null)
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null)
@@ -495,7 +365,7 @@ const BookingsPage = () => {
   ) => {
     e.dataTransfer.effectAllowed = 'move'
     try {
-      e.dataTransfer.setData('text/plain', item.id)
+      e.dataTransfer.setData('text/plain', String(item.id))
     } catch {
       // ignore
     }
@@ -557,6 +427,12 @@ const BookingsPage = () => {
       const clamped = Math.max(0, Math.min(postMoveIndex, without.length))
       const next = [...without]
       next.splice(clamped, 0, source)
+      const updates = next.map((it, idx) => ({
+        id: it.id,
+        column: it.column,
+        sort_order: idx,
+      }))
+      reorderBookingItems(updates).catch(() => {})
       return next
     })
     listDragRef.current = null
@@ -568,7 +444,7 @@ const BookingsPage = () => {
     setListDrag(null)
   }
 
-  // --- Board pan (click-drag the empty area to scroll horizontally) --------
+  // --- Board pan -----------------------------------------------------------
   const boardRef = useRef<HTMLDivElement | null>(null)
   const panRef = useRef<{
     active: boolean
@@ -581,8 +457,6 @@ const BookingsPage = () => {
     if (e.button !== 0) {
       return
     }
-    // Only pan when the press starts on the empty board background – never
-    // when it starts on a column, card, or any of their interactive children.
     const target = e.target as HTMLElement
     if (target.closest('.kanban-column')) {
       return
@@ -601,7 +475,7 @@ const BookingsPage = () => {
     try {
       board.setPointerCapture(e.pointerId)
     } catch {
-      // Some browsers throw when capturing a pointer that's already lost.
+      // ignore
     }
   }
 
@@ -627,14 +501,11 @@ const BookingsPage = () => {
       try {
         board.releasePointerCapture(panRef.current.pointerId)
       } catch {
-        // ignore – capture may already be released
+        // ignore
       }
     }
     panRef.current.active = false
     panRef.current.pointerId = -1
-    // Swallow the click that would otherwise fire on pointerup if we actually
-    // moved – prevents the column-area `onClick` from triggering when the
-    // user was really just panning.
     const dx = Math.abs(e.clientX - panRef.current.startX)
     if (dx > 4) {
       e.preventDefault()
@@ -642,10 +513,10 @@ const BookingsPage = () => {
   }
 
   const itemsByColumn = useMemo(() => {
-    const map = new Map<string, BookingItem[]>()
+    const map = new Map<number, BookingItem[]>()
     columns.forEach((c) => map.set(c.id, []))
     items.forEach((it) => {
-      const bucket = map.get(it.columnId)
+      const bucket = map.get(it.column)
       if (bucket) {
         bucket.push(it)
       }
@@ -653,40 +524,30 @@ const BookingsPage = () => {
     return map
   }, [items, columns])
 
-  // --- Drag handlers ---------------------------------------------------------
+  // --- Drag handlers -------------------------------------------------------
 
   const handleItemDragStart = (
     e: DragEvent<HTMLDivElement>,
     item: BookingItem,
     indexInColumn: number,
   ) => {
-    // 1. Configure the drag synchronously: some browsers won't actually
-    //    start the drag unless the dataTransfer is touched during dragstart.
     e.dataTransfer.effectAllowed = 'move'
     try {
-      e.dataTransfer.setData('text/plain', item.id)
+      e.dataTransfer.setData('text/plain', String(item.id))
     } catch {
-      // Older browsers can throw on setData when called too late; safe to skip.
+      // ignore
     }
 
     const initial: DragState = {
       itemId: item.id,
-      sourceColumnId: item.columnId,
-      targetColumnId: item.columnId,
+      sourceColumnId: item.column,
+      targetColumnId: item.column,
       targetIndex: indexInColumn,
     }
 
-    // 2. Make the drag immediately visible to any handler that runs in the
-    //    same task (e.g. an early dragover) without forcing React to render.
     dragRef.current = initial
 
-    // 3. Defer the React state update by one task. If we re-rendered the
-    //    source column synchronously (inserting a placeholder, shifting the
-    //    dragged card), the browser would interpret the source's mid-task
-    //    movement as a cancelled drag and silently abort the gesture.
     window.setTimeout(() => {
-      // Skip the update if the drag was already finished/cancelled in the
-      // same task – otherwise the state would get stuck on an old drag.
       if (dragRef.current === initial) {
         setDrag(initial)
       }
@@ -695,7 +556,7 @@ const BookingsPage = () => {
 
   const handleColumnDragOver = (
     e: DragEvent<HTMLDivElement>,
-    columnId: string,
+    columnId: number,
   ) => {
     const current = drag ?? dragRef.current
     if (!current) {
@@ -718,7 +579,7 @@ const BookingsPage = () => {
 
   const handleColumnDrop = (
     e: DragEvent<HTMLDivElement>,
-    columnId: string,
+    columnId: number,
   ) => {
     e.preventDefault()
     const current = drag ?? dragRef.current
@@ -736,9 +597,8 @@ const BookingsPage = () => {
   }
 
   const performMove = (
-    itemId: string,
-    targetColumnId: string,
-    /** Placeholder position in the rendered list (source card included). */
+    itemId: number,
+    targetColumnId: number,
     renderedTargetIndex: number,
   ) => {
     setItems((prev) => {
@@ -747,14 +607,10 @@ const BookingsPage = () => {
         return prev
       }
 
-      // Convert the rendered placeholder index (which counts the source card)
-      // into the index used by the post-move target-column list (which does
-      // not). When moving within the same column, every slot below the source
-      // shifts up by one once it's removed.
       let postMoveIndex = renderedTargetIndex
-      if (source.columnId === targetColumnId) {
+      if (source.column === targetColumnId) {
         const sourceIndexInColumn = prev
-          .filter((it) => it.columnId === targetColumnId)
+          .filter((it) => it.column === targetColumnId)
           .findIndex((it) => it.id === itemId)
         if (sourceIndexInColumn >= 0 && renderedTargetIndex > sourceIndexInColumn) {
           postMoveIndex = renderedTargetIndex - 1
@@ -763,7 +619,7 @@ const BookingsPage = () => {
 
       const without = prev.filter((it) => it.id !== itemId)
       const targetColumnItems = without.filter(
-        (it) => it.columnId === targetColumnId,
+        (it) => it.column === targetColumnId,
       )
       const clamped = Math.max(
         0,
@@ -781,93 +637,103 @@ const BookingsPage = () => {
         insertAtFlat = without.length
       }
 
-      const moved: BookingItem = { ...source, columnId: targetColumnId }
+      const moved: BookingItem = { ...source, column: targetColumnId }
       const next = [...without]
       next.splice(insertAtFlat, 0, moved)
+
+      // Persist: update the moved item's column + sort_order for all items in the target column
+      const targetItems = next.filter((it) => it.column === targetColumnId)
+      const updates = targetItems.map((it, idx) => ({
+        id: it.id,
+        column: targetColumnId,
+        sort_order: idx,
+      }))
+      // If cross-column move, also update sort_order in the source column
+      if (source.column !== targetColumnId) {
+        const sourceItems = next.filter((it) => it.column === source.column)
+        sourceItems.forEach((it, idx) => {
+          updates.push({ id: it.id, column: source.column, sort_order: idx })
+        })
+      }
+      reorderBookingItems(updates).catch(() => {})
+
       return next
     })
   }
 
-  // --- Column CRUD -----------------------------------------------------------
+  // --- Status CRUD ---------------------------------------------------------
 
-  const openCreateColumn = () => {
-    setColumnModal({
+  const openCreateStatus = () => {
+    setStatusModal({
       mode: 'create',
       id: null,
       title: '',
       description: '',
       color: COLOR_SWATCHES[0],
-      wipLimit: '',
     })
   }
 
-  const openEditColumn = (column: BookingColumn) => {
-    setColumnModal({
+  const openEditStatus = (column: BookingColumn) => {
+    setStatusModal({
       mode: 'edit',
       id: column.id,
       title: column.title,
       description: column.description,
       color: column.color,
-      wipLimit: column.wipLimit !== null ? String(column.wipLimit) : '',
     })
   }
 
-  const handleColumnSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!columnModal) {
+    if (!statusModal) {
       return
     }
-    const title = columnModal.title.trim() || 'Untitled'
-    const description = columnModal.description.trim()
-    const color = columnModal.color || '#1f3a5f'
-    const trimmedLimit = columnModal.wipLimit.trim()
-    let wipLimit: number | null = null
-    if (trimmedLimit) {
-      const parsed = parseInt(trimmedLimit, 10)
-      wipLimit = Number.isFinite(parsed) && parsed > 0 ? parsed : null
-    }
+    const title = statusModal.title.trim() || 'Untitled'
+    const description = statusModal.description.trim()
+    const color = statusModal.color || '#1f3a5f'
 
-    if (columnModal.mode === 'create') {
-      const newCol: BookingColumn = {
-        id: makeId('col'),
-        title,
-        description,
-        color,
-        wipLimit,
+    try {
+      if (statusModal.mode === 'create') {
+        const created = await createBookingColumn({ title, description, color })
+        setColumns((prev) => [...prev, created])
+      } else if (statusModal.id) {
+        const updated = await updateBookingColumn(statusModal.id, {
+          title,
+          description,
+          color,
+        })
+        setColumns((prev) =>
+          prev.map((c) => (c.id === updated.id ? updated : c)),
+        )
       }
-      setColumns((prev) => [...prev, newCol])
-    } else if (columnModal.id) {
-      const id = columnModal.id
-      setColumns((prev) =>
-        prev.map((c) =>
-          c.id === id ? { ...c, title, description, color, wipLimit } : c,
-        ),
-      )
+    } catch {
+      // silently fail
     }
-    setColumnModal(null)
+    setStatusModal(null)
   }
 
-  const handleDeleteColumn = (column: BookingColumn) => {
+  const handleDeleteStatus = async (column: BookingColumn) => {
     const count = itemsByColumn.get(column.id)?.length ?? 0
     const msg =
       count > 0
-        ? `Delete column "${column.title}"? Its ${count} card${
+        ? `Delete status "${column.title}"? Its ${count} booking${
             count === 1 ? '' : 's'
           } will also be removed.`
-        : `Delete column "${column.title}"?`
+        : `Delete status "${column.title}"?`
     if (!window.confirm(msg)) {
       return
     }
-    setColumns((prev) => prev.filter((c) => c.id !== column.id))
-    setItems((prev) => prev.filter((it) => it.columnId !== column.id))
+    try {
+      await deleteBookingColumn(column.id)
+      setColumns((prev) => prev.filter((c) => c.id !== column.id))
+      setItems((prev) => prev.filter((it) => it.column !== column.id))
+    } catch {
+      // silently fail
+    }
   }
 
-  // --- Item CRUD -------------------------------------------------------------
+  // --- Item CRUD -----------------------------------------------------------
 
-  /**
-   * Remove the deep-link query param without affecting any other params
-   * that might exist on the route.
-   */
   const clearEditParam = () => {
     setSearchParams(
       (prev) => {
@@ -887,7 +753,7 @@ const BookingsPage = () => {
     clearEditParam()
   }
 
-  const openCreateItem = (columnId: string) => {
+  const openCreateItem = (columnId: number) => {
     setItemModal({
       mode: 'create',
       id: null,
@@ -901,22 +767,21 @@ const BookingsPage = () => {
     setItemModal({
       mode: 'edit',
       id: item.id,
-      columnId: item.columnId,
+      columnId: item.column,
       title: item.title,
       notes: item.notes,
     })
-    // Persist the open modal in the URL so a refresh restores it.
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        next.set(EDIT_PARAM, item.id)
+        next.set(EDIT_PARAM, String(item.id))
         return next
       },
       { replace: true },
     )
   }
 
-  const handleItemSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
       return
@@ -925,68 +790,65 @@ const BookingsPage = () => {
     const notes = itemModal.notes
     const columnId = itemModal.columnId
 
-    if (itemModal.mode === 'create') {
-      const newItem: BookingItem = {
-        id: makeId('itm'),
-        columnId,
-        title,
-        notes,
+    try {
+      if (itemModal.mode === 'create') {
+        const created = await createBookingItem({
+          column: columnId,
+          title,
+          notes,
+        })
+        setItems((prev) => [...prev, created])
+      } else if (itemModal.id) {
+        const updated = await updateBookingItem(itemModal.id, {
+          title,
+          notes,
+          column: columnId,
+        })
+        setItems((prev) =>
+          prev.map((it) => (it.id === updated.id ? updated : it)),
+        )
       }
-      setItems((prev) => [...prev, newItem])
-    } else if (itemModal.id) {
-      const id = itemModal.id
-      setItems((prev) =>
-        prev.map((it) =>
-          it.id === id ? { ...it, title, notes, columnId } : it,
-        ),
-      )
+    } catch {
+      // silently fail
     }
     closeItemModal()
   }
 
-  const handleDeleteItem = (item: BookingItem) => {
+  const handleDeleteItem = async (item: BookingItem) => {
     if (!window.confirm(`Delete card "${item.title}"?`)) {
       return
     }
-    setItems((prev) => prev.filter((it) => it.id !== item.id))
-    // If the deleted card was the one we were editing, also close the modal
-    // and drop the param so a refresh doesn't try to reopen it.
-    if (itemModal?.id === item.id) {
-      closeItemModal()
-    } else if (searchParams.get(EDIT_PARAM) === item.id) {
-      clearEditParam()
+    try {
+      await deleteBookingItem(item.id)
+      setItems((prev) => prev.filter((it) => it.id !== item.id))
+      if (itemModal?.id === item.id) {
+        closeItemModal()
+      } else if (searchParams.get(EDIT_PARAM) === String(item.id)) {
+        clearEditParam()
+      }
+    } catch {
+      // silently fail
     }
   }
 
-  // --- Restore edit modal from URL ------------------------------------------
+  // --- Restore edit modal from URL -----------------------------------------
 
-  /**
-   * Reopen an item's edit modal if the URL carries a matching `?edit=<id>`.
-   * This makes the edit state survive a hard refresh and lets the URL be
-   * shared as a deep-link straight into a card.
-   *
-   * Runs whenever `items`, `columns`, or the param changes so we can:
-   *   - hydrate once items load,
-   *   - update the in-flight `itemModal` when the underlying card mutates,
-   *   - drop the param if the referenced id is no longer present.
-   */
   useEffect(() => {
     const targetId = searchParams.get(EDIT_PARAM)
     if (!targetId) {
       return
     }
-    const item = items.find((it) => it.id === targetId)
+    const numId = Number(targetId)
+    const item = items.find((it) => it.id === numId)
     if (!item) {
-      // Card was deleted or never existed; clean the URL silently.
       clearEditParam()
       return
     }
-    // Skip if the modal is already showing this card with the same values.
     if (
       itemModal &&
       itemModal.mode === 'edit' &&
       itemModal.id === item.id &&
-      itemModal.columnId === item.columnId &&
+      itemModal.columnId === item.column &&
       itemModal.title === item.title &&
       itemModal.notes === item.notes
     ) {
@@ -995,24 +857,24 @@ const BookingsPage = () => {
     setItemModal({
       mode: 'edit',
       id: item.id,
-      columnId: item.columnId,
+      columnId: item.column,
       title: item.title,
       notes: item.notes,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, items, columns])
 
-  // --- Esc / body scroll lock for modals -------------------------------------
+  // --- Esc / body scroll lock for modals -----------------------------------
 
   useEffect(() => {
-    if (!columnModal && !itemModal) {
+    if (!statusModal && !itemModal) {
       return
     }
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setColumnModal(null)
+        setStatusModal(null)
         if (itemModal) {
           closeItemModal()
         }
@@ -1023,25 +885,15 @@ const BookingsPage = () => {
       document.body.style.overflow = prevOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [columnModal, itemModal])
+  }, [statusModal, itemModal])
 
-  // --- Render ----------------------------------------------------------------
+  // --- Render --------------------------------------------------------------
 
   const renderColumn = (column: BookingColumn) => {
-    // While dragging, keep the source visible even if it doesn't match
-    // the current search so the drag gesture has a stable element.
     const columnItems = (itemsByColumn.get(column.id) ?? []).filter(
       (it) => matchesSearch(it) || drag?.itemId === it.id,
     )
 
-    /*
-     * Build the entries to render for this column.
-     * - Always render every real card (including the source while it's being
-     *   dragged) so the browser keeps tracking the original drag element.
-     *   The source card is just visually faded via `.kanban-card--dragging`.
-     * - When this column is the drag target, insert a placeholder at the
-     *   rendered slot the card would drop into.
-     */
     type Entry =
       | { kind: 'card'; item: BookingItem }
       | { kind: 'placeholder' }
@@ -1057,8 +909,6 @@ const BookingsPage = () => {
     }
 
     const count = columnItems.length
-    const limitExceeded = column.wipLimit !== null && count > column.wipLimit
-    const limitReached = column.wipLimit !== null && count >= column.wipLimit
 
     return (
       <section key={column.id} className="kanban-column">
@@ -1075,38 +925,28 @@ const BookingsPage = () => {
               />
               <h6 className="kanban-column-title mb-0">{column.title}</h6>
               <span
-                className={`kanban-column-count badge${
-                  limitExceeded
-                    ? ' text-bg-danger'
-                    : limitReached
-                      ? ' text-bg-warning'
-                      : ' text-bg-light'
-                }`}
-                title={
-                  column.wipLimit !== null
-                    ? `${count} of ${column.wipLimit} (WIP limit)`
-                    : `${count} card${count === 1 ? '' : 's'}`
-                }
+                className="kanban-column-count badge text-bg-light"
+                title={`${count} card${count === 1 ? '' : 's'}`}
               >
-                {column.wipLimit !== null ? `${count} / ${column.wipLimit}` : count}
+                {count}
               </span>
             </div>
             <div className="kanban-column-actions">
               <button
                 type="button"
                 className="btn btn-sm btn-link p-1"
-                onClick={() => openEditColumn(column)}
-                aria-label={`Edit column ${column.title}`}
-                title="Edit column"
+                onClick={() => openEditStatus(column)}
+                aria-label={`Edit status ${column.title}`}
+                title="Edit status"
               >
                 <i className="bi bi-pencil-square" />
               </button>
               <button
                 type="button"
                 className="btn btn-sm btn-link p-1 text-danger"
-                onClick={() => handleDeleteColumn(column)}
-                aria-label={`Delete column ${column.title}`}
-                title="Delete column"
+                onClick={() => handleDeleteStatus(column)}
+                aria-label={`Delete status ${column.title}`}
+                title="Delete status"
               >
                 <i className="bi bi-trash" />
               </button>
@@ -1188,9 +1028,23 @@ const BookingsPage = () => {
           onClick={() => openCreateItem(column.id)}
         >
           <i className="bi bi-plus-lg me-1" />
-          Add card
+          Add booking
         </button>
       </section>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="app-content">
+        <div className="container-fluid">
+          <div className="text-center py-5">
+            <div className="spinner-border spinner-border-sm" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -1249,17 +1103,14 @@ const BookingsPage = () => {
         {activeView === 'board' && (
           <>
             <div className="bookings-toolbar">
-              <p className="bookings-toolbar-hint mb-0">
-                Drag any card between columns — a preview shows exactly where it
-                will land. Tap a card to edit details.
-              </p>
+              <div />
               <button
                 type="button"
                 className="btn btn-sm btn-primary"
-                onClick={openCreateColumn}
+                onClick={openCreateStatus}
               >
                 <i className="bi bi-plus-lg me-1" />
-                Add column
+                Add status
               </button>
             </div>
 
@@ -1279,6 +1130,20 @@ const BookingsPage = () => {
         )}
 
         {activeView === 'cards' && (
+          <>
+          {columns.length > 0 && (
+            <div className="bookings-toolbar">
+              <div />
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => openCreateItem(columns[0].id)}
+              >
+                <i className="bi bi-plus-lg me-1" />
+                Add booking
+              </button>
+            </div>
+          )}
           <div
             ref={cardsGridRef}
             className="bookings-cards-grid"
@@ -1330,7 +1195,7 @@ const BookingsPage = () => {
                 }
                 const item = entry.item
                 const columnIndex = columns.findIndex(
-                  (c) => c.id === item.columnId,
+                  (c) => c.id === item.column,
                 )
                 const column =
                   columnIndex >= 0 ? columns[columnIndex] : undefined
@@ -1451,7 +1316,7 @@ const BookingsPage = () => {
                       {Array.from({ length: avatarCount }).map((_, i) => {
                         const color =
                           MEMBER_AVATAR_COLORS[
-                            (stableHash(item.id) + i) % MEMBER_AVATAR_COLORS.length
+                            (stableHash(String(item.id)) + i) % MEMBER_AVATAR_COLORS.length
                           ]
                         return (
                           <span
@@ -1473,12 +1338,22 @@ const BookingsPage = () => {
               })
             })()}
           </div>
+          </>
         )}
 
         {activeView === 'list' && (
           <div className="bookings-list-card" role="tabpanel" aria-label="List">
             <header className="bookings-list-head">
-              <h6 className="mb-0">Drag And Drop Table</h6>
+              {columns.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={() => openCreateItem(columns[0].id)}
+                >
+                  <i className="bi bi-plus-lg me-1" />
+                  Add booking
+                </button>
+              )}
             </header>
             <div className="bookings-list-scroll">
               <table className="bookings-list-table">
@@ -1486,7 +1361,7 @@ const BookingsPage = () => {
                   <tr>
                     <th aria-label="Drag" />
                     <th>Booking</th>
-                    <th>Column</th>
+                    <th>Status</th>
                     <th>Status</th>
                     <th>Notes</th>
                     <th>id</th>
@@ -1538,7 +1413,7 @@ const BookingsPage = () => {
                       }
                       const item = row.item
                       const columnIndex = columns.findIndex(
-                        (c) => c.id === item.columnId,
+                        (c) => c.id === item.column,
                       )
                       const column =
                         columnIndex >= 0 ? columns[columnIndex] : undefined
@@ -1617,284 +1492,25 @@ const BookingsPage = () => {
         )}
       </div>
 
-      {columnModal && (
-        <ColumnEditModal
-          form={columnModal}
-          onChange={setColumnModal}
-          onClose={() => setColumnModal(null)}
-          onSubmit={handleColumnSubmit}
+      {statusModal && (
+        <StatusEditModal
+          form={statusModal}
+          onChange={setStatusModal}
+          onClose={() => setStatusModal(null)}
+          onSubmit={handleStatusSubmit}
         />
       )}
 
       {itemModal && (
-        <ItemEditModal
+        <BookingEditModal
           form={itemModal}
-          columns={columns}
+          statuses={columns}
           onChange={setItemModal}
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}
         />
       )}
     </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Modals
-// ---------------------------------------------------------------------------
-
-type ColumnEditModalProps = {
-  form: ColumnFormState
-  onChange: (next: ColumnFormState) => void
-  onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
-}
-
-const ColumnEditModal = ({
-  form,
-  onChange,
-  onClose,
-  onSubmit,
-}: ColumnEditModalProps) => {
-  return (
-    <>
-      <div
-        className="appointment-edit-modal-backdrop modal-backdrop fade show"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-      <div
-        className="appointment-edit-modal modal fade show d-block"
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="columnEditTitle"
-      >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <form onSubmit={onSubmit}>
-              <div className="modal-header">
-                <h1 id="columnEditTitle" className="modal-title fs-5">
-                  {form.mode === 'create' ? 'New column' : 'Edit column'}
-                </h1>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label="Close"
-                  onClick={onClose}
-                />
-              </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label htmlFor="column-title" className="form-label">
-                    Title
-                  </label>
-                  <input
-                    id="column-title"
-                    type="text"
-                    className="form-control"
-                    value={form.title}
-                    onChange={(e) =>
-                      onChange({ ...form, title: e.target.value })
-                    }
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="column-description" className="form-label">
-                    Description
-                  </label>
-                  <textarea
-                    id="column-description"
-                    className="form-control"
-                    rows={2}
-                    value={form.description}
-                    onChange={(e) =>
-                      onChange({ ...form, description: e.target.value })
-                    }
-                    placeholder="What does this column represent?"
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label d-block">Color</label>
-                  <div className="kanban-color-swatches" role="radiogroup">
-                    {COLOR_SWATCHES.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        role="radio"
-                        aria-checked={form.color === c}
-                        aria-label={`Color ${c}`}
-                        className={`kanban-color-swatch${
-                          form.color === c ? ' is-selected' : ''
-                        }`}
-                        style={{ backgroundColor: c }}
-                        onClick={() => onChange({ ...form, color: c })}
-                      />
-                    ))}
-                    <input
-                      type="color"
-                      className="kanban-color-input"
-                      value={form.color}
-                      onChange={(e) =>
-                        onChange({ ...form, color: e.target.value })
-                      }
-                      aria-label="Custom color"
-                      title="Custom color"
-                    />
-                  </div>
-                </div>
-                <div className="mb-0">
-                  <label htmlFor="column-wip" className="form-label">
-                    WIP limit{' '}
-                    <span className="text-muted">(optional)</span>
-                  </label>
-                  <input
-                    id="column-wip"
-                    type="number"
-                    min={1}
-                    step={1}
-                    className="form-control"
-                    value={form.wipLimit}
-                    onChange={(e) =>
-                      onChange({ ...form, wipLimit: e.target.value })
-                    }
-                    placeholder="No limit"
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
-type ItemEditModalProps = {
-  form: ItemFormState
-  columns: BookingColumn[]
-  onChange: (next: ItemFormState) => void
-  onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
-}
-
-const ItemEditModal = ({
-  form,
-  columns,
-  onChange,
-  onClose,
-  onSubmit,
-}: ItemEditModalProps) => {
-  return (
-    <>
-      <div
-        className="appointment-edit-modal-backdrop modal-backdrop fade show"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-      <div
-        className="appointment-edit-modal modal fade show d-block"
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="itemEditTitle"
-      >
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <form onSubmit={onSubmit}>
-              <div className="modal-header">
-                <h1 id="itemEditTitle" className="modal-title fs-5">
-                  {form.mode === 'create' ? 'New booking' : 'Edit booking'}
-                </h1>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label="Close"
-                  onClick={onClose}
-                />
-              </div>
-              <div className="modal-body">
-                <div className="mb-3">
-                  <label htmlFor="item-title" className="form-label">
-                    Title
-                  </label>
-                  <input
-                    id="item-title"
-                    type="text"
-                    className="form-control"
-                    value={form.title}
-                    onChange={(e) =>
-                      onChange({ ...form, title: e.target.value })
-                    }
-                    required
-                    autoFocus
-                  />
-                </div>
-                <div className="mb-3">
-                  <label htmlFor="item-notes" className="form-label">
-                    Notes
-                  </label>
-                  <textarea
-                    id="item-notes"
-                    className="form-control"
-                    rows={3}
-                    value={form.notes}
-                    onChange={(e) =>
-                      onChange({ ...form, notes: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="mb-0">
-                  <label htmlFor="item-column" className="form-label">
-                    Column
-                  </label>
-                  <select
-                    id="item-column"
-                    className="form-select"
-                    value={form.columnId}
-                    onChange={(e) =>
-                      onChange({ ...form, columnId: e.target.value })
-                    }
-                  >
-                    {columns.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
   )
 }
 

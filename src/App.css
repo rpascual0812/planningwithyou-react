@@ -1013,11 +1013,13 @@ body,
   pointer-events: none;
 }
 
-.appointment-edit-modal-backdrop {
+.appointment-edit-modal-backdrop,
+.booking-edit-modal-backdrop {
   z-index: 1290;
 }
 
-.appointment-edit-modal.modal {
+.appointment-edit-modal.modal,
+.booking-edit-modal.modal {
   z-index: 1300;
 }
 
