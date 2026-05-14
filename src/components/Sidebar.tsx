@@ -44,6 +44,12 @@ const Sidebar = () => {
               </NavLink>
             </li>
             <li className="nav-item">
+              <NavLink to="/contacts" className={linkClassName}>
+                <i className="nav-icon bi bi-person-lines-fill" />
+                <p>Contacts</p>
+              </NavLink>
+            </li>
+            <li className="nav-item">
               <NavLink to="/users" className={linkClassName}>
                 <i className="nav-icon bi bi-people" />
                 <p>Users</p>

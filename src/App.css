@@ -392,6 +392,7 @@ body,
 
 .user-details-modal.modal {
   z-index: 1210;
+  overflow-y: auto;
 }
 
 .user-details-modal .modal-content {

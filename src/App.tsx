@@ -17,6 +17,7 @@ import SettingsPage from './pages/settings/SettingsPage'
 
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const BookingsPage = lazy(() => import('./pages/BookingsPage'))
+const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
 const EmailsPage = lazy(() => import('./pages/EmailsPage'))
 const FileManagerPage = lazy(() => import('./pages/FileManagerPage'))
@@ -125,6 +126,7 @@ function DashboardLayout() {
     '/': 'Dashboard',
     '/calendar': 'Calendar',
     '/bookings': 'Bookings',
+    '/contacts': 'Contacts',
     '/users': 'Users',
     '/emails': 'Emails',
     '/file-manager': 'File Manager',
@@ -197,6 +199,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/calendar" element={<CalendarRoute />} />
           <Route path="/bookings" element={<BookingsPage />} />
+          <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/emails" element={<EmailsPage />} />
           <Route path="/file-manager" element={<FileManagerPage />} />
