@@ -15,7 +15,7 @@ import {
   updateBookingColumn,
   updateBookingItem,
 } from '../services/bookings'
-import BookingEditModal, { type BookingFormState, type BookingField } from '../components/BookingEditModal'
+import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
 import StatusEditModal, { type StatusFormState } from '../components/StatusEditModal'
 import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
 
@@ -879,6 +879,7 @@ const BookingsPage = () => {
     } catch {
       // silently fail
     }
+    clearBookingDraft(itemModal.templateId, itemModal.id)
     closeItemModal()
   }
 

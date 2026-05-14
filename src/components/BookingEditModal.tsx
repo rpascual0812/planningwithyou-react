@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DragEvent, FormEvent } from 'react'
 import {
   FIELD_TYPE_OPTIONS,
@@ -70,6 +70,45 @@ const EMPTY_OPTION: BookingFieldOption = {
   sort_order: 0,
 }
 
+const DRAFT_KEY_PREFIX = 'bookingDraft:'
+
+type DraftData = Omit<BookingFormState, 'mode' | 'id'>
+
+function draftKey(templateId: number | null, bookingId: number | null): string {
+  const tplPart = templateId != null ? String(templateId) : 'none'
+  const idPart = bookingId != null ? String(bookingId) : 'new'
+  return `${DRAFT_KEY_PREFIX}${tplPart}:${idPart}`
+}
+
+function loadDraft(key: string): DraftData | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as DraftData) : null
+  } catch {
+    return null
+  }
+}
+
+function saveDraft(key: string, form: BookingFormState) {
+  try {
+    const { mode: _, id: __, ...data } = form
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch { /* quota exceeded */ }
+}
+
+function isDraftNonEmpty(data: Partial<BookingFormState>): boolean {
+  if (data.title && data.title.trim()) return true
+  if (data.dateOfEvent && data.dateOfEvent.trim()) return true
+  if (data.timeOfEvent && data.timeOfEvent.trim()) return true
+  if (data.notes && data.notes.trim()) return true
+  if (data.fields && data.fields.length > 0) return true
+  return false
+}
+
+export function clearBookingDraft(templateId: number | null, bookingId: number | null) {
+  localStorage.removeItem(draftKey(templateId, bookingId))
+}
+
 const BookingEditModal = ({
   form,
   statuses,
@@ -80,6 +119,60 @@ const BookingEditModal = ({
 }: BookingEditModalProps) => {
   const [fieldDragOver, setFieldDragOver] = useState<number | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [restoredDraft, setRestoredDraft] = useState(false)
+  const prevTemplateId = useRef(form.templateId)
+  const originalForm = useRef<BookingFormState>(form)
+  const ready = useRef(false)
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (ready.current) return
+    ready.current = true
+    const key = draftKey(form.templateId, form.id)
+    const draft = loadDraft(key)
+    if (draft && isDraftNonEmpty(draft)) {
+      originalForm.current = form
+      onChange({ ...form, ...draft })
+      setRestoredDraft(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Auto-save draft on every form change (debounced to skip initial render)
+  useEffect(() => {
+    if (!ready.current) return
+    if (isDraftNonEmpty(form)) {
+      const key = draftKey(form.templateId, form.id)
+      saveDraft(key, form)
+    }
+  }, [form])
+
+  // When template changes, save old draft, load new draft
+  useEffect(() => {
+    if (prevTemplateId.current === form.templateId) return
+    if (isDraftNonEmpty(form)) {
+      const oldKey = draftKey(prevTemplateId.current, form.id)
+      saveDraft(oldKey, { ...form, templateId: prevTemplateId.current })
+    }
+    prevTemplateId.current = form.templateId
+
+    const newKey = draftKey(form.templateId, form.id)
+    const draft = loadDraft(newKey)
+    if (draft && isDraftNonEmpty(draft)) {
+      onChange({ ...form, ...draft })
+      setRestoredDraft(true)
+    } else {
+      setRestoredDraft(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.templateId])
+
+  const handleReset = () => {
+    const key = draftKey(form.templateId, form.id)
+    localStorage.removeItem(key)
+    setRestoredDraft(false)
+    onChange(originalForm.current)
+  }
 
   const addField = () => {
     onChange({
@@ -320,6 +413,22 @@ const BookingEditModal = ({
                 />
               </div>
               <div className="modal-body">
+                {restoredDraft && (
+                  <div className="alert alert-info py-2 mb-3 d-flex align-items-center" role="status">
+                    <i className="bi bi-save me-2" />
+                    <span className="flex-grow-1">
+                      Your previous draft has been restored. Click Reset to discard it and start fresh.
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-warning ms-2"
+                      onClick={handleReset}
+                    >
+                      <i className="bi bi-arrow-counterclockwise me-1" />
+                      Reset
+                    </button>
+                  </div>
+                )}
                 <div className="row">
                   <div className="col-md-9">
                     <div className="mb-3">
