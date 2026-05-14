@@ -96,8 +96,8 @@ const statusBadge = (status: EmailRecord['status']) => {
 }
 
 export type EmailSenderModalProps = {
-  /** The existing email record (for viewing/resending). */
-  email: EmailRecord
+  /** The existing email record (for viewing/resending). Omit for compose mode. */
+  email?: EmailRecord | null
   /** Error message to display at the top of the modal. */
   error: string | null
   /** Whether the send/resend request is in flight. */
@@ -108,6 +108,57 @@ export type EmailSenderModalProps = {
   onClose: () => void
 }
 
+const EMPTY_FORM: EmailPayload = {
+  to: [],
+  cc: [],
+  bcc: [],
+  email_from: '',
+  subject: '',
+  body_html: '',
+  body_text: '',
+  attachments: [],
+}
+
+const DRAFT_PREFIX = 'emailDraft:'
+
+function draftKey(email?: EmailRecord | null): string {
+  return email ? `${DRAFT_PREFIX}${email.id}` : `${DRAFT_PREFIX}compose`
+}
+
+function loadDraft(key: string): EmailPayload | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as EmailPayload) : null
+  } catch {
+    return null
+  }
+}
+
+function saveDraft(key: string, data: EmailPayload) {
+  try {
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
+function clearDraft(key: string) {
+  localStorage.removeItem(key)
+}
+
+function buildInitialForm(email?: EmailRecord | null): EmailPayload {
+  return email
+    ? {
+        to: email.to,
+        cc: email.cc,
+        bcc: email.bcc,
+        email_from: email.email_from,
+        subject: email.subject,
+        body_html: email.body_html,
+        body_text: email.body_text,
+        attachments: email.attachments,
+      }
+    : { ...EMPTY_FORM }
+}
+
 const EmailSenderModal = ({
   email,
   error,
@@ -115,20 +166,29 @@ const EmailSenderModal = ({
   onSend,
   onClose,
 }: EmailSenderModalProps) => {
-  const [form, setForm] = useState<EmailPayload>({
-    to: email.to,
-    cc: email.cc,
-    bcc: email.bcc,
-    email_from: email.email_from,
-    subject: email.subject,
-    body_html: email.body_html,
-    body_text: email.body_text,
-    attachments: email.attachments,
+  const isCompose = !email
+  const storageKey = draftKey(email)
+
+  const [restoredDraft, setRestoredDraft] = useState(
+    () => !!loadDraft(storageKey),
+  )
+  const [form, setForm] = useState<EmailPayload>(() => {
+    const draft = loadDraft(storageKey)
+    return draft ?? buildInitialForm(email)
   })
+  const [editorKey, setEditorKey] = useState(0)
   const editorRef = useRef<TinyMCEEditor | null>(null)
-  const [showDocs, setShowDocs] = useState(false)
+  const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
 
   const handleDocSelect = (doc: DocumentRecord) => {
+    if (docsMode === 'attach') {
+      const current = form.attachments ?? []
+      if (!current.includes(doc.url)) {
+        setField('attachments', [...current, doc.url])
+      }
+      setDocsMode(null)
+      return
+    }
     const editor = editorRef.current
     if (!editor) return
     if (doc.is_image) {
@@ -140,13 +200,31 @@ const EmailSenderModal = ({
         `<a href="${doc.url}" target="_blank">${doc.original_name}</a>`,
       )
     }
-    setShowDocs(false)
+    setDocsMode(null)
   }
 
   const setField = <K extends keyof EmailPayload>(
     key: K,
     val: EmailPayload[K],
-  ) => setForm((prev) => ({ ...prev, [key]: val }))
+  ) =>
+    setForm((prev) => {
+      const next = { ...prev, [key]: val }
+      saveDraft(storageKey, next)
+      return next
+    })
+
+  const handleReset = () => {
+    clearDraft(storageKey)
+    setRestoredDraft(false)
+    const fresh = buildInitialForm(email)
+    setForm(fresh)
+    setEditorKey((k) => k + 1)
+  }
+
+  const handleSend = (data: EmailPayload) => {
+    clearDraft(storageKey)
+    onSend(data)
+  }
 
   // Escape to close
   useEffect(() => {
@@ -178,8 +256,17 @@ const EmailSenderModal = ({
           <div className="modal-content">
             <div className="modal-header">
               <h1 id="emailSenderTitle" className="modal-title fs-5">
-                Email #{email.id}
-                <span className="ms-2">{statusBadge(email.status)}</span>
+                {isCompose ? (
+                  <>
+                    <i className="bi bi-pencil-square me-2" />
+                    Compose Email
+                  </>
+                ) : (
+                  <>
+                    Email #{email.id}
+                    <span className="ms-2">{statusBadge(email.status)}</span>
+                  </>
+                )}
               </h1>
               <button
                 type="button"
@@ -194,23 +281,23 @@ const EmailSenderModal = ({
                   {error}
                 </div>
               )}
-              {email.error && (
+              {!isCompose && email.error && (
                 <div className="alert alert-warning py-2 mb-3" role="alert">
                   <strong>Last error:</strong> {email.error}
                 </div>
               )}
+              {restoredDraft && (
+                <div className="alert alert-info py-2 mb-3 d-flex align-items-center" role="status">
+                  <i className="bi bi-save me-2" />
+                  <span className="flex-grow-1">
+                    Your previous draft has been restored.
+                    Click <strong>Reset</strong> to discard it and start fresh.
+                  </span>
+                </div>
+              )}
 
               <div className="row g-3 mb-3">
-                <div className="col-md-6">
-                  <label className="form-label">From</label>
-                  <input
-                    type="email"
-                    className="form-control"
-                    value={form.email_from ?? ''}
-                    onChange={(e) => setField('email_from', e.target.value)}
-                  />
-                </div>
-                <div className="col-md-6">
+                <div className="col-12">
                   <EmailListInput
                     label="To"
                     emails={form.to ?? []}
@@ -244,6 +331,7 @@ const EmailSenderModal = ({
               <div>
                 <label className="form-label">Body</label>
                 <Editor
+                  key={editorKey}
                   tinymceScriptSrc="/tinymce/tinymce.min.js"
                   licenseKey="gpl"
                   onInit={(_evt, editor) => {
@@ -272,7 +360,7 @@ const EmailSenderModal = ({
                       editor.ui.registry.addButton('documents', {
                         icon: 'browse',
                         tooltip: 'Insert from Documents',
-                        onAction: () => setShowDocs(true),
+                        onAction: () => setDocsMode('insert'),
                       })
                     },
                     content_style:
@@ -282,43 +370,86 @@ const EmailSenderModal = ({
               </div>
 
               <div className="mt-3">
-                <label className="form-label">
-                  Attachments{' '}
-                  <span className="text-muted small">(one URL per line)</span>
-                </label>
-                <textarea
-                  className="form-control email-body-textarea"
-                  rows={3}
-                  value={(form.attachments ?? []).join('\n')}
-                  onChange={(e) =>
-                    setField(
-                      'attachments',
-                      e.target.value
-                        .split('\n')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    )
-                  }
-                />
-              </div>
-
-              <div className="row g-2 mt-2 text-muted small">
-                <div className="col-auto">
-                  <strong>Attempts:</strong> {email.attempts}
+                <div className="d-flex align-items-center gap-2 mb-2">
+                  <label className="form-label mb-0">Attachments</label>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => setDocsMode('attach')}
+                  >
+                    <i className="bi bi-paperclip me-1" />
+                    Attach
+                  </button>
                 </div>
-                <div className="col-auto">
-                  <strong>Created:</strong>{' '}
-                  {new Date(email.created_at).toLocaleString()}
-                </div>
-                {email.sent_at && (
-                  <div className="col-auto">
-                    <strong>Sent:</strong>{' '}
-                    {new Date(email.sent_at).toLocaleString()}
+                {(form.attachments ?? []).length > 0 ? (
+                  <div className="attachment-list">
+                    {(form.attachments ?? []).map((url, idx) => {
+                      const filename = url.split('/').pop() || url
+                      return (
+                        <div key={idx} className="attachment-item">
+                          <i className="bi bi-file-earmark me-1" />
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="attachment-name"
+                            title={url}
+                          >
+                            {filename}
+                          </a>
+                          <button
+                            type="button"
+                            className="attachment-remove"
+                            onClick={() =>
+                              setField(
+                                'attachments',
+                                (form.attachments ?? []).filter((_, i) => i !== idx),
+                              )
+                            }
+                            aria-label={`Remove ${filename}`}
+                          >
+                            <i className="bi bi-x" />
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
+                ) : (
+                  <div className="text-muted small">No attachments</div>
                 )}
               </div>
+
+              {!isCompose && (
+                <div className="row g-2 mt-2 text-muted small">
+                  <div className="col-auto">
+                    <strong>Attempts:</strong> {email.attempts}
+                  </div>
+                  <div className="col-auto">
+                    <strong>Created:</strong>{' '}
+                    {new Date(email.created_at).toLocaleString()}
+                  </div>
+                  {email.sent_at && (
+                    <div className="col-auto">
+                      <strong>Sent:</strong>{' '}
+                      {new Date(email.sent_at).toLocaleString()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="modal-footer">
+              {restoredDraft && (
+                <button
+                  type="button"
+                  className="btn btn-outline-warning me-auto"
+                  onClick={handleReset}
+                  disabled={sending}
+                  title="Discard draft and reset to original"
+                >
+                  <i className="bi bi-arrow-counterclockwise me-1" />
+                  Reset
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -330,21 +461,26 @@ const EmailSenderModal = ({
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => onSend(form)}
-                disabled={sending}
+                onClick={() => handleSend(form)}
+                disabled={
+                  sending ||
+                  (!(form.to ?? []).length &&
+                    !(form.cc ?? []).length &&
+                    !(form.bcc ?? []).length)
+                }
               >
                 <i className="bi bi-send me-1" />
-                {sending ? 'Sending...' : 'Resend'}
+                {sending ? 'Sending...' : isCompose ? 'Send' : 'Resend'}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {showDocs && (
+      {docsMode && (
         <DocumentsModal
           onSelect={handleDocSelect}
-          onClose={() => setShowDocs(false)}
+          onClose={() => setDocsMode(null)}
         />
       )}
     </>

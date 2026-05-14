@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import EmailSenderModal from '../components/EmailSenderModal'
 import {
   fetchEmails,
+  sendEmail,
   resendEmail,
   type EmailRecord,
   type EmailPayload,
@@ -43,6 +44,9 @@ const EmailsPage = () => {
   const [statusFilter, setStatusFilter] = useState('')
 
   const [selected, setSelected] = useState<EmailRecord | null>(null)
+  const [composing, setComposing] = useState(
+    () => searchParams.get(EDIT_PARAM) === 'compose',
+  )
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState<string | null>(null)
 
@@ -92,7 +96,7 @@ const EmailsPage = () => {
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
     const targetId = searchParams.get(EDIT_PARAM)
-    if (!targetId) return
+    if (!targetId || targetId === 'compose') return
     const email = emails.find((e) => String(e.id) === targetId)
     if (!email) {
       if (!loading) clearEditParam()
@@ -118,21 +122,37 @@ const EmailsPage = () => {
     writeEditParam(email.id)
   }
 
+  const openCompose = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set(EDIT_PARAM, 'compose')
+      return next
+    }, { replace: true })
+    setSelected(null)
+    setResendError(null)
+    setComposing(true)
+  }
+
   const closeModal = () => {
     clearEditParam()
     setSelected(null)
+    setComposing(false)
     setResendError(null)
   }
 
-  const handleResend = async (data: EmailPayload) => {
-    if (!selected) return
+  const handleSend = async (data: EmailPayload) => {
     setResending(true)
     setResendError(null)
     try {
-      await resendEmail(selected.id, data)
+      if (selected) {
+        await resendEmail(selected.id, data)
+      } else {
+        await sendEmail(data)
+      }
+      closeModal()
       await loadEmails(debouncedSearch, statusFilter)
     } catch (e) {
-      setResendError(e instanceof Error ? e.message : 'Resend failed')
+      setResendError(e instanceof Error ? e.message : 'Send failed')
     } finally {
       setResending(false)
     }
@@ -180,6 +200,14 @@ const EmailsPage = () => {
               <span className="emails-search-count">
                 {emails.length} email{emails.length !== 1 && 's'}
               </span>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={openCompose}
+              >
+                <i className="bi bi-pencil-square me-1" />
+                Compose
+              </button>
             </div>
           </div>
 
@@ -260,12 +288,12 @@ const EmailsPage = () => {
         </div>
       </div>
 
-      {selected && (
+      {(selected || composing) && (
         <EmailSenderModal
           email={selected}
           error={resendError}
           sending={resending}
-          onSend={handleResend}
+          onSend={handleSend}
           onClose={closeModal}
         />
       )}

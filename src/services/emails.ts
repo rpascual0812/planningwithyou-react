@@ -52,6 +52,21 @@ export async function fetchEmail(id: number): Promise<EmailRecord> {
   return res.json()
 }
 
+export async function sendEmail(
+  data: EmailPayload,
+): Promise<EmailRecord> {
+  const res = await apiFetch(buildApiUrl('/api/emails/'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(extractError(body) || 'Failed to send email')
+  }
+  return res.json()
+}
+
 export async function resendEmail(
   id: number,
   data: EmailPayload = {},
