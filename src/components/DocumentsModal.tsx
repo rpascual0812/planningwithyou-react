@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type DocumentRecord,
+  type FolderRecord,
   fetchDocuments,
+  fetchFolders,
   uploadDocument,
   deleteDocument,
 } from '../services/documents'
@@ -39,6 +41,8 @@ function formatSize(bytes: number): string {
 
 const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
   const [docs, setDocs] = useState<DocumentRecord[]>([])
+  const [folders, setFolders] = useState<FolderRecord[]>([])
+  const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -46,12 +50,17 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout>>()
+  const folderIdRef = useRef<number | null>(null)
+  folderIdRef.current = selectedFolderId
 
   const load = useCallback(async (q = '') => {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchDocuments(q)
+      const opts: { search?: string; folder?: number } = {}
+      if (q) opts.search = q
+      if (folderIdRef.current) opts.folder = folderIdRef.current
+      const data = await fetchDocuments(opts)
       setDocs(data)
     } catch {
       setError('Failed to load documents')
@@ -61,8 +70,13 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
   }, [])
 
   useEffect(() => {
+    fetchFolders().then(setFolders).catch(() => {})
     load()
   }, [load])
+
+  useEffect(() => {
+    load(search)
+  }, [selectedFolderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -89,7 +103,7 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
     setError(null)
     try {
       for (const file of Array.from(files)) {
-        await uploadDocument(file)
+        await uploadDocument(file, selectedFolderId ?? undefined)
       }
       await load(search)
     } catch (e) {
@@ -144,6 +158,23 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
             </div>
             <div className="modal-body">
               <div className="d-flex gap-2 mb-3">
+                <select
+                  className="form-select"
+                  style={{ maxWidth: '180px' }}
+                  value={selectedFolderId ?? ''}
+                  onChange={(e) =>
+                    setSelectedFolderId(
+                      e.target.value ? Number(e.target.value) : null,
+                    )
+                  }
+                >
+                  <option value="">All Folders</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   className="form-control"
