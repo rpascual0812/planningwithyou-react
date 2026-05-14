@@ -1,22 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { logout } from '../services/auth'
+import { fetchMe, type UserRecord } from '../services/users'
 
 type NavbarProps = {
   onToggleSidebar: () => void
 }
 
-const PROFILE = {
-  name: 'Raffi Doe',
-  email: 'raffi@planning-with-you.app',
-  // Deterministic placeholder portrait; falls back to initials on error.
-  avatar: 'https://i.pravatar.cc/96?u=raffi-doe',
-  initials: 'RD',
+function getInitials(user: UserRecord): string {
+  const first = user.first_name?.[0] ?? ''
+  const last = user.last_name?.[0] ?? ''
+  if (first || last) return `${first}${last}`.toUpperCase()
+  return (user.username?.[0] ?? user.email?.[0] ?? '?').toUpperCase()
+}
+
+function getDisplayName(user: UserRecord): string {
+  const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
+  return full || user.username || user.email
 }
 
 const Navbar = ({ onToggleSidebar }: NavbarProps) => {
-  const [avatarFailed, setAvatarFailed] = useState(false)
+  const [user, setUser] = useState<UserRecord | null>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    fetchMe().then(setUser).catch(() => {})
+  }, [])
 
   return (
     <nav className="app-header navbar navbar-expand bg-body">
@@ -67,26 +76,15 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               aria-expanded="false"
             >
               <span className="nav-profile-avatar">
-                {avatarFailed ? (
-                  <span
-                    className="nav-profile-avatar-fallback"
-                    aria-hidden="true"
-                  >
-                    {PROFILE.initials}
-                  </span>
-                ) : (
-                  <img
-                    src={PROFILE.avatar}
-                    alt={PROFILE.name}
-                    onError={() => setAvatarFailed(true)}
-                    width={32}
-                    height={32}
-                    referrerPolicy="no-referrer"
-                  />
-                )}
+                <span
+                  className="nav-profile-avatar-fallback"
+                  aria-hidden="true"
+                >
+                  {user ? getInitials(user) : '?'}
+                </span>
               </span>
               <span className="nav-profile-name d-none d-md-inline">
-                {PROFILE.name}
+                {user ? getDisplayName(user) : ''}
               </span>
               <i className="bi bi-chevron-down nav-profile-caret" aria-hidden="true" />
             </a>
@@ -96,24 +94,13 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
                   className="nav-profile-avatar nav-profile-avatar--lg"
                   aria-hidden="true"
                 >
-                  {avatarFailed ? (
-                    <span className="nav-profile-avatar-fallback">
-                      {PROFILE.initials}
-                    </span>
-                  ) : (
-                    <img
-                      src={PROFILE.avatar}
-                      alt=""
-                      onError={() => setAvatarFailed(true)}
-                      width={48}
-                      height={48}
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
+                  <span className="nav-profile-avatar-fallback">
+                    {user ? getInitials(user) : '?'}
+                  </span>
                 </span>
                 <div>
-                  <div className="nav-profile-header-name">{PROFILE.name}</div>
-                  <div className="nav-profile-header-email">{PROFILE.email}</div>
+                  <div className="nav-profile-header-name">{user ? getDisplayName(user) : ''}</div>
+                  <div className="nav-profile-header-email">{user?.email ?? ''}</div>
                 </div>
               </div>
               <div className="dropdown-divider" />

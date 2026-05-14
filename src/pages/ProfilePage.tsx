@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react'
+import { fetchMe, updateUser, type UserRecord } from '../services/users'
+
 type SettingsNavItem = {
   id: string
   label: string
@@ -18,7 +21,59 @@ const SETTINGS_NAV: SettingsNavItem[] = [
 const TIME_SPENT = [52, 68, 83, 58, 72, 79, 70]
 const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
+function getInitials(user: UserRecord): string {
+  const first = user.first_name?.[0] ?? ''
+  const last = user.last_name?.[0] ?? ''
+  if (first || last) return `${first}${last}`.toUpperCase()
+  return (user.username?.[0] ?? user.email?.[0] ?? '?').toUpperCase()
+}
+
+function getDisplayName(user: UserRecord): string {
+  const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
+  return full || user.username || user.email
+}
+
 const ProfilePage = () => {
+  const [user, setUser] = useState<UserRecord | null>(null)
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    first_name: '',
+    last_name: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
+
+  useEffect(() => {
+    fetchMe()
+      .then((u) => {
+        setUser(u)
+        setForm({
+          username: u.username,
+          email: u.email,
+          first_name: u.first_name,
+          last_name: u.last_name,
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+    setSaving(true)
+    setMessage(null)
+    try {
+      const updated = await updateUser(user.id, form)
+      setUser(updated)
+      setMessage({ type: 'success', text: 'Profile updated successfully.' })
+    } catch (err) {
+      setMessage({ type: 'danger', text: err instanceof Error ? err.message : 'Save failed' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="app-content">
       <div className="container-fluid">
@@ -92,12 +147,9 @@ const ProfilePage = () => {
 
             <div className="profile-identity">
               <div className="profile-photo-wrap">
-                <img
-                  className="profile-photo"
-                  src="https://i.pravatar.cc/160?u=ninfa-monaldo"
-                  alt="Ninfa Monaldo"
-                  referrerPolicy="no-referrer"
-                />
+                <span className="profile-photo profile-photo-initials">
+                  {user ? getInitials(user) : '?'}
+                </span>
                 <button
                   type="button"
                   className="profile-photo-action"
@@ -107,33 +159,40 @@ const ProfilePage = () => {
                 </button>
               </div>
               <div className="profile-name-row">
-                <h4>Ninfa Monaldo</h4>
-                <i className="bi bi-patch-check-fill" aria-label="Verified" />
+                <h4>{user ? getDisplayName(user) : ''}</h4>
+                {user?.is_active && (
+                  <i className="bi bi-patch-check-fill" aria-label="Verified" />
+                )}
               </div>
-              <p>Web designer &amp; Developer</p>
+              <p>{user?.email ?? ''}</p>
             </div>
 
-            <form className="profile-form">
+            <form className="profile-form" onSubmit={handleSave}>
+              {message && (
+                <div className={`alert alert-${message.type} alert-dismissible`}>
+                  {message.text}
+                  <button type="button" className="btn-close" onClick={() => setMessage(null)} />
+                </div>
+              )}
+
               <section className="profile-form-section">
                 <h5>User Info</h5>
                 <div className="profile-form-grid profile-form-grid--single">
                   <label className="profile-field">
                     <span>Username</span>
-                    <input type="text" defaultValue="Maria C. Eck" />
+                    <input
+                      type="text"
+                      value={form.username}
+                      onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    />
                   </label>
                   <label className="profile-field">
                     <span>Email address</span>
-                    <input type="email" defaultValue="MariaCEck@teleworm.us" />
-                  </label>
-                </div>
-                <div className="profile-form-grid">
-                  <label className="profile-field">
-                    <span>Password</span>
-                    <input type="password" defaultValue="password" />
-                  </label>
-                  <label className="profile-field">
-                    <span>Confirm Password</span>
-                    <input type="password" defaultValue="password" />
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    />
                   </label>
                 </div>
               </section>
@@ -143,28 +202,26 @@ const ProfilePage = () => {
                 <div className="profile-form-grid">
                   <label className="profile-field">
                     <span>First Name</span>
-                    <input type="text" defaultValue="Ninfa" />
+                    <input
+                      type="text"
+                      value={form.first_name}
+                      onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                    />
                   </label>
                   <label className="profile-field">
                     <span>Last Name</span>
-                    <input type="text" defaultValue="Monaldo" />
+                    <input
+                      type="text"
+                      value={form.last_name}
+                      onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                    />
                   </label>
                 </div>
-                <label className="profile-field">
-                  <span>Bio</span>
-                  <textarea
-                    rows={4}
-                    defaultValue="Focused web designer and developer building accessible interfaces for product teams."
-                  />
-                </label>
               </section>
 
               <div className="profile-form-actions">
-                <button type="button" className="btn btn-outline-secondary">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Changes
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

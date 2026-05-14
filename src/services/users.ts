@@ -20,6 +20,14 @@ export type UserPayload = {
   is_staff: boolean
 }
 
+export async function fetchMe(): Promise<UserRecord> {
+  const res = await apiFetch(buildApiUrl('/api/users/me/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load current user')
+  return res.json()
+}
+
 export async function fetchUsers(search = ''): Promise<UserRecord[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : ''
   const res = await apiFetch(buildApiUrl(`/api/users/${qs}`), {

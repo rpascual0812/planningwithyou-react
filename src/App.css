@@ -3237,6 +3237,16 @@ body,
   background: #ffffff;
 }
 
+.profile-photo-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #6c757d;
+  background: #e9ecef;
+}
+
 .profile-photo-action {
   position: absolute;
   right: -2px;
