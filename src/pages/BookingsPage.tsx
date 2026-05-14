@@ -15,11 +15,47 @@ import {
   updateBookingColumn,
   updateBookingItem,
 } from '../services/bookings'
-import BookingEditModal, { type BookingFormState } from '../components/BookingEditModal'
-import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
+import BookingEditModal, { type BookingFormState, type BookingField } from '../components/BookingEditModal'
+import StatusEditModal, { type StatusFormState } from '../components/StatusEditModal'
+import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
 
 type BookingColumn = BookingColumnRecord
 type BookingItem = BookingItemRecord
+
+function fieldValuesToFields(item: BookingItem): BookingField[] {
+  return (item.field_values ?? []).map((fv) => ({
+    label: fv.label,
+    field_type: fv.field_type as BookingField['field_type'],
+    is_required: fv.is_required,
+    options: (fv.options ?? []).map((o) => ({
+      label: o.label,
+      price: o.price,
+      sort_order: o.sort_order,
+    })),
+    price: fv.price,
+    sort_order: fv.sort_order,
+    saved: true,
+    value: fv.value,
+  }))
+}
+
+function fieldsToFieldValues(fields: BookingField[]) {
+  return fields
+    .filter((f) => f.saved)
+    .map((f, idx) => ({
+      label: f.label,
+      field_type: f.field_type,
+      is_required: f.is_required,
+      price: f.price,
+      value: f.value,
+      options: f.options.map((o, oi) => ({
+        label: o.label,
+        price: o.price,
+        sort_order: oi,
+      })),
+      sort_order: idx,
+    }))
+}
 
 type DragState = {
   itemId: number
@@ -192,6 +228,7 @@ function computeDropIndex(
 const BookingsPage = () => {
   const [columns, setColumns] = useState<BookingColumn[]>([])
   const [items, setItems] = useState<BookingItem[]>([])
+  const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState<BookingsView>('board')
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -205,12 +242,14 @@ const BookingsPage = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [cols, itms] = await Promise.all([
+      const [cols, itms, tmpls] = await Promise.all([
         fetchBookingColumns(),
         fetchBookingItems(),
+        fetchFormTemplates(),
       ])
       setColumns(cols)
       setItems(itms)
+      setTemplates(tmpls)
     } catch {
       // silently fail
     } finally {
@@ -759,16 +798,31 @@ const BookingsPage = () => {
       id: null,
       columnId,
       title: '',
+      dateOfEvent: '',
+      timeOfEvent: '',
+      templateId: null,
+      fields: [],
       notes: '',
     })
   }
 
   const openEditItem = (item: BookingItem) => {
+    let dateOfEvent = ''
+    let timeOfEvent = ''
+    if (item.date_of_event) {
+      const d = new Date(item.date_of_event)
+      dateOfEvent = formatYmd(d)
+      timeOfEvent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    }
     setItemModal({
       mode: 'edit',
       id: item.id,
       columnId: item.column,
       title: item.title,
+      dateOfEvent,
+      timeOfEvent,
+      templateId: item.form_template,
+      fields: fieldValuesToFields(item),
       notes: item.notes,
     })
     setSearchParams(
@@ -789,18 +843,32 @@ const BookingsPage = () => {
     const title = itemModal.title.trim() || 'Untitled'
     const notes = itemModal.notes
     const columnId = itemModal.columnId
+    let date_of_event: string | null = null
+    if (itemModal.dateOfEvent) {
+      date_of_event = itemModal.timeOfEvent
+        ? `${itemModal.dateOfEvent}T${itemModal.timeOfEvent}`
+        : `${itemModal.dateOfEvent}T00:00`
+    }
 
     try {
+      const form_template = itemModal.templateId
+      const field_values = fieldsToFieldValues(itemModal.fields)
       if (itemModal.mode === 'create') {
         const created = await createBookingItem({
           column: columnId,
           title,
+          date_of_event,
+          form_template,
+          field_values,
           notes,
         })
         setItems((prev) => [...prev, created])
       } else if (itemModal.id) {
         const updated = await updateBookingItem(itemModal.id, {
           title,
+          date_of_event,
+          form_template,
+          field_values,
           notes,
           column: columnId,
         })
@@ -854,13 +922,26 @@ const BookingsPage = () => {
     ) {
       return
     }
-    setItemModal({
-      mode: 'edit',
-      id: item.id,
-      columnId: item.column,
-      title: item.title,
-      notes: item.notes,
-    })
+    {
+      let dateOfEvent = ''
+      let timeOfEvent = ''
+      if (item.date_of_event) {
+        const d = new Date(item.date_of_event)
+        dateOfEvent = formatYmd(d)
+        timeOfEvent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      }
+      setItemModal({
+        mode: 'edit',
+        id: item.id,
+        columnId: item.column,
+        title: item.title,
+        dateOfEvent,
+        timeOfEvent,
+        templateId: item.form_template,
+        fields: fieldValuesToFields(item),
+        notes: item.notes,
+      })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, items, columns])
 
@@ -1505,6 +1586,7 @@ const BookingsPage = () => {
         <BookingEditModal
           form={itemModal}
           statuses={columns}
+          templates={templates}
           onChange={setItemModal}
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}

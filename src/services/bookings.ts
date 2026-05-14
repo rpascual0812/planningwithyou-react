@@ -13,10 +13,24 @@ export type BookingColumnRecord = {
   updated_at: string
 }
 
+export type BookingFieldValueRecord = {
+  id?: number
+  label: string
+  field_type: string
+  is_required: boolean
+  price: string | null
+  value: string
+  options: { label: string; price: string | null; sort_order: number }[]
+  sort_order: number
+}
+
 export type BookingItemRecord = {
   id: number
   column: number
   title: string
+  date_of_event: string | null
+  form_template: number | null
+  field_values: BookingFieldValueRecord[]
   notes: string
   sort_order: number
   created_at: string
@@ -89,7 +103,7 @@ export async function fetchBookingItems(columnId?: number): Promise<BookingItemR
 }
 
 export async function createBookingItem(
-  data: Pick<BookingItemRecord, 'column' | 'title' | 'notes'>,
+  data: Pick<BookingItemRecord, 'column' | 'title' | 'date_of_event' | 'form_template' | 'field_values' | 'notes'>,
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl('/api/booking-items/'), {
     method: 'POST',
@@ -102,7 +116,7 @@ export async function createBookingItem(
 
 export async function updateBookingItem(
   id: number,
-  data: Partial<Pick<BookingItemRecord, 'column' | 'title' | 'notes' | 'sort_order'>>,
+  data: Partial<Pick<BookingItemRecord, 'column' | 'title' | 'date_of_event' | 'form_template' | 'field_values' | 'notes' | 'sort_order'>>,
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/`), {
     method: 'PATCH',
