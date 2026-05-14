@@ -178,6 +178,7 @@ const EmailSenderModal = ({
   })
   const [editorKey, setEditorKey] = useState(0)
   const editorRef = useRef<TinyMCEEditor | null>(null)
+  const initialHtmlRef = useRef(form.body_html ?? '')
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
 
   const handleDocSelect = (doc: DocumentRecord) => {
@@ -218,6 +219,7 @@ const EmailSenderModal = ({
     setRestoredDraft(false)
     const fresh = buildInitialForm(email)
     setForm(fresh)
+    initialHtmlRef.current = fresh.body_html ?? ''
     setEditorKey((k) => k + 1)
   }
 
@@ -337,10 +339,14 @@ const EmailSenderModal = ({
                   onInit={(_evt, editor) => {
                     editorRef.current = editor
                   }}
-                  initialValue={form.body_html ?? ''}
-                  onEditorChange={(content) =>
-                    setField('body_html', content)
-                  }
+                  initialValue={initialHtmlRef.current}
+                  onEditorChange={(content) => {
+                    setForm((prev) => {
+                      const next = { ...prev, body_html: content }
+                      saveDraft(storageKey, next)
+                      return next
+                    })
+                  }}
                   init={{
                     height: 350,
                     menubar: false,
