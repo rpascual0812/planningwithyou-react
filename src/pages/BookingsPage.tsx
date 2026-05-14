@@ -920,6 +920,7 @@ const BookingsPage = () => {
   // --- Restore edit modal from URL -----------------------------------------
 
   useEffect(() => {
+    if (loading) return
     const targetId = searchParams.get(EDIT_PARAM)
     if (!targetId) {
       return
@@ -961,7 +962,7 @@ const BookingsPage = () => {
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, items, columns])
+  }, [loading, searchParams, items, columns])
 
   // --- Esc / body scroll lock for modals -----------------------------------
 

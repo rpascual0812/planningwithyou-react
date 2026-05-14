@@ -131,29 +131,32 @@ const BookingEditModal = ({
   const [fieldDragOver, setFieldDragOver] = useState<number | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [restoredDraft, setRestoredDraft] = useState(false)
-  const originalForm = useRef<BookingFormState>(form)
-  const ready = useRef(false)
+  const originalFormJson = useRef(JSON.stringify(form))
+  const skipSave = useRef(true)
 
   // Restore draft on mount
   useEffect(() => {
-    if (ready.current) return
-    ready.current = true
+    originalFormJson.current = JSON.stringify(form)
     const key = draftKey(form.templateId, form.id)
     const draft = loadDraft(key)
     if (draft && isDraftNonEmpty(draft)) {
-      originalForm.current = form
       onChange({ ...form, ...draft })
       setRestoredDraft(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-save draft on every form change (debounced to skip initial render)
+  // Auto-save draft on every form change (skip initial render)
   useEffect(() => {
-    if (!ready.current) return
+    if (skipSave.current) {
+      skipSave.current = false
+      return
+    }
+    const key = draftKey(form.templateId, form.id)
     if (isDraftNonEmpty(form)) {
-      const key = draftKey(form.templateId, form.id)
       saveDraft(key, form)
+    } else {
+      localStorage.removeItem(key)
     }
   }, [form])
 
@@ -174,21 +177,6 @@ const BookingEditModal = ({
     }))
 
   const handleTemplateChange = (newTemplateId: number | null) => {
-    // Save current form as draft under the old template key
-    if (isDraftNonEmpty(form)) {
-      const oldKey = draftKey(form.templateId, form.id)
-      saveDraft(oldKey, form)
-    }
-
-    // Check for a draft under the new template
-    const newKey = draftKey(newTemplateId, form.id)
-    const draft = loadDraft(newKey)
-    if (draft && isDraftNonEmpty(draft)) {
-      onChange({ ...form, ...draft, templateId: newTemplateId })
-      setRestoredDraft(true)
-      return
-    }
-
     setRestoredDraft(false)
 
     // Populate fields from the selected template
@@ -208,7 +196,7 @@ const BookingEditModal = ({
     const key = draftKey(form.templateId, form.id)
     localStorage.removeItem(key)
     setRestoredDraft(false)
-    onChange(originalForm.current)
+    onChange(JSON.parse(originalFormJson.current) as BookingFormState)
   }
 
   const addField = () => {
