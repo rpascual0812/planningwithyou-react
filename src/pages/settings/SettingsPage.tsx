@@ -1,27 +1,52 @@
-import { useState } from 'react'
+import { useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AccountSettingsPage from './AccountSettingsPage'
 import BookingsSettingsPage from './BookingsSettingsPage'
 import CalendarSettingsPage from './CalendarSettingsPage'
 import CompaniesSettingsPage from './CompaniesSettingsPage'
-import FormDesignsSettingsPage from './FormDesignsSettingsPage'
+import EmailTemplatesSettingsPage from './EmailTemplatesSettingsPage'
 import IntegrationsSettingsPage from './IntegrationsSettingsPage'
 import RolesPermissionsSettingsPage from './RolesPermissionsSettingsPage'
 import SubscriptionSettingsPage from './SubscriptionSettingsPage'
 import type { SettingsNavItem, SettingsSection } from './types'
 
+const TAB_PARAM = 'tab'
+const VALID_TABS = new Set<SettingsSection>([
+  'account', 'companies', 'calendar', 'bookings',
+  'email-templates', 'permissions', 'connection', 'subscription',
+])
+
 const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'account', label: 'Account', icon: 'bi-person-vcard' },
   { id: 'companies', label: 'Companies', icon: 'bi-building' },
-  { id: 'form-designs', label: 'Form Designs', icon: 'bi-ui-checks-grid' },
   { id: 'calendar', label: 'Calendar', icon: 'bi-calendar3' },
   { id: 'bookings', label: 'Bookings', icon: 'bi-bookmark-check' },
+  { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock' },
   { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
   { id: 'subscription', label: 'Subscription', icon: 'bi-credit-card' },
 ]
 
 const SettingsPage = () => {
-  const [activeNav, setActiveNav] = useState<SettingsSection>('account')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const rawTab = searchParams.get(TAB_PARAM)
+  const activeNav: SettingsSection =
+    rawTab && VALID_TABS.has(rawTab as SettingsSection)
+      ? (rawTab as SettingsSection)
+      : 'account'
+
+  const setActiveNav = useCallback(
+    (id: SettingsSection) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (id === 'account') next.delete(TAB_PARAM)
+        else next.set(TAB_PARAM, id)
+        return next
+      }, { replace: true })
+    },
+    [setSearchParams],
+  )
+
   const activeLabel =
     NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? 'Settings'
 
@@ -70,8 +95,8 @@ const ActiveSettingsPage = ({ activeNav }: ActiveSettingsPageProps) => {
       return <AccountSettingsPage />
     case 'companies':
       return <CompaniesSettingsPage />
-    case 'form-designs':
-      return <FormDesignsSettingsPage />
+    case 'email-templates':
+      return <EmailTemplatesSettingsPage />
     case 'calendar':
       return <CalendarSettingsPage />
     case 'bookings':
