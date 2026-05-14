@@ -1,8 +1,15 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 
-// Accepts any RFC 4122 UUID (any version). The reset-password email link
-// embeds this token; we treat malformed tokens as invalid and redirect home.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+function buildApiUrl(path: string): string {
+  if (/^https?:\/\//i.test(path)) return path
+  const base = (API_BASE_URL ?? '').replace(/\/+$/, '')
+  const suffix = path.startsWith('/') ? path : `/${path}`
+  return base ? `${base}${suffix}` : suffix
+}
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -18,12 +25,13 @@ const ResetPasswordConfirmPage = () => {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   if (!isValidToken) {
     return <Navigate to="/reset-password" replace />
   }
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (password.length < 8) {
       setError('Password must be at least 8 characters.')
@@ -33,10 +41,34 @@ const ResetPasswordConfirmPage = () => {
       setError('Passwords do not match.')
       return
     }
+
     setError(null)
-    setSuccess(true)
-    // In a real app this would call an API with `token` + new password.
-    setTimeout(() => navigate('/login', { replace: true }), 1500)
+    setSubmitting(true)
+
+    try {
+      const res = await fetch(buildApiUrl('/api/reset-password/confirm/'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ token, password }),
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const detail =
+          body?.token?.[0] || body?.password?.[0] || body?.detail || 'Something went wrong.'
+        throw new Error(typeof detail === 'string' ? detail : 'Something went wrong.')
+      }
+
+      setSuccess(true)
+      setTimeout(() => navigate('/login', { replace: true }), 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -63,11 +95,11 @@ const ResetPasswordConfirmPage = () => {
 
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
-          <img 
-                src="/src/assets/images/logo.png"
-                alt="Planning With You"
-                width="84"
-              />
+          <img
+            src="/src/assets/images/logo.png"
+            alt="Planning With You"
+            width="84"
+          />
         </div>
 
         <div className="auth-card">
@@ -75,10 +107,6 @@ const ResetPasswordConfirmPage = () => {
           <p className="auth-subtitle">
             Choose a strong password you haven't used before. You'll be signed
             out from other devices after the change.
-          </p>
-
-          <p className="auth-token" aria-label="Reset token">
-            Reset token: <code>{token}</code>
           </p>
 
           <form className="auth-form" onSubmit={handleSubmit}>
@@ -94,6 +122,7 @@ const ResetPasswordConfirmPage = () => {
                 autoComplete="new-password"
                 minLength={8}
                 required
+                disabled={submitting || success}
               />
               <small className="auth-hint">
                 Minimum 8 characters. Use letters, numbers, and symbols.
@@ -112,6 +141,7 @@ const ResetPasswordConfirmPage = () => {
                 autoComplete="new-password"
                 minLength={8}
                 required
+                disabled={submitting || success}
               />
             </label>
 
@@ -121,13 +151,17 @@ const ResetPasswordConfirmPage = () => {
               </p>
             )}
             {success && (
-              <p className="auth-error" role="status">
+              <p className="auth-success" role="status">
                 Password updated. Redirecting to login…
               </p>
             )}
 
-            <button type="submit" className="auth-button" disabled={success}>
-              Update Password
+            <button
+              type="submit"
+              className="auth-button"
+              disabled={submitting || success}
+            >
+              {submitting ? 'Updating...' : 'Update Password'}
             </button>
           </form>
 

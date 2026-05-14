@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   fetchUsers,
   createUser,
@@ -7,6 +8,8 @@ import {
   type UserRecord,
   type UserPayload,
 } from '../services/users'
+
+const EDIT_PARAM = 'edit'
 
 const AVATAR_COLORS = [
   '#9c6cd0', '#6b7785', '#52b585', '#5a8edb',
@@ -37,10 +40,10 @@ const EMPTY_FORM: UserPayload = {
   last_name: '',
   is_active: true,
   is_staff: false,
-  password: '',
 }
 
 const UsersPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -59,6 +62,22 @@ const UsersPage = () => {
   const [deleting, setDeleting] = useState(false)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const writeEditParam = (id: number) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set(EDIT_PARAM, String(id))
+      return next
+    }, { replace: true })
+  }
+
+  const clearEditParam = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.delete(EDIT_PARAM)
+      return next
+    }, { replace: true })
+  }
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -85,8 +104,44 @@ const UsersPage = () => {
     loadUsers(debouncedSearch)
   }, [debouncedSearch, loadUsers])
 
+  // Keep modal in sync with URL param and refreshed data
+  useEffect(() => {
+    const targetId = searchParams.get(EDIT_PARAM)
+    if (!targetId) return
+    const user = users.find((u) => String(u.id) === targetId)
+    if (!user) {
+      if (!loading) clearEditParam()
+      return
+    }
+    if (
+      editingUser &&
+      editingUser.id === user.id &&
+      editingUser.username === user.username &&
+      editingUser.email === user.email &&
+      editingUser.first_name === user.first_name &&
+      editingUser.last_name === user.last_name &&
+      editingUser.is_active === user.is_active &&
+      editingUser.is_staff === user.is_staff
+    ) {
+      return
+    }
+    setEditingUser(user)
+    setForm({
+      username: user.username,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      is_active: user.is_active,
+      is_staff: user.is_staff,
+    })
+    setFormError(null)
+    setModalOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, users, loading])
+
   // Add / Edit modal helpers
   const openAdd = () => {
+    clearEditParam()
     setEditingUser(null)
     setForm(EMPTY_FORM)
     setFormError(null)
@@ -94,21 +149,11 @@ const UsersPage = () => {
   }
 
   const openEdit = (u: UserRecord) => {
-    setEditingUser(u)
-    setForm({
-      username: u.username,
-      email: u.email,
-      first_name: u.first_name,
-      last_name: u.last_name,
-      is_active: u.is_active,
-      is_staff: u.is_staff,
-      password: '',
-    })
-    setFormError(null)
-    setModalOpen(true)
+    writeEditParam(u.id)
   }
 
   const closeModal = () => {
+    clearEditParam()
     setModalOpen(false)
     setEditingUser(null)
     setFormError(null)
@@ -119,19 +164,13 @@ const UsersPage = () => {
     setSaving(true)
     try {
       if (editingUser) {
-        const payload: Partial<UserPayload> = { ...form }
-        if (!payload.password) delete payload.password
-        await updateUser(editingUser.id, payload)
+        await updateUser(editingUser.id, form)
+        await loadUsers(debouncedSearch)
       } else {
-        if (!form.password) {
-          setFormError('Password is required for new users.')
-          setSaving(false)
-          return
-        }
-        await createUser(form)
+        const created = await createUser(form)
+        await loadUsers(debouncedSearch)
+        writeEditParam(created.id)
       }
-      closeModal()
-      await loadUsers(debouncedSearch)
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Save failed')
     } finally {
@@ -401,6 +440,12 @@ const UserFormModal = ({
                     {error}
                   </div>
                 )}
+                {!editing && (
+                  <div className="alert alert-info py-2 mb-3" role="status">
+                    <i className="bi bi-envelope me-1" />
+                    A password-setup email will be sent to the user.
+                  </div>
+                )}
                 <div className="row g-3">
                   <div className="col-sm-6">
                     <label className="form-label">First Name</label>
@@ -435,19 +480,6 @@ const UserFormModal = ({
                       value={form.email}
                       onChange={(e) => setField('email', e.target.value)}
                       required
-                    />
-                  </div>
-                  <div className="col-12">
-                    <label className="form-label">
-                      Password{editing ? ' (leave blank to keep current)' : ' *'}
-                    </label>
-                    <input
-                      type="password"
-                      className="form-control"
-                      value={form.password ?? ''}
-                      onChange={(e) => setField('password', e.target.value)}
-                      {...(!editing && { required: true, minLength: 8 })}
-                      autoComplete="new-password"
                     />
                   </div>
                   <div className="col-sm-6">

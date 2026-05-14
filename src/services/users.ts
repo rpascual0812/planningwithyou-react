@@ -1,25 +1,4 @@
-import { getAccessToken } from './auth'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-
-function buildApiUrl(path: string): string {
-  if (/^https?:\/\//i.test(path)) return path
-  const base = (API_BASE_URL ?? '').replace(/\/+$/, '')
-  const suffix = path.startsWith('/') ? path : `/${path}`
-  return base ? `${base}${suffix}` : suffix
-}
-
-function authHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Accept: 'application/json',
-  }
-  const token = getAccessToken()
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-  return headers
-}
+import { apiFetch, authHeaders, buildApiUrl } from './api'
 
 export type UserRecord = {
   id: number
@@ -39,12 +18,11 @@ export type UserPayload = {
   last_name: string
   is_active: boolean
   is_staff: boolean
-  password?: string
 }
 
 export async function fetchUsers(search = ''): Promise<UserRecord[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : ''
-  const res = await fetch(buildApiUrl(`/api/users/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/api/users/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load users')
@@ -52,7 +30,7 @@ export async function fetchUsers(search = ''): Promise<UserRecord[]> {
 }
 
 export async function createUser(data: UserPayload): Promise<UserRecord> {
-  const res = await fetch(buildApiUrl('/api/users/'), {
+  const res = await apiFetch(buildApiUrl('/api/users/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -68,7 +46,7 @@ export async function updateUser(
   id: number,
   data: Partial<UserPayload>,
 ): Promise<UserRecord> {
-  const res = await fetch(buildApiUrl(`/api/users/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/api/users/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -81,7 +59,7 @@ export async function updateUser(
 }
 
 export async function deleteUser(id: number): Promise<void> {
-  const res = await fetch(buildApiUrl(`/api/users/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/api/users/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

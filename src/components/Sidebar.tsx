@@ -50,6 +50,12 @@ const Sidebar = () => {
               </NavLink>
             </li>
             <li className="nav-item">
+              <NavLink to="/emails" className={linkClassName}>
+                <i className="nav-icon bi bi-envelope" />
+                <p>Emails</p>
+              </NavLink>
+            </li>
+            <li className="nav-item">
               <NavLink to="/file-manager" className={linkClassName}>
                 <i className="nav-icon bi bi-folder2-open" />
                 <p>File Manager</p>
