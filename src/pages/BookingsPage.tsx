@@ -793,6 +793,23 @@ const BookingsPage = () => {
   }
 
   const openCreateItem = (columnId: number) => {
+    const defaultTpl = templates.find((t) => t.is_default)
+    const fields: BookingField[] = defaultTpl
+      ? defaultTpl.fields.map((f, idx) => ({
+          label: f.label,
+          field_type: f.field_type as BookingField['field_type'],
+          is_required: f.is_required,
+          options: f.options.map((o) => ({
+            label: o.label,
+            price: o.price,
+            sort_order: o.sort_order,
+          })),
+          price: f.price,
+          sort_order: idx,
+          saved: true,
+          value: '',
+        }))
+      : []
     setItemModal({
       mode: 'create',
       id: null,
@@ -800,8 +817,8 @@ const BookingsPage = () => {
       title: '',
       dateOfEvent: '',
       timeOfEvent: '',
-      templateId: null,
-      fields: [],
+      templateId: defaultTpl?.id ?? null,
+      fields,
       notes: '',
     })
   }

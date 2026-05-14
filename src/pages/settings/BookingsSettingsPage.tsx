@@ -40,6 +40,7 @@ const EMPTY_FORM: FormTemplatePayload = {
   name: '',
   description: '',
   is_active: true,
+  is_default: false,
   fields: [],
 }
 
@@ -79,6 +80,7 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
     name: r.name,
     description: r.description,
     is_active: r.is_active,
+    is_default: r.is_default,
     fields: r.fields.map((f) => ({
       label: f.label,
       field_type: f.field_type,
@@ -308,6 +310,9 @@ const FormTemplatesPanel = () => {
                 <span className="text-muted ms-2 small">
                   {t.fields.length} field{t.fields.length !== 1 && 's'}
                 </span>
+                {t.is_default && (
+                  <span className="badge bg-primary ms-2">Default</span>
+                )}
                 {!t.is_active && (
                   <span className="badge bg-secondary ms-2">Inactive</span>
                 )}
@@ -675,7 +680,7 @@ const TemplateFormModal = ({
                     onChange={(e) => setField('name', e.target.value)}
                   />
                 </div>
-                <div className="col-sm-4 d-flex align-items-end">
+                <div className="col-sm-4 d-flex align-items-end gap-3">
                   <div className="form-check">
                     <input
                       className="form-check-input"
@@ -686,6 +691,19 @@ const TemplateFormModal = ({
                     />
                     <label className="form-check-label" htmlFor="tplActive">
                       Active
+                    </label>
+                  </div>
+                  <div className="form-check form-switch">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      id="tplDefault"
+                      checked={form.is_default}
+                      onChange={(e) => setField('is_default', e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="tplDefault">
+                      Default
                     </label>
                   </div>
                 </div>

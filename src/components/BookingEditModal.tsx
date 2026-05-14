@@ -39,9 +39,20 @@ export type BookingStatus = {
   title: string
 }
 
+export type BookingTemplateField = {
+  label: string
+  field_type: FieldType
+  is_required: boolean
+  options: { label: string; price: string | null; sort_order: number }[]
+  price: string | null
+  sort_order: number
+}
+
 export type BookingTemplate = {
   id: number
   name: string
+  is_default: boolean
+  fields: BookingTemplateField[]
 }
 
 type BookingEditModalProps = {
@@ -120,7 +131,6 @@ const BookingEditModal = ({
   const [fieldDragOver, setFieldDragOver] = useState<number | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [restoredDraft, setRestoredDraft] = useState(false)
-  const prevTemplateId = useRef(form.templateId)
   const originalForm = useRef<BookingFormState>(form)
   const ready = useRef(false)
 
@@ -147,25 +157,52 @@ const BookingEditModal = ({
     }
   }, [form])
 
-  // When template changes, save old draft, load new draft
-  useEffect(() => {
-    if (prevTemplateId.current === form.templateId) return
-    if (isDraftNonEmpty(form)) {
-      const oldKey = draftKey(prevTemplateId.current, form.id)
-      saveDraft(oldKey, { ...form, templateId: prevTemplateId.current })
-    }
-    prevTemplateId.current = form.templateId
+  const templateFieldsToBookingFields = (tpl: BookingTemplate): BookingField[] =>
+    tpl.fields.map((f, idx) => ({
+      label: f.label,
+      field_type: f.field_type,
+      is_required: f.is_required,
+      options: f.options.map((o) => ({
+        label: o.label,
+        price: o.price,
+        sort_order: o.sort_order,
+      })),
+      price: f.price,
+      sort_order: idx,
+      saved: true,
+      value: '',
+    }))
 
-    const newKey = draftKey(form.templateId, form.id)
+  const handleTemplateChange = (newTemplateId: number | null) => {
+    // Save current form as draft under the old template key
+    if (isDraftNonEmpty(form)) {
+      const oldKey = draftKey(form.templateId, form.id)
+      saveDraft(oldKey, form)
+    }
+
+    // Check for a draft under the new template
+    const newKey = draftKey(newTemplateId, form.id)
     const draft = loadDraft(newKey)
     if (draft && isDraftNonEmpty(draft)) {
-      onChange({ ...form, ...draft })
+      onChange({ ...form, ...draft, templateId: newTemplateId })
       setRestoredDraft(true)
-    } else {
-      setRestoredDraft(false)
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.templateId])
+
+    setRestoredDraft(false)
+
+    // Populate fields from the selected template
+    if (newTemplateId != null) {
+      const tpl = templates.find((t) => t.id === newTemplateId)
+      if (tpl && tpl.fields.length > 0) {
+        onChange({ ...form, templateId: newTemplateId, fields: templateFieldsToBookingFields(tpl) })
+        return
+      }
+    }
+
+    // No template or template has no fields — clear fields
+    onChange({ ...form, templateId: newTemplateId, fields: [] })
+  }
 
   const handleReset = () => {
     const key = draftKey(form.templateId, form.id)
@@ -400,7 +437,7 @@ const BookingEditModal = ({
       >
         <div className="modal-dialog modal-dialog-centered modal-xl">
           <div className="modal-content">
-            <form onSubmit={onSubmit}>
+            <form onSubmit={onSubmit} noValidate>
               <div className="modal-header">
                 <h1 id="bookingEditTitle" className="modal-title fs-5">
                   {form.mode === 'create' ? 'New booking' : 'Edit booking'}
@@ -685,10 +722,7 @@ const BookingEditModal = ({
                         className="form-select"
                         value={form.templateId ?? ''}
                         onChange={(e) =>
-                          onChange({
-                            ...form,
-                            templateId: e.target.value ? Number(e.target.value) : null,
-                          })
+                          handleTemplateChange(e.target.value ? Number(e.target.value) : null)
                         }
                       >
                         <option value="">None</option>

@@ -43,6 +43,7 @@ export type FormTemplateRecord = {
   name: string
   description: string
   is_active: boolean
+  is_default: boolean
   fields: TemplateField[]
   created_at: string
   updated_at: string
@@ -52,6 +53,7 @@ export type FormTemplatePayload = {
   name: string
   description: string
   is_active: boolean
+  is_default: boolean
   fields: Omit<TemplateField, 'id'>[]
 }
 
