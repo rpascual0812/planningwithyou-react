@@ -4,6 +4,10 @@ import type { Editor as TinyMCEEditor } from 'tinymce'
 import type { EmailRecord, EmailPayload } from '../services/emails'
 import DocumentsModal from './DocumentsModal'
 import type { DocumentRecord } from '../services/documents'
+import {
+  registerEmailMergeVariablesToolbar,
+  SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
+} from '../lib/tinymceEmailMergeVariables'
 
 /* ------------------------------------------------------------------ */
 /*  Inline email-list input (input + add button + tag list)            */
@@ -179,6 +183,7 @@ const EmailSenderModal = ({
   const [editorKey, setEditorKey] = useState(0)
   const editorRef = useRef<TinyMCEEditor | null>(null)
   const initialHtmlRef = useRef(form.body_html ?? '')
+  const initialSubjectRef = useRef(form.subject ?? '')
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
 
   const handleDocSelect = (doc: DocumentRecord) => {
@@ -220,6 +225,7 @@ const EmailSenderModal = ({
     const fresh = buildInitialForm(email)
     setForm(fresh)
     initialHtmlRef.current = fresh.body_html ?? ''
+    initialSubjectRef.current = fresh.subject ?? ''
     setEditorKey((k) => k + 1)
   }
 
@@ -322,11 +328,22 @@ const EmailSenderModal = ({
                 </div>
                 <div className="col-12">
                   <label className="form-label">Subject</label>
-                  <input
-                    className="form-control"
-                    value={form.subject ?? ''}
-                    onChange={(e) => setField('subject', e.target.value)}
-                  />
+                  <div className="email-subject-editor">
+                    <Editor
+                      key={`subject-${editorKey}`}
+                      tinymceScriptSrc="/tinymce/tinymce.min.js"
+                      licenseKey="gpl"
+                      initialValue={initialSubjectRef.current}
+                      onEditorChange={(_html, ed) => {
+                        const text = ed
+                          .getContent({ format: 'text' })
+                          .replace(/\s+/g, ' ')
+                          .trim()
+                        setField('subject', text)
+                      }}
+                      init={SUBJECT_VARIABLES_ONLY_EDITOR_INIT}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -350,6 +367,7 @@ const EmailSenderModal = ({
                   init={{
                     height: 350,
                     menubar: false,
+                    toolbar_mode: 'wrap',
                     plugins: [
                       'advlist', 'autolink', 'lists', 'link', 'image',
                       'charmap', 'preview', 'anchor', 'searchreplace',
@@ -361,13 +379,14 @@ const EmailSenderModal = ({
                       'undo redo | blocks | bold italic forecolor | ' +
                       'alignleft aligncenter alignright alignjustify | ' +
                       'bullist numlist outdent indent | link image table | ' +
-                      'documents | removeformat code | help',
+                      'documents emailmergevars | removeformat code | help',
                     setup: (editor) => {
                       editor.ui.registry.addButton('documents', {
                         icon: 'browse',
                         tooltip: 'Insert from Documents',
                         onAction: () => setDocsMode('insert'),
                       })
+                      registerEmailMergeVariablesToolbar(editor)
                     },
                     content_style:
                       'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; }',
