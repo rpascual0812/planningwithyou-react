@@ -5,6 +5,8 @@ import {
   type FieldType,
 } from '../services/formTemplates'
 import { storedValueToTimeInput, timeInputToStored } from '../lib/timeInput'
+import { parseSupplierFieldValue } from '../lib/supplierFieldValue'
+import SupplierFieldInput from './SupplierFieldInput'
 
 export type BookingFieldOption = {
   label: string
@@ -284,6 +286,10 @@ const BookingEditModal = ({
     const field = form.fields[idx]
     if (!field.label.trim()) return
     if (field.field_type === 'select' && field.options.filter((o) => o.label.trim()).length < 1) return
+    if (field.field_type === 'supplier') {
+      const { tier_id, supplier_id } = parseSupplierFieldValue(field.value)
+      if (field.is_required && (tier_id == null || supplier_id == null)) return
+    }
     updateField(idx, { saved: true })
   }
 
@@ -417,6 +423,13 @@ const BookingEditModal = ({
               </option>
             ))}
           </select>
+        )}
+        {field.field_type === 'supplier' && (
+          <SupplierFieldInput
+            value={field.value}
+            onChange={(value) => updateField(idx, { value })}
+            required={field.is_required}
+          />
         )}
       </div>
     )
@@ -566,7 +579,7 @@ const BookingEditModal = ({
                                 ))}
                               </select>
                             </div>
-                            {field.field_type !== 'select' && (
+                            {field.field_type !== 'select' && field.field_type !== 'supplier' && (
                               <div className="col-sm-3">
                                 <label className="form-label">Price</label>
                                 <input
@@ -584,7 +597,13 @@ const BookingEditModal = ({
                                 />
                               </div>
                             )}
-                            <div className={`${field.field_type === 'select' ? 'col-sm-5' : 'col-sm-2'} d-flex align-items-end`}>
+                            <div
+                              className={`${
+                                field.field_type === 'select' || field.field_type === 'supplier'
+                                  ? 'col-sm-5'
+                                  : 'col-sm-2'
+                              } d-flex align-items-end`}
+                            >
                               <div className="form-check">
                                 <input
                                   className="form-check-input"

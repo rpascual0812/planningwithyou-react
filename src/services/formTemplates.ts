@@ -10,6 +10,7 @@ export type FieldType =
   | 'checkbox'
   | 'email'
   | 'phone'
+  | 'supplier'
 
 export const FIELD_TYPE_OPTIONS: { value: FieldType; label: string }[] = [
   { value: 'text', label: 'Text' },
@@ -21,6 +22,7 @@ export const FIELD_TYPE_OPTIONS: { value: FieldType; label: string }[] = [
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Phone' },
+  { value: 'supplier', label: 'Supplier' },
 ]
 
 export type FieldOption = {

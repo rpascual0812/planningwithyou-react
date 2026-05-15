@@ -7,6 +7,7 @@ export type AccountRecord = {
   is_active: boolean
   discount: string | null
   price_adjustment: string | null
+  price: string | null
   supplier_type: number
   supplier_type_name: string
   created_at: string
@@ -19,6 +20,7 @@ export type AccountPayload = {
   is_active?: boolean
   discount?: string | null
   price_adjustment?: string | null
+  price?: string | null
   supplier_type?: number
 }
 

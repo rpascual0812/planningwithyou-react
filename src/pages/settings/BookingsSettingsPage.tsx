@@ -790,7 +790,7 @@ const TemplateFormModal = ({
                         ))}
                       </select>
                     </div>
-                    {field.field_type !== 'select' && (
+                    {field.field_type !== 'select' && field.field_type !== 'supplier' && (
                       <div className="col-sm-3">
                         <label className="form-label">Price</label>
                         <input
@@ -808,7 +808,13 @@ const TemplateFormModal = ({
                         />
                       </div>
                     )}
-                    <div className={`${field.field_type === 'select' ? 'col-sm-5' : 'col-sm-2'} d-flex align-items-end`}>
+                    <div
+                      className={`${
+                        field.field_type === 'select' || field.field_type === 'supplier'
+                          ? 'col-sm-5'
+                          : 'col-sm-2'
+                      } d-flex align-items-end`}
+                    >
                       <div className="form-check">
                         <input
                           className="form-check-input"
@@ -825,6 +831,13 @@ const TemplateFormModal = ({
                       </div>
                     </div>
                   </div>
+
+                  {field.field_type === 'supplier' && (
+                    <p className="text-muted small mt-2 mb-0">
+                      On the booking form, users pick a tier first, then a supplier linked
+                      to that tier via supplier settings.
+                    </p>
+                  )}
 
                   {/* Options (for dropdown fields) */}
                   {field.field_type === 'select' && (

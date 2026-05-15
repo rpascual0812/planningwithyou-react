@@ -42,6 +42,7 @@ const SupplierSettingsPage = () => {
   const [editName, setEditName] = useState('')
   const [editDiscount, setEditDiscount] = useState('')
   const [editPriceAdjustment, setEditPriceAdjustment] = useState('')
+  const [editPrice, setEditPrice] = useState('')
   const [saving, setSaving] = useState(false)
 
   const loadTypes = useCallback(async () => {
@@ -135,6 +136,7 @@ const SupplierSettingsPage = () => {
     setEditName(row.name)
     setEditDiscount(row.discount ?? '')
     setEditPriceAdjustment(row.price_adjustment ?? '')
+    setEditPrice(row.price ?? '')
   }
 
   const closeEdit = () => {
@@ -150,6 +152,7 @@ const SupplierSettingsPage = () => {
         discount: editDiscount.trim() === '' ? null : editDiscount.trim(),
         price_adjustment:
           editPriceAdjustment.trim() === '' ? null : editPriceAdjustment.trim(),
+        price: editPrice.trim() === '' ? null : editPrice.trim(),
       })
       closeEdit()
       await loadAccounts()
@@ -266,6 +269,7 @@ const SupplierSettingsPage = () => {
                   <th>Name</th>
                   <th>Discount</th>
                   <th>Price Adjustment</th>
+                  <th>Price</th>
                   <th className="users-th-actions">Action</th>
                 </tr>
               </thead>
@@ -288,6 +292,7 @@ const SupplierSettingsPage = () => {
                     <td className="users-table-name">{row.name}</td>
                     <td>{formatMoney(row.discount)}</td>
                     <td>{formatMoney(row.price_adjustment)}</td>
+                    <td>{formatMoney(row.price)}</td>
                     <td>
                       <div className="users-actions">
                         <button
@@ -392,6 +397,17 @@ const SupplierSettingsPage = () => {
                       className="form-control"
                       value={editPriceAdjustment}
                       onChange={(e) => setEditPriceAdjustment(e.target.value)}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="edit-account-price">Price</label>
+                    <input
+                      id="edit-account-price"
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
                     />
                   </div>
 
