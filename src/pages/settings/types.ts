@@ -1,6 +1,7 @@
 export type SettingsSection =
   | 'account'
   | 'companies'
+  | 'suppliers'
   | 'email-templates'
   | 'calendar'
   | 'bookings'

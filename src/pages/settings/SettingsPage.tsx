@@ -8,17 +8,19 @@ import EmailTemplatesSettingsPage from './EmailTemplatesSettingsPage'
 import IntegrationsSettingsPage from './IntegrationsSettingsPage'
 import RolesPermissionsSettingsPage from './RolesPermissionsSettingsPage'
 import SubscriptionSettingsPage from './SubscriptionSettingsPage'
+import SupplierSettingsPage from './SupplierSettingsPage'
 import type { SettingsNavItem, SettingsSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<SettingsSection>([
-  'account', 'companies', 'calendar', 'bookings',
+  'account', 'companies', 'suppliers', 'calendar', 'bookings',
   'email-templates', 'permissions', 'connection', 'subscription',
 ])
 
 const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'account', label: 'Account', icon: 'bi-person-vcard' },
   { id: 'companies', label: 'Companies', icon: 'bi-building' },
+  { id: 'suppliers', label: 'Suppliers', icon: 'bi-truck' },
   { id: 'calendar', label: 'Calendar', icon: 'bi-calendar3' },
   { id: 'bookings', label: 'Bookings', icon: 'bi-bookmark-check' },
   { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper' },
@@ -95,6 +97,8 @@ const ActiveSettingsPage = ({ activeNav }: ActiveSettingsPageProps) => {
       return <AccountSettingsPage />
     case 'companies':
       return <CompaniesSettingsPage />
+    case 'suppliers':
+      return <SupplierSettingsPage />
     case 'email-templates':
       return <EmailTemplatesSettingsPage />
     case 'calendar':
