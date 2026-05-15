@@ -40,7 +40,6 @@ const EMPTY_FORM: UserPayload = {
   last_name: '',
   is_active: true,
   is_admin: false,
-  account: null,
 }
 
 const UsersPage = () => {
@@ -122,8 +121,7 @@ const UsersPage = () => {
       editingUser.first_name === user.first_name &&
       editingUser.last_name === user.last_name &&
       editingUser.is_active === user.is_active &&
-      editingUser.is_admin === user.is_admin &&
-      editingUser.account === user.account
+      editingUser.is_admin === user.is_admin
     ) {
       return
     }
@@ -135,7 +133,6 @@ const UsersPage = () => {
       last_name: user.last_name,
       is_active: user.is_active,
       is_admin: user.is_admin,
-      account: user.account,
     })
     setFormError(null)
     setModalOpen(true)
@@ -516,24 +513,6 @@ const UserFormModal = ({
                         Admin
                       </label>
                     </div>
-                  </div>
-                  <div className="col-sm-6">
-                    <label className="form-label">Account ID</label>
-                    <input
-                      className="form-control"
-                      inputMode="numeric"
-                      placeholder="Optional"
-                      value={form.account ?? ''}
-                      onChange={(e) => {
-                        const v = e.target.value.trim()
-                        if (!v) {
-                          setField('account', null)
-                          return
-                        }
-                        const n = Number(v)
-                        setField('account', Number.isFinite(n) ? n : null)
-                      }}
-                    />
                   </div>
                 </div>
               </div>

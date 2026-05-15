@@ -22,7 +22,6 @@ export type UserPayload = {
   last_name: string
   is_active: boolean
   is_admin: boolean
-  account?: number | null
 }
 
 export async function fetchMe(): Promise<UserRecord> {
