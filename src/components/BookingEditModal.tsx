@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DragEvent, SubmitEvent } from 'react'
+import type { DragEvent, FormEvent } from 'react'
 import {
   FIELD_TYPE_OPTIONS,
   type FieldType,
 } from '../services/formTemplates'
+import { storedValueToTimeInput, timeInputToStored } from '../lib/timeInput'
 
 export type BookingFieldOption = {
   label: string
@@ -61,7 +62,7 @@ type BookingEditModalProps = {
   templates: BookingTemplate[]
   onChange: (next: BookingFormState) => void
   onClose: () => void
-  onSubmit: (e: SubmitEvent<HTMLFormElement>) => void
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void
 }
 
 const EMPTY_FIELD: BookingField = {
@@ -354,6 +355,18 @@ const BookingEditModal = ({
             className="form-control"
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
+            required={field.is_required}
+          />
+        )}
+        {field.field_type === 'time' && (
+          <input
+            type="time"
+            className="form-control"
+            step={60}
+            value={storedValueToTimeInput(field.value)}
+            onChange={(e) =>
+              updateField(idx, { value: timeInputToStored(e.target.value) })
+            }
             required={field.is_required}
           />
         )}

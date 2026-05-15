@@ -5,6 +5,7 @@ export type FieldType =
   | 'textarea'
   | 'number'
   | 'date'
+  | 'time'
   | 'select'
   | 'checkbox'
   | 'email'
@@ -15,6 +16,7 @@ export const FIELD_TYPE_OPTIONS: { value: FieldType; label: string }[] = [
   { value: 'textarea', label: 'Text Area' },
   { value: 'number', label: 'Number' },
   { value: 'date', label: 'Date' },
+  { value: 'time', label: 'Time' },
   { value: 'select', label: 'Dropdown' },
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'email', label: 'Email' },
