@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { DragEvent, PointerEvent as ReactPointerEvent, SubmitEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   type BookingColumnRecord,
@@ -721,7 +721,7 @@ const BookingsPage = () => {
     })
   }
 
-  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!statusModal) {
       return
@@ -851,7 +851,7 @@ const BookingsPage = () => {
     )
   }
 
-  const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
       return

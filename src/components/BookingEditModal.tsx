@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DragEvent, FormEvent } from 'react'
+import type { DragEvent, SubmitEvent } from 'react'
 import {
   FIELD_TYPE_OPTIONS,
   type FieldType,
@@ -61,7 +61,7 @@ type BookingEditModalProps = {
   templates: BookingTemplate[]
   onChange: (next: BookingFormState) => void
   onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+  onSubmit: (e: SubmitEvent<HTMLFormElement>) => void
 }
 
 const EMPTY_FIELD: BookingField = {
