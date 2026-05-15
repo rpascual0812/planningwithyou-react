@@ -1034,9 +1034,25 @@ body,
   flex-wrap: wrap;
 }
 
-.bookings-toolbar-row > .bookings-tabs {
+.bookings-toolbar-row > .bookings-tabs-with-actions {
   margin-bottom: 0;
   flex: 0 0 auto;
+}
+
+.bookings-tabs-with-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bookings-tabs-with-actions .bookings-tabs {
+  margin-bottom: 0;
+}
+
+.bookings-add-status-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .bookings-toolbar-row .bookings-search {

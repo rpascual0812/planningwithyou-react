@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, PointerEvent as ReactPointerEvent, SubmitEvent } from 'react'
+import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   type BookingColumnRecord,
@@ -10,12 +10,13 @@ import {
   deleteBookingItem,
   fetchBookingColumns,
   fetchBookingItems,
+  moveBookingItem,
   reorderBookingItems,
   updateBookingColumn,
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
-import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
+import StatusEditModal, { type StatusFormState } from '../components/StatusEditModal'
 import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
 
 type BookingColumn = BookingColumnRecord
@@ -721,7 +722,7 @@ const BookingsPage = () => {
     })
   }
 
-  const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!statusModal) {
       return
@@ -851,7 +852,7 @@ const BookingsPage = () => {
     )
   }
 
-  const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
+  const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
       return
@@ -1151,23 +1152,33 @@ const BookingsPage = () => {
     <div className="app-content">
       <div className="container-fluid">
         <div className="bookings-toolbar-row">
-          <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
-            {[
-              { id: 'board', label: 'Board' },
-              { id: 'cards', label: 'Cards' },
-              { id: 'list', label: 'List' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
-                aria-selected={activeView === tab.id}
-                onClick={() => setActiveView(tab.id as BookingsView)}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="bookings-tabs-with-actions">
+            <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
+              {[
+                { id: 'board', label: 'Board' },
+                { id: 'cards', label: 'Cards' },
+                { id: 'list', label: 'List' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
+                  aria-selected={activeView === tab.id}
+                  onClick={() => setActiveView(tab.id as BookingsView)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary bookings-add-status-btn"
+              onClick={openCreateStatus}
+            >
+              <i className="bi bi-plus-lg me-1" />
+              Add status
+            </button>
           </div>
 
           <div className="bookings-search">
@@ -1200,32 +1211,18 @@ const BookingsPage = () => {
         </div>
 
         {activeView === 'board' && (
-          <>
-            <div className="bookings-toolbar">
-              <div />
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={openCreateStatus}
-              >
-                <i className="bi bi-plus-lg me-1" />
-                Add status
-              </button>
-            </div>
-
-            <div
-              ref={boardRef}
-              className="kanban-board"
-              role="tabpanel"
-              aria-label="Board"
-              onPointerDown={handleBoardPointerDown}
-              onPointerMove={handleBoardPointerMove}
-              onPointerUp={endBoardPan}
-              onPointerCancel={endBoardPan}
-            >
-              {columns.map(renderColumn)}
-            </div>
-          </>
+          <div
+            ref={boardRef}
+            className="kanban-board"
+            role="tabpanel"
+            aria-label="Board"
+            onPointerDown={handleBoardPointerDown}
+            onPointerMove={handleBoardPointerMove}
+            onPointerUp={endBoardPan}
+            onPointerCancel={endBoardPan}
+          >
+            {columns.map(renderColumn)}
+          </div>
         )}
 
         {activeView === 'cards' && (
