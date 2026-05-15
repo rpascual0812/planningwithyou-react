@@ -558,8 +558,8 @@ body,
   color: #d65a5a;
 }
 
-/* Staff badge */
-.users-badge-staff {
+/* Admin badge */
+.users-badge-admin {
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -39,7 +39,8 @@ const EMPTY_FORM: UserPayload = {
   first_name: '',
   last_name: '',
   is_active: true,
-  is_staff: false,
+  is_admin: false,
+  account: null,
 }
 
 const UsersPage = () => {
@@ -121,7 +122,8 @@ const UsersPage = () => {
       editingUser.first_name === user.first_name &&
       editingUser.last_name === user.last_name &&
       editingUser.is_active === user.is_active &&
-      editingUser.is_staff === user.is_staff
+      editingUser.is_admin === user.is_admin &&
+      editingUser.account === user.account
     ) {
       return
     }
@@ -132,7 +134,8 @@ const UsersPage = () => {
       first_name: user.first_name,
       last_name: user.last_name,
       is_active: user.is_active,
-      is_staff: user.is_staff,
+      is_admin: user.is_admin,
+      account: user.account,
     })
     setFormError(null)
     setModalOpen(true)
@@ -274,8 +277,9 @@ const UsersPage = () => {
                     <th>Email</th>
                     <th>Username</th>
                     <th>Status</th>
-                    <th>Staff</th>
-                    <th>Joined</th>
+                    <th>Admin</th>
+                    <th>Account</th>
+                    <th>Created</th>
                     <th className="users-th-actions">Actions</th>
                   </tr>
                 </thead>
@@ -307,12 +311,15 @@ const UsersPage = () => {
                         </span>
                       </td>
                       <td>
-                        {user.is_staff && (
-                          <span className="users-badge-staff">staff</span>
+                        {user.is_admin && (
+                          <span className="users-badge-admin">admin</span>
                         )}
                       </td>
                       <td className="users-table-office">
-                        {new Date(user.date_joined).toLocaleDateString()}
+                        {user.account ?? '—'}
+                      </td>
+                      <td className="users-table-office">
+                        {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td>
                         <div className="users-actions">
@@ -338,7 +345,7 @@ const UsersPage = () => {
                   ))}
                   {users.length === 0 && !loading && (
                     <tr>
-                      <td colSpan={8} className="users-table-empty">
+                      <td colSpan={9} className="users-table-empty">
                         {search
                           ? `No users found for "${search}".`
                           : 'No users yet. Click "Add User" to create one.'}
@@ -501,14 +508,32 @@ const UserFormModal = ({
                       <input
                         className="form-check-input"
                         type="checkbox"
-                        id="userIsStaff"
-                        checked={form.is_staff}
-                        onChange={(e) => setField('is_staff', e.target.checked)}
+                        id="userIsAdmin"
+                        checked={form.is_admin}
+                        onChange={(e) => setField('is_admin', e.target.checked)}
                       />
-                      <label className="form-check-label" htmlFor="userIsStaff">
-                        Staff
+                      <label className="form-check-label" htmlFor="userIsAdmin">
+                        Admin
                       </label>
                     </div>
+                  </div>
+                  <div className="col-sm-6">
+                    <label className="form-label">Account ID</label>
+                    <input
+                      className="form-control"
+                      inputMode="numeric"
+                      placeholder="Optional"
+                      value={form.account ?? ''}
+                      onChange={(e) => {
+                        const v = e.target.value.trim()
+                        if (!v) {
+                          setField('account', null)
+                          return
+                        }
+                        const n = Number(v)
+                        setField('account', Number.isFinite(n) ? n : null)
+                      }}
+                    />
                   </div>
                 </div>
               </div>

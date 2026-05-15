@@ -2,13 +2,17 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 
 export type UserRecord = {
   id: number
+  account: number | null
   username: string
   email: string
   first_name: string
   last_name: string
   is_active: boolean
-  is_staff: boolean
-  date_joined: string
+  is_admin: boolean
+  last_login: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
 }
 
 export type UserPayload = {
@@ -17,7 +21,8 @@ export type UserPayload = {
   first_name: string
   last_name: string
   is_active: boolean
-  is_staff: boolean
+  is_admin: boolean
+  account?: number | null
 }
 
 export async function fetchMe(): Promise<UserRecord> {
