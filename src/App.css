@@ -1034,9 +1034,21 @@ body,
   flex-wrap: wrap;
 }
 
-.bookings-toolbar-row > .bookings-tabs {
+.bookings-tabs-cluster {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.bookings-toolbar-row > .bookings-tabs-cluster > .bookings-tabs {
   margin-bottom: 0;
   flex: 0 0 auto;
+}
+
+.bookings-add-booking-btn {
+  flex-shrink: 0;
 }
 
 .bookings-toolbar-row .bookings-search {
@@ -1812,12 +1824,6 @@ body,
 
 .kanban-add-slot-cta .kanban-add-slot-btn {
   pointer-events: auto;
-}
-
-.kanban-column--add-slot .kanban-add-card--layout-only {
-  visibility: hidden;
-  pointer-events: none;
-  cursor: default;
 }
 
 .kanban-add-slot-btn {

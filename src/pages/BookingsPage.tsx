@@ -1121,15 +1121,6 @@ const BookingsPage = () => {
             )
           })}
         </div>
-
-        <button
-          type="button"
-          className="kanban-add-card"
-          onClick={() => openCreateItem(column.id)}
-        >
-          <i className="bi bi-plus-lg me-1" />
-          Add booking
-        </button>
       </section>
     )
   }
@@ -1175,13 +1166,6 @@ const BookingsPage = () => {
           </button>
         </div>
       </div>
-      <div
-        className="kanban-add-card kanban-add-card--layout-only"
-        aria-hidden="true"
-      >
-        <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-        Add booking
-      </div>
     </section>
   )
 
@@ -1203,23 +1187,41 @@ const BookingsPage = () => {
     <div className="app-content">
       <div className="container-fluid">
         <div className="bookings-toolbar-row">
-          <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
-            {[
-              { id: 'board', label: 'Board' },
-              { id: 'cards', label: 'Cards' },
-              { id: 'list', label: 'List' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
-                aria-selected={activeView === tab.id}
-                onClick={() => setActiveView(tab.id as BookingsView)}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="bookings-tabs-cluster">
+            <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
+              {[
+                { id: 'board', label: 'Board' },
+                { id: 'cards', label: 'Cards' },
+                { id: 'list', label: 'List' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
+                  aria-selected={activeView === tab.id}
+                  onClick={() => setActiveView(tab.id as BookingsView)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary bookings-add-booking-btn"
+              disabled={columns.length === 0}
+              title={
+                columns.length === 0
+                  ? 'Add a status column on the Board first'
+                  : 'New booking in the first status column'
+              }
+              onClick={() => {
+                if (columns.length > 0) openCreateItem(columns[0].id)
+              }}
+            >
+              <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+              Add booking
+            </button>
           </div>
 
           <div className="bookings-search">
@@ -1269,19 +1271,6 @@ const BookingsPage = () => {
 
         {activeView === 'cards' && (
           <>
-          {columns.length > 0 && (
-            <div className="bookings-toolbar">
-              <div />
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={() => openCreateItem(columns[0].id)}
-              >
-                <i className="bi bi-plus-lg me-1" />
-                Add booking
-              </button>
-            </div>
-          )}
           <div
             ref={cardsGridRef}
             className="bookings-cards-grid"
@@ -1298,7 +1287,9 @@ const BookingsPage = () => {
                 <p className="mb-0">
                   {isSearching
                     ? `No bookings match "${search}".`
-                    : 'Switch back to Board to add cards.'}
+                    : columns.length === 0
+                      ? 'Add a status column on the Board to get started.'
+                      : 'Use Add booking in the toolbar.'}
                 </p>
               </div>
             )}
@@ -1481,18 +1472,6 @@ const BookingsPage = () => {
 
         {activeView === 'list' && (
           <div className="bookings-list-card" role="tabpanel" aria-label="List">
-            <header className="bookings-list-head">
-              {columns.length > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => openCreateItem(columns[0].id)}
-                >
-                  <i className="bi bi-plus-lg me-1" />
-                  Add booking
-                </button>
-              )}
-            </header>
             <div className="bookings-list-scroll">
               <table className="bookings-list-table">
                 <thead>
@@ -1518,7 +1497,9 @@ const BookingsPage = () => {
                       <td colSpan={9} className="bookings-list-empty">
                         {isSearching
                           ? `No bookings match "${search}".`
-                          : 'No bookings yet. Add one from the Board tab.'}
+                          : columns.length === 0
+                            ? 'Add a status column on the Board to get started.'
+                            : 'No bookings yet. Use Add booking in the toolbar.'}
                       </td>
                     </tr>
                   )}
