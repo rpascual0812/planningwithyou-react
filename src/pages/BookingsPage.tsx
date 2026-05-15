@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { DragEvent, PointerEvent as ReactPointerEvent, SubmitEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   type BookingColumnRecord,
@@ -16,7 +16,7 @@ import {
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
-import StatusEditModal, { type StatusFormState } from '../components/StatusEditModal'
+import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
 import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
 
 type BookingColumn = BookingColumnRecord
@@ -722,7 +722,7 @@ const BookingsPage = () => {
     })
   }
 
-  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!statusModal) {
       return
@@ -852,7 +852,7 @@ const BookingsPage = () => {
     )
   }
 
-  const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
       return
@@ -1134,6 +1134,57 @@ const BookingsPage = () => {
     )
   }
 
+  const renderAddColumnSlot = () => (
+    <section
+      className="kanban-column kanban-column--add-slot"
+      aria-label="Add new status column"
+    >
+      <header
+        className="kanban-column-header kanban-column-header--add-slot"
+        style={{ borderTopColor: 'var(--brand-border)' }}
+        aria-hidden="true"
+      >
+        <div className="kanban-column-title-row">
+          <div className="kanban-column-title-wrap">
+            <span className="kanban-column-swatch" />
+            <h6 className="kanban-column-title mb-0">Status</h6>
+            <span className="kanban-column-count badge text-bg-light">0</span>
+          </div>
+          <div className="kanban-column-actions">
+            <span className="btn btn-sm btn-link p-1" tabIndex={-1}>
+              <i className="bi bi-pencil-square" />
+            </span>
+            <span className="btn btn-sm btn-link p-1" tabIndex={-1}>
+              <i className="bi bi-trash" />
+            </span>
+          </div>
+        </div>
+      </header>
+      <div className="kanban-column-cards kanban-column-cards--add-slot">
+        <p className="kanban-empty mb-0 kanban-empty--add-slot-placeholder" aria-hidden>
+          Drop cards here.
+        </p>
+        <div className="kanban-add-slot-cta">
+          <button
+            type="button"
+            className="btn btn-outline-primary kanban-add-slot-btn"
+            onClick={openCreateStatus}
+          >
+            <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+            Add new
+          </button>
+        </div>
+      </div>
+      <div
+        className="kanban-add-card kanban-add-card--layout-only"
+        aria-hidden="true"
+      >
+        <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+        Add booking
+      </div>
+    </section>
+  )
+
   if (loading) {
     return (
       <div className="app-content">
@@ -1152,33 +1203,23 @@ const BookingsPage = () => {
     <div className="app-content">
       <div className="container-fluid">
         <div className="bookings-toolbar-row">
-          <div className="bookings-tabs-with-actions">
-            <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
-              {[
-                { id: 'board', label: 'Board' },
-                { id: 'cards', label: 'Cards' },
-                { id: 'list', label: 'List' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
-                  aria-selected={activeView === tab.id}
-                  onClick={() => setActiveView(tab.id as BookingsView)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary bookings-add-status-btn"
-              onClick={openCreateStatus}
-            >
-              <i className="bi bi-plus-lg me-1" />
-              Add status
-            </button>
+          <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
+            {[
+              { id: 'board', label: 'Board' },
+              { id: 'cards', label: 'Cards' },
+              { id: 'list', label: 'List' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
+                aria-selected={activeView === tab.id}
+                onClick={() => setActiveView(tab.id as BookingsView)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           <div className="bookings-search">
@@ -1222,6 +1263,7 @@ const BookingsPage = () => {
             onPointerCancel={endBoardPan}
           >
             {columns.map(renderColumn)}
+            {renderAddColumnSlot()}
           </div>
         )}
 

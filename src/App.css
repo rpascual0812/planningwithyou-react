@@ -1034,25 +1034,9 @@ body,
   flex-wrap: wrap;
 }
 
-.bookings-toolbar-row > .bookings-tabs-with-actions {
+.bookings-toolbar-row > .bookings-tabs {
   margin-bottom: 0;
   flex: 0 0 auto;
-}
-
-.bookings-tabs-with-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.bookings-tabs-with-actions .bookings-tabs {
-  margin-bottom: 0;
-}
-
-.bookings-add-status-btn {
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .bookings-toolbar-row .bookings-search {
@@ -1793,6 +1777,51 @@ body,
 
 .kanban-column-cards.is-drop-target {
   background-color: rgba(82, 181, 133, 0.06);
+}
+
+/* Trailing “new column” slot on the board */
+.kanban-column--add-slot {
+  border-style: dashed;
+  background: rgba(31, 58, 95, 0.03);
+  box-shadow: none;
+}
+
+.kanban-column-header--add-slot {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.kanban-column-cards--add-slot {
+  position: relative;
+}
+
+.kanban-empty--add-slot-placeholder {
+  opacity: 0;
+  user-select: none;
+}
+
+.kanban-add-slot-cta {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  pointer-events: none;
+}
+
+.kanban-add-slot-cta .kanban-add-slot-btn {
+  pointer-events: auto;
+}
+
+.kanban-column--add-slot .kanban-add-card--layout-only {
+  visibility: hidden;
+  pointer-events: none;
+  cursor: default;
+}
+
+.kanban-add-slot-btn {
+  font-weight: 600;
 }
 
 .kanban-empty {
