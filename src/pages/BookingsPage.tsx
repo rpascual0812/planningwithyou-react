@@ -10,13 +10,12 @@ import {
   deleteBookingItem,
   fetchBookingColumns,
   fetchBookingItems,
-  moveBookingItem,
   reorderBookingItems,
   updateBookingColumn,
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
-import StatusEditModal, { type StatusFormState } from '../components/StatusEditModal'
+import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
 import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
 
 type BookingColumn = BookingColumnRecord

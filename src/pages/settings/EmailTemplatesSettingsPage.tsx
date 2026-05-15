@@ -68,7 +68,7 @@ function bodyPreview(body: string, max = 80): string {
 const TEMPLATE_BODY_EDITOR_INIT = {
   height: 360,
   menubar: false,
-  toolbar_mode: 'wrap',
+  toolbar_mode: 'wrap' as const,
   plugins: [
     'advlist',
     'autolink',
