@@ -118,8 +118,7 @@ const EMPTY_FORM: EmailPayload = {
   bcc: [],
   email_from: '',
   subject: '',
-  body_html: '',
-  body_text: '',
+  body: '',
   attachments: [],
 }
 
@@ -156,8 +155,7 @@ function buildInitialForm(email?: EmailRecord | null): EmailPayload {
         bcc: email.bcc,
         email_from: email.email_from,
         subject: email.subject,
-        body_html: email.body_html,
-        body_text: email.body_text,
+        body: email.body,
         attachments: email.attachments,
       }
     : { ...EMPTY_FORM }
@@ -182,7 +180,7 @@ const EmailSenderModal = ({
   })
   const [editorKey, setEditorKey] = useState(0)
   const editorRef = useRef<TinyMCEEditor | null>(null)
-  const initialHtmlRef = useRef(form.body_html ?? '')
+  const initialHtmlRef = useRef(form.body ?? '')
   const initialSubjectRef = useRef(form.subject ?? '')
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
 
@@ -224,7 +222,7 @@ const EmailSenderModal = ({
     setRestoredDraft(false)
     const fresh = buildInitialForm(email)
     setForm(fresh)
-    initialHtmlRef.current = fresh.body_html ?? ''
+    initialHtmlRef.current = fresh.body ?? ''
     initialSubjectRef.current = fresh.subject ?? ''
     setEditorKey((k) => k + 1)
   }
@@ -359,7 +357,7 @@ const EmailSenderModal = ({
                   initialValue={initialHtmlRef.current}
                   onEditorChange={(content) => {
                     setForm((prev) => {
-                      const next = { ...prev, body_html: content }
+                      const next = { ...prev, body: content }
                       saveDraft(storageKey, next)
                       return next
                     })

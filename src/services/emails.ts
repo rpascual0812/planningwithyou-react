@@ -7,8 +7,7 @@ export type EmailRecord = {
   bcc: string[]
   email_from: string
   subject: string
-  body_html: string
-  body_text: string
+  body: string
   attachments: string[]
   status: 'queued' | 'sent' | 'failed'
   error: string
@@ -23,8 +22,7 @@ export type EmailPayload = {
   bcc?: string[]
   email_from?: string
   subject?: string
-  body_html?: string
-  body_text?: string
+  body?: string
   attachments?: string[]
 }
 
