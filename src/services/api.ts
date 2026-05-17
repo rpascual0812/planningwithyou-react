@@ -1,12 +1,11 @@
 import Swal from 'sweetalert2'
-import { getAccessToken } from './auth'
+import {
+  clearStoredTokens,
+  getAccessToken,
+  refreshAccessToken,
+} from './auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
-
-const TOKEN_STORAGE_KEYS = {
-  access: 'auth.accessToken',
-  refresh: 'auth.refreshToken',
-} as const
 
 export function buildApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path
@@ -29,13 +28,6 @@ export function authHeaders(): Record<string, string> {
 
 let sessionExpiredShown = false
 
-function clearStoredTokens() {
-  localStorage.removeItem(TOKEN_STORAGE_KEYS.access)
-  localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh)
-  sessionStorage.removeItem(TOKEN_STORAGE_KEYS.access)
-  sessionStorage.removeItem(TOKEN_STORAGE_KEYS.refresh)
-}
-
 async function handleSessionExpired() {
   if (sessionExpiredShown) return
   sessionExpiredShown = true
@@ -55,26 +47,44 @@ async function handleSessionExpired() {
   window.location.href = '/login'
 }
 
+function mergeAuthHeader(init?: RequestInit): RequestInit | undefined {
+  const token = getAccessToken()
+  if (!token) return init
+
+  const headers = new Headers(init?.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  return { ...init, headers }
+}
+
+async function isTokenInvalidResponse(res: Response): Promise<boolean> {
+  if (res.status !== 401) return false
+  const cloned = res.clone()
+  try {
+    const body = await cloned.json()
+    return body?.code === 'token_not_valid' || body?.code === 'user_not_found'
+  } catch {
+    return false
+  }
+}
+
 /**
- * Wrapper around fetch that automatically handles 401 responses with
- * `token_not_valid`. Shows a SweetAlert and redirects to /login.
+ * Wrapper around fetch that refreshes expired JWTs once, retries the request,
+ * and shows a SweetAlert when the session can no longer be renewed.
  */
 export async function apiFetch(
   input: string,
   init?: RequestInit,
 ): Promise<Response> {
-  const res = await fetch(input, init)
+  let res = await fetch(input, mergeAuthHeader(init))
 
-  if (res.status === 401) {
-    const cloned = res.clone()
-    try {
-      const body = await cloned.json()
-      if (body?.code === 'token_not_valid' || body?.code === 'user_not_found') {
-        handleSessionExpired()
-        throw new Error('Session expired')
-      }
-    } catch (e) {
-      if (e instanceof Error && e.message === 'Session expired') throw e
+  if (await isTokenInvalidResponse(res)) {
+    const refreshed = await refreshAccessToken()
+    if (refreshed) {
+      res = await fetch(input, mergeAuthHeader(init))
+    }
+    if (await isTokenInvalidResponse(res)) {
+      await handleSessionExpired()
+      throw new Error('Session expired')
     }
   }
 

@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuthSession } from '../context/AuthSessionContext'
 import { loginWithJwt } from '../services/auth'
 
 const LoginPage = () => {
   const navigate = useNavigate()
+  const { syncAuthState } = useAuthSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
@@ -17,6 +19,7 @@ const LoginPage = () => {
     setIsSubmitting(true)
     try {
       await loginWithJwt({ email, password, remember })
+      syncAuthState()
       navigate('/', { replace: true })
     } catch (err) {
       setError(

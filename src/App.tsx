@@ -10,7 +10,8 @@ import {
 } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
-import { getAccessToken } from './services/auth'
+import { useAuthSession } from './context/AuthSessionContext'
+import { hasStoredSession } from './services/auth'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
@@ -73,14 +74,16 @@ function CalendarRoute() {
  * top-level `<Routes>`.
  */
 function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
-  if (getAccessToken()) {
+  const { isAuthenticated } = useAuthSession()
+  if (isAuthenticated || hasStoredSession()) {
     return <Navigate to="/" replace />
   }
   return children
 }
 
 function RequireAuth() {
-  if (!getAccessToken()) {
+  const { isAuthenticated } = useAuthSession()
+  if (!isAuthenticated && !hasStoredSession()) {
     return <Navigate to="/login" replace />
   }
   return <Outlet />

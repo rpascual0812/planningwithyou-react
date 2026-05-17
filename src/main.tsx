@@ -8,11 +8,14 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import 'admin-lte/dist/js/adminlte.min.js'
 import './index.css'
 import App from './App.tsx'
+import { AuthSessionProvider } from './context/AuthSessionContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthSessionProvider>
+        <App />
+      </AuthSessionProvider>
     </BrowserRouter>
   </StrictMode>,
 )
