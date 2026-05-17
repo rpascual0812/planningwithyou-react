@@ -4339,10 +4339,47 @@ body,
   border-radius: 0.55rem;
   background: #ffffff;
   padding: 0.85rem 1rem;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
 }
 
-.sub-plan-card.is-selected,
+.sub-plan-card.is-selected {
+  border: 2px solid var(--brand-green);
+  background: var(--brand-green-soft);
+  box-shadow: 0 0 0 3px rgba(62, 176, 133, 0.18);
+  padding: calc(0.85rem - 1px) calc(1rem - 1px);
+}
+
+.sub-plan-card.is-selected .sub-plan-name,
+.sub-plan-card.is-selected .sub-plan-price {
+  color: var(--brand-green-dark);
+}
+
+.sub-plan-card.is-selected .sub-plan-head input[type='radio'] {
+  accent-color: var(--brand-green-dark);
+}
+
+.sub-plan-card.is-disabled {
+  opacity: 0.72;
+  background: #f6f7f9;
+}
+
+.sub-plan-card.is-disabled .sub-plan-head {
+  cursor: not-allowed;
+}
+
+.sub-plan-unavailable {
+  display: inline-block;
+  margin-top: 0.2rem;
+  color: #6c7682;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .sub-card.is-selected {
   border: 2px dashed var(--brand-navy);
   padding: calc(0.85rem - 1px) calc(1rem - 1px);
@@ -4356,6 +4393,11 @@ body,
   gap: 0.7rem;
   margin: 0;
   cursor: pointer;
+}
+
+.sub-card-row--static {
+  grid-template-columns: minmax(0, 1fr) auto;
+  cursor: default;
 }
 
 .sub-plan-head input[type='radio'],
@@ -4405,6 +4447,26 @@ body,
 .sub-plan-usage {
   color: #6c7682;
   font-size: 0.74rem;
+}
+
+.sub-plan-savings {
+  margin: 0.35rem 0 0;
+  color: var(--brand-green-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sub-yearly-savings-note {
+  margin: 0 0 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.45rem;
+  background: rgba(34, 139, 84, 0.08);
+  border: 1px solid rgba(34, 139, 84, 0.2);
+  color: var(--brand-green-dark);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .sub-plan-features {
@@ -4627,6 +4689,10 @@ body,
   font-weight: 700;
 }
 
+.sub-discount-msg--error {
+  color: #c0392b;
+}
+
 .sub-line,
 .sub-total {
   display: flex;
@@ -4637,6 +4703,17 @@ body,
 
 .sub-line {
   padding-top: 0.45rem;
+}
+
+.sub-line--total {
+  margin-top: 0.25rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(31, 58, 95, 0.1);
+}
+
+.sub-line:not(.sub-line--total) .sub-line-amount {
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .sub-line-text {

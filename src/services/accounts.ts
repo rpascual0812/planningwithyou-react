@@ -5,6 +5,13 @@ export type AccountRecord = {
   name: string
   status: string
   is_active: boolean
+  country: number
+  country_name: string
+  country_iso_code: string
+  country_iso2_code: string
+  country_currency: string
+  country_currency_symbol: string
+  country_currency_code: string
   discount: string | null
   price_adjustment: string | null
   price: string | null
@@ -22,6 +29,14 @@ export type AccountPayload = {
   price_adjustment?: string | null
   price?: string | null
   supplier_type?: number
+}
+
+export async function fetchCurrentAccount(): Promise<AccountRecord> {
+  const res = await apiFetch(buildApiUrl('/api/accounts/current/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load account')
+  return res.json()
 }
 
 export async function fetchAccountsBySupplierType(

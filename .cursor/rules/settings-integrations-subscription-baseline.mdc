@@ -1,0 +1,27 @@
+---
+description: Canonical Integrations and Subscription settings pages — do not revert
+globs: src/pages/settings/IntegrationsSettingsPage.tsx,src/pages/settings/SubscriptionSettingsPage.tsx
+alwaysApply: false
+---
+
+# Settings: Integrations & Subscription baseline
+
+Treat the **current on-disk** versions of these files as the product baseline. Do not restore older template integrations (GitHub, Slack, Figma, etc.) or prior subscription plans unless the user explicitly asks.
+
+## `IntegrationsSettingsPage.tsx`
+
+- **Only these nine cards** in `INTEGRATIONS`: Gmail, Google Calendar, Microsoft Outlook, Microsoft Calendar, Apple Email, Apple Calendar, Yahoo Email, Yahoo Calendar, Facebook Messenger.
+- IDs: `gmail`, `google-calendar`, `microsoft-outlook`, `microsoft-calendar`, `apple-email`, `apple-calendar`, `yahoo-email`, `yahoo-calendar`, `facebook-messenger`.
+- Each card: Bootstrap icon (`iconClass` + `color`), toggle switch, description, “View integration” → detail modal.
+- Modal copy: permissions = “Email, calendar, and messaging access”; sync mode automatic.
+
+## `SubscriptionSettingsPage.tsx`
+
+- **Plans** in `PLANS`: Free (`free`), Pro (`pro`), AI Plus (`ai`) with `basePrice`, `pricePerUser`, `defaultUsers`, optional `features`, optional `hasTeamStepper`.
+- Pro features: email/calendar integrations, supplier selection, multiple companies/users.
+- AI Plus: everything Pro + AI automation.
+- Pricing display: `basePrice + (users - 1) * pricePerUser` when `users > 1`; per-additional-user hint on plan card.
+- Layout: two columns — choose plan (monthly/yearly toggle) + payment plan (credit card / PayPal, cards list, discount, summary, PAY NOW).
+- Keep `VisaLogo` / `MastercardLogo`, `formatPrice`, team seat stepper on Pro and AI Plus.
+
+When extending either page, match existing class names (`connection-*`, `sub-*`, `settings-switch`) and patterns; extend `INTEGRATIONS` / `PLANS` in place rather than replacing the whole file.
