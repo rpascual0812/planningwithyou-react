@@ -390,7 +390,7 @@ const UsersEmailTemplatesPanel = () => {
 }
 
 const EmailTemplatesSettingsPage = () => {
-  const [usersOpen, setUsersOpen] = useState(true)
+  const [usersOpen, setUsersOpen] = useState(false)
 
   return (
     <div className="account-settings">

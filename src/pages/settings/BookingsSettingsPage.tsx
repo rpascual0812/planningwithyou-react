@@ -12,6 +12,18 @@ import {
   type FieldOption,
   type FieldType,
 } from '../../services/formTemplates'
+import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
+import {
+  fetchBookingViewConfig,
+  saveBookingViewConfig,
+} from '../../services/config'
+import {
+  BOOKING_VIEW_DEFAULT,
+  BOOKINGS_VIEW_OPTIONS,
+  isBookingsView,
+  type BookingsView,
+} from '../../utils/bookingsView'
+import { showSuccessToast } from '../../utils/toast'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -97,21 +109,137 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Bookings view options (Board / Cards / List)                       */
+/* ------------------------------------------------------------------ */
+
+const BookingsViewOptionsPanel = () => {
+  const [savedView, setSavedView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
+  const [draftView, setDraftView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetchBookingViewConfig()
+      .then((data) => {
+        if (cancelled) return
+        const value = isBookingsView(data.value) ? data.value : BOOKING_VIEW_DEFAULT
+        setSavedView(value)
+        setDraftView(value)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setError(e instanceof Error ? e.message : 'Failed to load booking view')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isDirty = draftView !== savedView
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const data = await saveBookingViewConfig(draftView)
+      const value = isBookingsView(data.value) ? data.value : draftView
+      setSavedView(value)
+      setDraftView(value)
+      showSuccessToast('Booking view saved.')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save booking view')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return <p className="text-muted small mb-0">Loading booking view…</p>
+  }
+
+  return (
+    <div className="bookings-view-settings">
+      <div
+        className="bookings-view-options"
+        role="tablist"
+        aria-label="Default bookings view"
+      >
+        {BOOKINGS_VIEW_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={draftView === option.id}
+            className={`bookings-view-option${draftView === option.id ? ' is-active' : ''}`}
+            onClick={() => setDraftView(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+
+      <BookingsViewPlaceholder view={draftView} />
+
+      {error && <p className="bookings-view-settings-error">{error}</p>}
+
+      <button
+        type="button"
+        className="bookings-view-save-btn"
+        disabled={!isDirty || saving}
+        onClick={handleSave}
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /*  BookingsSettingsPage                                                */
 /* ------------------------------------------------------------------ */
 
 const BookingsSettingsPage = () => {
-  const [open, setOpen] = useState(true)
+  const [viewOpen, setViewOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
 
   return (
     <div className="account-settings">
       <ul className="faq-list">
-        <li className={`faq-item${open ? ' is-open' : ''}`}>
+        <li className={`faq-item${viewOpen ? ' is-open' : ''}`}>
           <button
             type="button"
             className="faq-toggle"
-            aria-expanded={open}
-            onClick={() => setOpen((prev) => !prev)}
+            aria-expanded={viewOpen}
+            onClick={() => setViewOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-layout-three-columns" />
+            </span>
+            <span className="faq-question">Bookings View</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {viewOpen && (
+            <div className="faq-answer faq-answer--view">
+              <BookingsViewOptionsPanel />
+            </div>
+          )}
+        </li>
+
+        <li className={`faq-item${templatesOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={templatesOpen}
+            onClick={() => setTemplatesOpen((prev) => !prev)}
           >
             <span className="faq-icon" aria-hidden="true">
               <i className="bi bi-ui-checks-grid" />
@@ -121,7 +249,7 @@ const BookingsSettingsPage = () => {
               <i className="bi bi-chevron-down" />
             </span>
           </button>
-          {open && (
+          {templatesOpen && (
             <div className="faq-answer faq-answer--form">
               <FormTemplatesPanel />
             </div>

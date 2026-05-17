@@ -2,7 +2,7 @@ import { useState } from 'react'
 import AccountInfoForm from './account/AccountInfoForm'
 
 const AccountSettingsPage = () => {
-  const [infoOpen, setInfoOpen] = useState(true)
+  const [infoOpen, setInfoOpen] = useState(false)
 
   return (
     <div className="account-settings">

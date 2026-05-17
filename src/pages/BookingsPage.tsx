@@ -18,6 +18,12 @@ import {
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
 import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
 import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
+import { fetchBookingViewConfig } from '../services/config'
+import {
+  BOOKING_VIEW_DEFAULT,
+  isBookingsView,
+  type BookingsView,
+} from '../utils/bookingsView'
 
 type BookingColumn = BookingColumnRecord
 type BookingItem = BookingItemRecord
@@ -63,9 +69,6 @@ type DragState = {
   targetColumnId: number
   targetIndex: number
 }
-
-
-type BookingsView = 'board' | 'cards' | 'list'
 
 const EDIT_PARAM = 'edit'
 
@@ -230,7 +233,7 @@ const BookingsPage = () => {
   const [items, setItems] = useState<BookingItem[]>([])
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeView, setActiveView] = useState<BookingsView>('board')
+  const [activeView, setActiveView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
   const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
@@ -239,6 +242,21 @@ const BookingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   // --- Data loading --------------------------------------------------------
+
+  useEffect(() => {
+    let cancelled = false
+    fetchBookingViewConfig()
+      .then((data) => {
+        if (cancelled) return
+        if (isBookingsView(data.value)) setActiveView(data.value)
+      })
+      .catch(() => {
+        /* keep default view */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     try {
