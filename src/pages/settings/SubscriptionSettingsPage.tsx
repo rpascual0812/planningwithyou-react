@@ -1,12 +1,13 @@
 import { useState } from 'react'
 
-type BillingCycle = 'quarterly' | 'yearly'
+type BillingCycle = 'monthly' | 'yearly'
 type PaymentMethod = 'credit-card' | 'paypal'
 
 type SubscriptionPlan = {
   id: string
   name: string
   subtitle: string
+  basePrice: number,
   pricePerUser: number
   defaultUsers: number
   features?: string[]
@@ -16,32 +17,42 @@ type SubscriptionPlan = {
 
 const PLANS: SubscriptionPlan[] = [
   {
-    id: 'mark-moen-solo',
-    name: 'Mark Moen',
-    subtitle: 'UI/UX Designer',
-    pricePerUser: 69.44,
+    id: 'free',
+    name: 'Free',
+    subtitle: 'Advanced features are limited',
+    basePrice: 0,
+    pricePerUser: 0,
     defaultUsers: 1,
   },
   {
-    id: 'mark-moen-team',
-    name: 'Mark Moen',
-    subtitle: 'UI/UX Designer',
-    pricePerUser: 69.44,
-    defaultUsers: 25,
+    id: 'pro',
+    name: 'Pro',
+    subtitle: 'All features are available',
+    basePrice: 995.00,
+    pricePerUser: 100.00,
+    defaultUsers: 1,
     features: [
-      '40 downloads per day.',
-      'Access to all products or bundles.',
-      'Early access to new/beta release features.',
+      'Access to Email and Calendar Integrations',
+      'Access to Supplier Selection',
+      'Allow Multiple Companies',
+      'Allow Multiple Users'
     ],
     hasTeamStepper: true,
-    teamStepperHint: 'Starting at 5 users in the team plan, yo...',
+    teamStepperHint: '',
   },
   {
-    id: 'business-pro',
-    name: 'Business Pro',
-    subtitle: 'for big teams',
-    pricePerUser: 250.44 / 31,
-    defaultUsers: 31,
+    id: 'ai',
+    name: 'AI Plus',
+    subtitle: 'For teams that need AI features',
+    basePrice: 1495.00,
+    pricePerUser: 150.00,
+    defaultUsers: 1,
+    features: [
+      'Everything Pro.',
+      'AI Automation'
+    ],
+    hasTeamStepper: true,
+    teamStepperHint: '',
   },
 ]
 
@@ -93,19 +104,19 @@ const formatPrice = (n: number) =>
   })}`
 
 const SubscriptionSettingsPage = () => {
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('quarterly')
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>('credit-card')
   const [selectedPlanId, setSelectedPlanId] = useState<string>('business-pro')
-  const [teamSeats, setTeamSeats] = useState<number>(25)
+  const [teamSeats, setTeamSeats] = useState<number>(1)
   const [selectedCardId, setSelectedCardId] = useState<string>('master-6790')
-  const [discountCode, setDiscountCode] = useState<string>('20FGJKYSD')
+  const [discountCode, setDiscountCode] = useState<string>('')
   const [discountApplied, setDiscountApplied] = useState<boolean>(true)
 
-  const cycleSuffix = billingCycle === 'quarterly' ? 'quarterly' : 'yearly'
+  const cycleSuffix = billingCycle === 'monthly' ? 'monthly' : 'yearly'
   const totals = {
     teamPlanLabel: `${teamSeats} Users ${
-      billingCycle === 'quarterly' ? 'Quarterly' : 'Yearly'
+      billingCycle === 'monthly' ? 'Monthly' : 'Yearly'
     }`,
     teamPlanAmount: 789.0,
     paymentPlanAmount: -57.9,
@@ -118,7 +129,7 @@ const SubscriptionSettingsPage = () => {
         <header className="sub-col-head">
           <h6 className="sub-col-title">Choose plan</h6>
           <div className="sub-pill-toggle" role="tablist" aria-label="Billing cycle">
-            {(['quarterly', 'yearly'] as const).map((cycle) => (
+            {(['monthly', 'yearly'] as const).map((cycle) => (
               <button
                 key={cycle}
                 type="button"
@@ -127,7 +138,7 @@ const SubscriptionSettingsPage = () => {
                 className={`sub-pill${billingCycle === cycle ? ' is-active' : ''}`}
                 onClick={() => setBillingCycle(cycle)}
               >
-                {cycle === 'quarterly' ? 'Quarterly' : 'Yearly'}
+                {cycle === 'monthly' ? 'Monthly' : 'Yearly'}
               </button>
             ))}
           </div>
@@ -137,9 +148,10 @@ const SubscriptionSettingsPage = () => {
           {PLANS.map((plan) => {
             const isSelected = selectedPlanId === plan.id
             const users = plan.hasTeamStepper ? teamSeats : plan.defaultUsers
-            const price =
-              plan.id === 'business-pro' ? 250.44 : plan.pricePerUser * 1
 
+            const pricePerUser = plan.pricePerUser * (users > 1 ? users - 1 : 0);
+            const price = plan.basePrice + (users > 1 ? pricePerUser : 0);
+            
             return (
               <li
                 key={plan.id}
@@ -159,7 +171,10 @@ const SubscriptionSettingsPage = () => {
                   <div className="sub-plan-price-wrap">
                     <span className="sub-plan-price">{formatPrice(price)}</span>
                     <span className="sub-plan-usage">
-                      {users} users/{cycleSuffix}
+                      {plan.pricePerUser > 0 ? `$${plan.pricePerUser} per additional user` : ''}
+                    </span>
+                    <span className="sub-plan-usage">
+                      {users} {users > 1 ? 'users' : 'user'}/{cycleSuffix}
                     </span>
                   </div>
                 </label>
@@ -185,7 +200,7 @@ const SubscriptionSettingsPage = () => {
                       <button
                         type="button"
                         className="sub-stepper-btn"
-                        onClick={() => setTeamSeats(Math.max(5, teamSeats - 1))}
+                        onClick={() => setTeamSeats(Math.max(1, teamSeats - 1))}
                         aria-label="Decrease team seats"
                       >
                         -
@@ -194,10 +209,10 @@ const SubscriptionSettingsPage = () => {
                         type="number"
                         className="sub-stepper-value"
                         value={teamSeats}
-                        min={5}
+                        min={1}
                         onChange={(e) => {
                           const next = Number(e.target.value)
-                          if (Number.isFinite(next)) setTeamSeats(Math.max(5, next))
+                          if (Number.isFinite(next)) setTeamSeats(Math.max(1, next))
                         }}
                         aria-label="Team seats"
                       />

@@ -1,126 +1,97 @@
 import { useEffect, useState } from 'react'
 
 type IntegrationId =
-  | 'github'
-  | 'slack'
-  | 'google'
-  | 'figma'
-  | 'drive'
-  | 'dropbox'
-  | 'facebook'
-  | 'instagram'
-  | 'twitter'
+  | 'gmail'
+  | 'google-calendar'
+  | 'microsoft-outlook'
+  | 'microsoft-calendar'
+  | 'apple-email'
+  | 'apple-calendar'
+  | 'yahoo-email'
+  | 'yahoo-calendar'
+  | 'facebook-messenger'
 
 type Integration = {
   id: IntegrationId
   name: string
   description: string
-  iconClass: string | null
+  iconClass: string
   color: string
 }
 
 const INTEGRATIONS: Integration[] = [
   {
-    id: 'github',
-    name: 'GitHub',
-    description: 'GitHub can be connected to various continuous integration',
-    iconClass: 'bi-github',
-    color: '#111827',
-  },
-  {
-    id: 'slack',
-    name: 'Slack',
-    description: 'Send notifications to channels and create various projects',
-    iconClass: 'bi-slack',
-    color: '#4a154b',
-  },
-  {
-    id: 'google',
-    name: 'Google',
-    description:
-      "The core mission of Google is to organize the world's information.",
-    iconClass: 'bi-google',
+    id: 'gmail',
+    name: 'Gmail',
+    description: 'Connect Gmail to send and receive messages from your inbox.',
+    iconClass: 'bi-envelope-fill',
     color: '#ea4335',
   },
   {
-    id: 'figma',
-    name: 'Figma',
-    description:
-      'Figma is a web-based design tool focused on collaborative design.',
-    iconClass: null,
-    color: '#f24e1e',
+    id: 'google-calendar',
+    name: 'Google Calendar',
+    description: 'Sync events and availability with Google Calendar.',
+    iconClass: 'bi-calendar-event-fill',
+    color: '#4285f4',
   },
   {
-    id: 'drive',
-    name: 'Drive',
-    description: 'Google Drive is a comprehensive file storage and service.',
-    iconClass: null,
-    color: '#1fa463',
+    id: 'microsoft-outlook',
+    name: 'Microsoft Outlook',
+    description: 'Connect Outlook to manage email in one place.',
+    iconClass: 'bi-microsoft',
+    color: '#0078d4',
   },
   {
-    id: 'dropbox',
-    name: 'Drop Box',
-    description: 'The service is designed to safeguard files from malfunctions.',
-    iconClass: 'bi-dropbox',
-    color: '#0061ff',
+    id: 'microsoft-calendar',
+    name: 'Microsoft Calendar',
+    description: 'Sync schedules and meetings with Microsoft Calendar.',
+    iconClass: 'bi-calendar3-fill',
+    color: '#0078d4',
   },
   {
-    id: 'facebook',
-    name: 'Facebook',
-    description:
-      "Facebook's journey from a university network to a global social media.",
-    iconClass: 'bi-facebook',
-    color: '#1877f2',
+    id: 'apple-email',
+    name: 'Apple Email',
+    description: 'Connect Apple Mail to manage messages from your account.',
+    iconClass: 'bi-apple',
+    color: '#555555',
   },
   {
-    id: 'instagram',
-    name: 'Instagram',
-    description:
-      "Instagram's mission is to bring people closer to the things and people.",
-    iconClass: 'bi-instagram',
-    color: '#e4405f',
+    id: 'apple-calendar',
+    name: 'Apple Calendar',
+    description: 'Sync events and reminders with Apple Calendar.',
+    iconClass: 'bi-calendar2-week-fill',
+    color: '#555555',
   },
   {
-    id: 'twitter',
-    name: 'Twitter',
-    description: 'Twitter, now known as X, is a social media platform.',
-    iconClass: 'bi-twitter',
-    color: '#1da1f2',
+    id: 'yahoo-email',
+    name: 'Yahoo Email',
+    description: 'Connect Yahoo Mail to send and receive messages.',
+    iconClass: 'bi-envelope-at-fill',
+    color: '#6001d2',
+  },
+  {
+    id: 'yahoo-calendar',
+    name: 'Yahoo Calendar',
+    description: 'Sync events and availability with Yahoo Calendar.',
+    iconClass: 'bi-calendar-check-fill',
+    color: '#6001d2',
+  },
+  {
+    id: 'facebook-messenger',
+    name: 'Facebook Messenger',
+    description: 'Connect Messenger to receive and reply to conversations.',
+    iconClass: 'bi-messenger',
+    color: '#0084ff',
   },
 ]
 
-const FigmaIcon = () => (
-  <svg viewBox="0 0 38 56" width="22" height="22" aria-hidden="true">
-    <path d="M19 28a9.5 9.5 0 1 1 0 19 9.5 9.5 0 0 1 0-19Z" fill="#1abcfe" />
-    <path d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0Z" fill="#0acf83" />
-    <path d="M19 0v19H9.5a9.5 9.5 0 1 1 0-19Z" fill="#ff7262" />
-    <path d="M19 19h9.5a9.5 9.5 0 1 1 0 19H19V19Z" fill="#a259ff" />
-    <path d="M19 0h9.5a9.5 9.5 0 1 1 0 19H19V0Z" fill="#f24e1e" />
-  </svg>
+const renderIntegrationIcon = (integration: Integration) => (
+  <i
+    className={`bi ${integration.iconClass}`}
+    style={{ color: integration.color }}
+    aria-hidden="true"
+  />
 )
-
-const DriveIcon = () => (
-  <svg viewBox="0 0 64 56" width="24" height="22" aria-hidden="true">
-    <path d="M20.5 0h23l20.5 35.5H41L20.5 0Z" fill="#ffce47" />
-    <path d="M20.5 0 0 35.5 11.5 56 32 21l-11.5-21Z" fill="#34a853" />
-    <path d="m11.5 56 9.5-16.5h43L52 56H11.5Z" fill="#4285f4" />
-  </svg>
-)
-
-const renderIntegrationIcon = (integration: Integration) => {
-  if (integration.iconClass) {
-    return (
-      <i
-        className={`bi ${integration.iconClass}`}
-        style={{ color: integration.color }}
-        aria-hidden="true"
-      />
-    )
-  }
-  if (integration.id === 'figma') return <FigmaIcon />
-  if (integration.id === 'drive') return <DriveIcon />
-  return null
-}
 
 const IntegrationsSettingsPage = () => {
   const [integrations, setIntegrations] = useState<Record<IntegrationId, boolean>>(
@@ -267,7 +238,7 @@ const IntegrationDetailsModal = ({
               </div>
               <div>
                 <dt>Permissions</dt>
-                <dd>Projects, files, notifications</dd>
+                <dd>Email, calendar, and messaging access</dd>
               </div>
               <div>
                 <dt>Last Checked</dt>
