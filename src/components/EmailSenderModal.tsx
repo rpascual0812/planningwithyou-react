@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 import type { EmailRecord, EmailPayload } from '../services/emails'
+import {
+  fetchEmailBookingTemplates,
+  type EmailBookingTemplateRecord,
+} from '../services/emailBookingTemplates'
 import { fetchMe } from '../services/users'
 import DocumentsModal from './DocumentsModal'
 import type { DocumentRecord } from '../services/documents'
@@ -204,6 +208,33 @@ const EmailSenderModal = ({
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
   const [defaultReplyTo, setDefaultReplyTo] = useState('')
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [bookingTemplates, setBookingTemplates] = useState<EmailBookingTemplateRecord[]>([])
+  const [bookingTemplatesLoading, setBookingTemplatesLoading] = useState(false)
+  const [selectedBookingTemplateId, setSelectedBookingTemplateId] = useState('')
+
+  const activeBookingTemplates = useMemo(
+    () => bookingTemplates.filter((t) => t.is_active),
+    [bookingTemplates],
+  )
+
+  useEffect(() => {
+    if (!isCompose) return
+    let cancelled = false
+    setBookingTemplatesLoading(true)
+    fetchEmailBookingTemplates()
+      .then((rows) => {
+        if (!cancelled) setBookingTemplates(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setBookingTemplates([])
+      })
+      .finally(() => {
+        if (!cancelled) setBookingTemplatesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isCompose])
 
   useEffect(() => {
     let cancelled = false
@@ -277,6 +308,27 @@ const EmailSenderModal = ({
       return next
     })
 
+  const applyBookingTemplate = (template: EmailBookingTemplateRecord) => {
+    const subject = template.subject ?? ''
+    const body = template.body ?? ''
+    initialSubjectRef.current = subject
+    initialHtmlRef.current = body
+    setForm((prev) => {
+      const next = { ...prev, subject, body }
+      saveDraft(storageKey, next)
+      return next
+    })
+    setEditorKey((k) => k + 1)
+  }
+
+  const handleBookingTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value
+    setSelectedBookingTemplateId(value)
+    if (!value) return
+    const template = activeBookingTemplates.find((t) => String(t.id) === value)
+    if (template) applyBookingTemplate(template)
+  }
+
   const handleReset = () => {
     clearDraft(storageKey)
     setRestoredDraft(false)
@@ -284,6 +336,7 @@ const EmailSenderModal = ({
     setForm(fresh)
     initialHtmlRef.current = fresh.body ?? ''
     initialSubjectRef.current = fresh.subject ?? ''
+    setSelectedBookingTemplateId('')
     setEditorKey((k) => k + 1)
   }
 
@@ -406,6 +459,33 @@ const EmailSenderModal = ({
                     onChange={(e) => setField('reply_to', e.target.value.trim())}
                   />
                 </div>
+                {isCompose && (
+                  <div className="col-12">
+                    <label className="form-label" htmlFor="email-booking-template">
+                      Email template
+                    </label>
+                    <select
+                      id="email-booking-template"
+                      className="form-select form-select-sm"
+                      value={selectedBookingTemplateId}
+                      onChange={handleBookingTemplateChange}
+                      disabled={bookingTemplatesLoading || sending}
+                    >
+                      <option value="">
+                        {bookingTemplatesLoading
+                          ? 'Loading templates…'
+                          : activeBookingTemplates.length
+                            ? 'Select a template…'
+                            : 'No booking templates'}
+                      </option>
+                      {activeBookingTemplates.map((t) => (
+                        <option key={t.id} value={String(t.id)}>
+                          {t.title || t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="col-12">
                   <label className="form-label">Subject</label>
                   <div className="email-subject-editor">

@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
 import { registerEmailMergeVariablesToolbar, SUBJECT_VARIABLES_ONLY_EDITOR_INIT } from '../../lib/tinymceEmailMergeVariables'
+import {
+  createEmailBookingTemplate,
+  deleteEmailBookingTemplate,
+  fetchEmailBookingTemplates,
+  updateEmailBookingTemplate,
+  type EmailBookingTemplatePayload,
+  type EmailBookingTemplateRecord,
+} from '../../services/emailBookingTemplates'
 import {
   createEmailUserTemplate,
   deleteEmailUserTemplate,
@@ -10,17 +18,32 @@ import {
   type EmailUserTemplateRecord,
 } from '../../services/emailUserTemplates'
 
-/** Form state shown in the UI; `name` is derived from `title` when saving (hidden from user). */
-type EmailUserTemplateFormFields = Omit<EmailUserTemplatePayload, 'name'>
+type EmailTemplateRecord = EmailUserTemplateRecord | EmailBookingTemplateRecord
+type EmailTemplatePayload = EmailUserTemplatePayload | EmailBookingTemplatePayload
 
-const EMPTY_FORM: EmailUserTemplateFormFields = {
+/** Form state shown in the UI; `name` is derived from `title` when saving (hidden from user). */
+type EmailTemplateFormFields = Omit<EmailTemplatePayload, 'name'>
+
+const EMPTY_FORM: EmailTemplateFormFields = {
   title: '',
   subject: '',
   body: '',
   is_active: true,
 }
 
-function formFromRecord(r: EmailUserTemplateRecord): EmailUserTemplateFormFields {
+type EmailTemplatesPanelConfig = {
+  typeLabel: string
+  emptyMessage: string
+  fetchTemplates: (search?: string) => Promise<EmailTemplateRecord[]>
+  createTemplate: (data: EmailTemplatePayload) => Promise<EmailTemplateRecord>
+  updateTemplate: (
+    id: number,
+    data: Partial<EmailTemplatePayload>,
+  ) => Promise<EmailTemplateRecord>
+  deleteTemplate: (id: number) => Promise<void>
+}
+
+function formFromRecord(r: EmailTemplateRecord): EmailTemplateFormFields {
   return {
     title: r.title || r.name,
     subject: r.subject,
@@ -42,15 +65,19 @@ function titleToTemplateName(raw: string): string {
   return out.length > 255 ? out.slice(0, 255).replace(/_+$/, '') || 'untitled' : out
 }
 
+function normalizeSubject(subject: string): string {
+  return subject.replace(/\s+/g, ' ').trim()
+}
+
 function toApiPayload(
-  form: EmailUserTemplateFormFields,
+  form: EmailTemplateFormFields,
   mode: 'create' | 'edit',
   existingName?: string,
-): EmailUserTemplatePayload {
+): EmailTemplatePayload {
   return {
     name: mode === 'create' ? titleToTemplateName(form.title) : (existingName ?? 'untitled'),
     title: form.title.trim(),
-    subject: form.subject,
+    subject: normalizeSubject(form.subject),
     body: form.body,
     is_active: form.is_active,
   }
@@ -100,38 +127,49 @@ const TEMPLATE_BODY_EDITOR_INIT = {
     'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; }',
 }
 
-const UsersEmailTemplatesPanel = () => {
-  const [templates, setTemplates] = useState<EmailUserTemplateRecord[]>([])
+const EmailTemplatesPanel = ({
+  typeLabel,
+  emptyMessage,
+  fetchTemplates,
+  createTemplate,
+  updateTemplate,
+  deleteTemplate,
+}: EmailTemplatesPanelConfig) => {
+  const [templates, setTemplates] = useState<EmailTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [editing, setEditing] = useState<EmailUserTemplateRecord | null>(null)
+  const [editing, setEditing] = useState<EmailTemplateRecord | null>(null)
   const [composing, setComposing] = useState(false)
-  const [form, setForm] = useState<EmailUserTemplateFormFields>(EMPTY_FORM)
+  const [form, setForm] = useState<EmailTemplateFormFields>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  const [deleteTarget, setDeleteTarget] = useState<EmailUserTemplateRecord | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<EmailTemplateRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [bodyEditorKey, setBodyEditorKey] = useState(0)
+  const initialSubjectRef = useRef('')
+  const initialBodyRef = useRef('')
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      setTemplates(await fetchEmailUserTemplates())
+      setTemplates(await fetchTemplates())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load templates')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [fetchTemplates])
 
   useEffect(() => {
     load()
   }, [load])
 
   const openAdd = () => {
+    initialSubjectRef.current = ''
+    initialBodyRef.current = ''
     setEditing(null)
     setForm(EMPTY_FORM)
     setComposing(true)
@@ -139,9 +177,12 @@ const UsersEmailTemplatesPanel = () => {
     setBodyEditorKey((k) => k + 1)
   }
 
-  const openEdit = (t: EmailUserTemplateRecord) => {
+  const openEdit = (t: EmailTemplateRecord) => {
+    const fields = formFromRecord(t)
+    initialSubjectRef.current = fields.subject
+    initialBodyRef.current = fields.body
     setEditing(t)
-    setForm(formFromRecord(t))
+    setForm(fields)
     setComposing(false)
     setFormError(null)
     setBodyEditorKey((k) => k + 1)
@@ -154,9 +195,9 @@ const UsersEmailTemplatesPanel = () => {
     setFormError(null)
   }
 
-  const setField = <K extends keyof EmailUserTemplateFormFields>(
+  const setField = <K extends keyof EmailTemplateFormFields>(
     key: K,
-    value: EmailUserTemplateFormFields[K],
+    value: EmailTemplateFormFields[K],
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
@@ -170,9 +211,9 @@ const UsersEmailTemplatesPanel = () => {
         ? toApiPayload(form, 'edit', editing.name)
         : toApiPayload(form, 'create')
       if (editing) {
-        await updateEmailUserTemplate(editing.id, payload)
+        await updateTemplate(editing.id, payload)
       } else {
-        await createEmailUserTemplate(payload)
+        await createTemplate(payload)
       }
       await load()
       closeModal()
@@ -187,7 +228,7 @@ const UsersEmailTemplatesPanel = () => {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await deleteEmailUserTemplate(deleteTarget.id)
+      await deleteTemplate(deleteTarget.id)
       setDeleteTarget(null)
       if (editing?.id === deleteTarget.id) closeModal()
       await load()
@@ -205,7 +246,7 @@ const UsersEmailTemplatesPanel = () => {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
-          {templates.length} template{templates.length !== 1 && 's'} (type: users)
+          {templates.length} template{templates.length !== 1 && 's'} (type: {typeLabel})
         </span>
         <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
           <i className="bi bi-plus-lg me-1" />
@@ -218,7 +259,7 @@ const UsersEmailTemplatesPanel = () => {
       {loading && templates.length === 0 ? (
         <div className="text-muted">Loading...</div>
       ) : templates.length === 0 && !showFormModal ? (
-        <div className="text-muted small">No user email templates yet.</div>
+        <div className="text-muted small">{emptyMessage}</div>
       ) : null}
 
       {templates.length > 0 && (
@@ -271,11 +312,11 @@ const UsersEmailTemplatesPanel = () => {
                 <div className="modal-body">
                   {formError && <div className="alert alert-danger py-2">{formError}</div>}
                   <div className="mb-3">
-                    <label className="form-label" htmlFor="et-title">
+                    <label className="form-label" htmlFor={`et-title-${typeLabel}`}>
                       Title *
                     </label>
                     <input
-                      id="et-title"
+                      id={`et-title-${typeLabel}`}
                       className="form-control"
                       value={form.title}
                       onChange={(e) => setField('title', e.target.value)}
@@ -286,16 +327,12 @@ const UsersEmailTemplatesPanel = () => {
                     <span className="form-label d-block mb-2">Subject</span>
                     <div className="email-subject-editor">
                       <Editor
-                        key={`subject-${bodyEditorKey}`}
+                        key={`subject-${typeLabel}-${bodyEditorKey}`}
                         tinymceScriptSrc="/tinymce/tinymce.min.js"
                         licenseKey="gpl"
-                        initialValue={form.subject}
+                        initialValue={initialSubjectRef.current}
                         onEditorChange={(_html, ed) => {
-                          const text = ed
-                            .getContent({ format: 'text' })
-                            .replace(/\s+/g, ' ')
-                            .trim()
-                          setField('subject', text)
+                          setField('subject', ed.getContent({ format: 'text' }))
                         }}
                         init={SUBJECT_VARIABLES_ONLY_EDITOR_INIT}
                       />
@@ -304,23 +341,23 @@ const UsersEmailTemplatesPanel = () => {
                   <div className="mb-3">
                     <span className="form-label d-block mb-2">Body</span>
                     <Editor
-                      key={bodyEditorKey}
+                      key={`body-${typeLabel}-${bodyEditorKey}`}
                       tinymceScriptSrc="/tinymce/tinymce.min.js"
                       licenseKey="gpl"
-                      initialValue={form.body}
+                      initialValue={initialBodyRef.current}
                       onEditorChange={(content) => setField('body', content)}
                       init={TEMPLATE_BODY_EDITOR_INIT}
                     />
                   </div>
                   <div className="form-check">
                     <input
-                      id="et-active"
+                      id={`et-active-${typeLabel}`}
                       className="form-check-input"
                       type="checkbox"
                       checked={form.is_active}
                       onChange={(e) => setField('is_active', e.target.checked)}
                     />
-                    <label className="form-check-label" htmlFor="et-active">
+                    <label className="form-check-label" htmlFor={`et-active-${typeLabel}`}>
                       Active
                     </label>
                   </div>
@@ -389,33 +426,75 @@ const UsersEmailTemplatesPanel = () => {
   )
 }
 
+type AccordionItemProps = {
+  open: boolean
+  onToggle: () => void
+  icon: string
+  title: string
+  children: React.ReactNode
+}
+
+const EmailTemplatesAccordionItem = ({ open, onToggle, icon, title, children }: AccordionItemProps) => (
+  <li className={`faq-item${open ? ' is-open' : ''}`}>
+    <button
+      type="button"
+      className="faq-toggle"
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      <span className="faq-icon" aria-hidden="true">
+        <i className={icon} />
+      </span>
+      <span className="faq-question">{title}</span>
+      <span className="faq-chevron" aria-hidden="true">
+        <i className="bi bi-chevron-down" />
+      </span>
+    </button>
+    {open && <div className="faq-answer faq-answer--form">{children}</div>}
+  </li>
+)
+
+const USERS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
+  typeLabel: 'users',
+  emptyMessage: 'No user email templates yet.',
+  fetchTemplates: fetchEmailUserTemplates,
+  createTemplate: createEmailUserTemplate,
+  updateTemplate: updateEmailUserTemplate,
+  deleteTemplate: deleteEmailUserTemplate,
+}
+
+const BOOKINGS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
+  typeLabel: 'bookings',
+  emptyMessage: 'No booking email templates yet.',
+  fetchTemplates: fetchEmailBookingTemplates,
+  createTemplate: createEmailBookingTemplate,
+  updateTemplate: updateEmailBookingTemplate,
+  deleteTemplate: deleteEmailBookingTemplate,
+}
+
 const EmailTemplatesSettingsPage = () => {
   const [usersOpen, setUsersOpen] = useState(false)
+  const [bookingsOpen, setBookingsOpen] = useState(false)
 
   return (
     <div className="account-settings">
       <ul className="faq-list">
-        <li className={`faq-item${usersOpen ? ' is-open' : ''}`}>
-          <button
-            type="button"
-            className="faq-toggle"
-            aria-expanded={usersOpen}
-            onClick={() => setUsersOpen((prev) => !prev)}
-          >
-            <span className="faq-icon" aria-hidden="true">
-              <i className="bi bi-people" />
-            </span>
-            <span className="faq-question">Users</span>
-            <span className="faq-chevron" aria-hidden="true">
-              <i className="bi bi-chevron-down" />
-            </span>
-          </button>
-          {usersOpen && (
-            <div className="faq-answer faq-answer--form">
-              <UsersEmailTemplatesPanel />
-            </div>
-          )}
-        </li>
+        <EmailTemplatesAccordionItem
+          open={usersOpen}
+          onToggle={() => setUsersOpen((prev) => !prev)}
+          icon="bi bi-people"
+          title="Users"
+        >
+          <EmailTemplatesPanel {...USERS_PANEL_CONFIG} />
+        </EmailTemplatesAccordionItem>
+        <EmailTemplatesAccordionItem
+          open={bookingsOpen}
+          onToggle={() => setBookingsOpen((prev) => !prev)}
+          icon="bi bi-calendar-check"
+          title="Bookings"
+        >
+          <EmailTemplatesPanel {...BOOKINGS_PANEL_CONFIG} />
+        </EmailTemplatesAccordionItem>
       </ul>
     </div>
   )
