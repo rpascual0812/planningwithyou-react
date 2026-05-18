@@ -5883,6 +5883,21 @@ body,
   color: #98a2ad;
 }
 
+.account-info-control--logo {
+  flex-direction: column;
+  align-items: flex-start;
+  height: auto;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.95rem;
+}
+
+.account-info-logo-preview {
+  display: block;
+  max-width: 160px;
+  max-height: 64px;
+  object-fit: contain;
+}
+
 .account-info-control--select {
   cursor: pointer;
 }
