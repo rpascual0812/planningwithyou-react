@@ -1023,8 +1023,74 @@ body,
   z-index: 1300;
 }
 
+.booking-contact-summary {
+  background: #f0f2f5;
+  border-radius: 0.375rem;
+  padding: 0.75rem 0.875rem;
+  font-size: 0.8125rem;
+}
+
+.booking-contact-summary__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.65rem;
+}
+
+.booking-contact-summary__row:last-child {
+  margin-bottom: 0;
+}
+
+.booking-contact-summary__label {
+  color: #6c757d;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.booking-contact-summary__value {
+  color: #212529;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
 .booking-edit-modal-sidebar {
   min-height: 100%;
+}
+
+.booking-edit-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.booking-edit-modal-footer__end {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.booking-edit-modal-footer__send {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.booking-edit-modal-footer__divider {
+  align-self: stretch;
+  width: 1px;
+  min-height: 2rem;
+  margin: 0 0.25rem;
+  background: var(--bs-border-color);
+}
+
+.booking-edit-modal-footer__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .booking-field-header {
@@ -6751,13 +6817,13 @@ body,
   text-align: center;
 }
 
-/* Email detail / resend modal */
+/* Email detail / resend modal (above booking edit modal at 1300) */
 .email-modal-backdrop {
-  z-index: 1040;
+  z-index: 1310;
 }
 
 .email-modal {
-  z-index: 1050;
+  z-index: 1320;
 }
 
 .email-subject-editor .tox-tinymce {

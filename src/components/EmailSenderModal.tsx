@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 import type { EmailRecord, EmailPayload } from '../services/emails'
+import { fetchMe } from '../services/users'
 import DocumentsModal from './DocumentsModal'
 import type { DocumentRecord } from '../services/documents'
 import {
@@ -110,6 +111,10 @@ export type EmailSenderModalProps = {
   onSend: (data: EmailPayload) => void
   /** Called when the modal should close. */
   onClose: () => void
+  /** Prefill compose fields (ignored when ``email`` is set). */
+  composeDefaults?: Partial<EmailPayload>
+  /** Separate localStorage draft key for compose mode (e.g. per booking). */
+  draftScope?: string
 }
 
 const EMPTY_FORM: EmailPayload = {
@@ -117,6 +122,7 @@ const EMPTY_FORM: EmailPayload = {
   cc: [],
   bcc: [],
   email_from: '',
+  reply_to: '',
   subject: '',
   body: '',
   attachments: [],
@@ -124,8 +130,10 @@ const EMPTY_FORM: EmailPayload = {
 
 const DRAFT_PREFIX = 'emailDraft:'
 
-function draftKey(email?: EmailRecord | null): string {
-  return email ? `${DRAFT_PREFIX}${email.id}` : `${DRAFT_PREFIX}compose`
+function draftKey(email?: EmailRecord | null, draftScope?: string): string {
+  if (email) return `${DRAFT_PREFIX}${email.id}`
+  if (draftScope) return `${DRAFT_PREFIX}${draftScope}`
+  return `${DRAFT_PREFIX}compose`
 }
 
 function loadDraft(key: string): EmailPayload | null {
@@ -147,18 +155,28 @@ function clearDraft(key: string) {
   localStorage.removeItem(key)
 }
 
-function buildInitialForm(email?: EmailRecord | null): EmailPayload {
-  return email
-    ? {
-        to: email.to,
-        cc: email.cc,
-        bcc: email.bcc,
-        email_from: email.email_from,
-        subject: email.subject,
-        body: email.body,
-        attachments: email.attachments,
-      }
-    : { ...EMPTY_FORM }
+function buildInitialForm(
+  email?: EmailRecord | null,
+  composeDefaults?: Partial<EmailPayload>,
+  defaultReplyTo = '',
+): EmailPayload {
+  if (email) {
+    return {
+      to: email.to,
+      cc: email.cc,
+      bcc: email.bcc,
+      email_from: email.email_from,
+      reply_to: email.reply_to ?? '',
+      subject: email.subject,
+      body: email.body,
+      attachments: email.attachments,
+    }
+  }
+  const base: EmailPayload = { ...EMPTY_FORM, ...composeDefaults }
+  if (!base.reply_to?.trim() && defaultReplyTo) {
+    base.reply_to = defaultReplyTo
+  }
+  return base
 }
 
 const EmailSenderModal = ({
@@ -167,22 +185,64 @@ const EmailSenderModal = ({
   sending,
   onSend,
   onClose,
+  composeDefaults,
+  draftScope,
 }: EmailSenderModalProps) => {
   const isCompose = !email
-  const storageKey = draftKey(email)
+  const storageKey = draftKey(email, draftScope)
 
   const [restoredDraft, setRestoredDraft] = useState(
     () => !!loadDraft(storageKey),
   )
   const [form, setForm] = useState<EmailPayload>(() => {
     const draft = loadDraft(storageKey)
-    return draft ?? buildInitialForm(email)
+    return draft ?? buildInitialForm(email, composeDefaults)
   })
   const [editorKey, setEditorKey] = useState(0)
   const editorRef = useRef<TinyMCEEditor | null>(null)
   const initialHtmlRef = useRef(form.body ?? '')
   const initialSubjectRef = useRef(form.subject ?? '')
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
+  const [defaultReplyTo, setDefaultReplyTo] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    fetchMe()
+      .then((user) => {
+        if (!cancelled) setDefaultReplyTo(user.email?.trim() ?? '')
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isCompose || !defaultReplyTo) return
+    setForm((prev) => {
+      if (prev.reply_to?.trim()) return prev
+      const next = { ...prev, reply_to: defaultReplyTo }
+      saveDraft(storageKey, next)
+      return next
+    })
+  }, [isCompose, defaultReplyTo, storageKey])
+
+  const defaultAttachmentUrls = useMemo(
+    () => (composeDefaults?.attachments ?? []).filter(Boolean),
+    [composeDefaults?.attachments],
+  )
+
+  useEffect(() => {
+    if (!isCompose || !defaultAttachmentUrls.length) return
+    setForm((prev) => {
+      const current = prev.attachments ?? []
+      const missing = defaultAttachmentUrls.filter((url) => !current.includes(url))
+      if (!missing.length) return prev
+      const next = { ...prev, attachments: [...current, ...missing] }
+      saveDraft(storageKey, next)
+      return next
+    })
+  }, [isCompose, defaultAttachmentUrls, storageKey])
 
   const handleDocSelect = (doc: DocumentRecord) => {
     if (docsMode === 'attach') {
@@ -220,7 +280,7 @@ const EmailSenderModal = ({
   const handleReset = () => {
     clearDraft(storageKey)
     setRestoredDraft(false)
-    const fresh = buildInitialForm(email)
+    const fresh = buildInitialForm(email, composeDefaults, defaultReplyTo)
     setForm(fresh)
     initialHtmlRef.current = fresh.body ?? ''
     initialSubjectRef.current = fresh.subject ?? ''
@@ -322,6 +382,19 @@ const EmailSenderModal = ({
                     label="BCC"
                     emails={form.bcc ?? []}
                     onChange={(val) => setField('bcc', val)}
+                  />
+                </div>
+                <div className="col-12">
+                  <label className="form-label" htmlFor="email-reply-to">
+                    Reply-To
+                  </label>
+                  <input
+                    id="email-reply-to"
+                    type="email"
+                    className="form-control form-control-sm"
+                    placeholder="reply@example.com"
+                    value={form.reply_to ?? ''}
+                    onChange={(e) => setField('reply_to', e.target.value.trim())}
                   />
                 </div>
                 <div className="col-12">

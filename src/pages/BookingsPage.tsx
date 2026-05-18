@@ -2,17 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  type BookingColumnRecord,
+  type BookingStatusRecord,
   type BookingItemRecord,
-  createBookingColumn,
+  createBookingStatus,
   createBookingItem,
-  deleteBookingColumn,
+  deleteBookingStatus,
   deleteBookingGroup,
   deleteBookingItem,
-  fetchBookingColumns,
+  fetchBookingStatuses,
   fetchBookingItems,
   reorderBookingItems,
-  updateBookingColumn,
+  updateBookingStatus,
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
@@ -32,9 +32,11 @@ import {
   buildBookingGroupsPayload,
   emptyBookingGroupNamesFromItem,
 } from '../lib/bookingFieldGroups'
+import { bookingPdfToMediaUrl } from '../lib/bookingPdfUrl'
+import { normalizeContactId } from '../lib/contactDisplay'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
-type BookingColumn = BookingColumnRecord
+type BookingColumn = BookingStatusRecord
 type BookingItem = BookingItemRecord
 
 function fieldValuesToFields(item: BookingItem): BookingField[] {
@@ -287,7 +289,7 @@ const BookingsPage = () => {
   const loadData = useCallback(async () => {
     try {
       const [cols, itms, tmpls] = await Promise.all([
-        fetchBookingColumns(),
+        fetchBookingStatuses(),
         fetchBookingItems(),
         fetchFormTemplates(),
       ])
@@ -311,7 +313,7 @@ const BookingsPage = () => {
       return () => true
     }
     return (item: BookingItem) => {
-      const column = columns.find((c) => c.id === item.column)
+      const column = columns.find((c) => c.id === item.status)
       return [item.title, item.notes, column?.title ?? '']
         .join(' ')
         .toLowerCase()
@@ -420,7 +422,7 @@ const BookingsPage = () => {
       // Persist new order
       const updates = next.map((it, idx) => ({
         id: it.id,
-        column: it.column,
+        status: it.status,
         sort_order: idx,
       }))
       reorderBookingItems(updates).catch(() => {})
@@ -512,7 +514,7 @@ const BookingsPage = () => {
       next.splice(clamped, 0, source)
       const updates = next.map((it, idx) => ({
         id: it.id,
-        column: it.column,
+        status: it.status,
         sort_order: idx,
       }))
       reorderBookingItems(updates).catch(() => {})
@@ -599,7 +601,7 @@ const BookingsPage = () => {
     const map = new Map<number, BookingItem[]>()
     columns.forEach((c) => map.set(c.id, []))
     items.forEach((it) => {
-      const bucket = map.get(it.column)
+      const bucket = map.get(it.status)
       if (bucket) {
         bucket.push(it)
       }
@@ -623,8 +625,8 @@ const BookingsPage = () => {
 
     const initial: DragState = {
       itemId: item.id,
-      sourceColumnId: item.column,
-      targetColumnId: item.column,
+      sourceColumnId: item.status,
+      targetColumnId: item.status,
       targetIndex: indexInColumn,
     }
 
@@ -691,9 +693,9 @@ const BookingsPage = () => {
       }
 
       let postMoveIndex = renderedTargetIndex
-      if (source.column === targetColumnId) {
+      if (source.status === targetColumnId) {
         const sourceIndexInColumn = prev
-          .filter((it) => it.column === targetColumnId)
+          .filter((it) => it.status === targetColumnId)
           .findIndex((it) => it.id === itemId)
         if (sourceIndexInColumn >= 0 && renderedTargetIndex > sourceIndexInColumn) {
           postMoveIndex = renderedTargetIndex - 1
@@ -702,7 +704,7 @@ const BookingsPage = () => {
 
       const without = prev.filter((it) => it.id !== itemId)
       const targetColumnItems = without.filter(
-        (it) => it.column === targetColumnId,
+        (it) => it.status === targetColumnId,
       )
       const clamped = Math.max(
         0,
@@ -720,22 +722,22 @@ const BookingsPage = () => {
         insertAtFlat = without.length
       }
 
-      const moved: BookingItem = { ...source, column: targetColumnId }
+      const moved: BookingItem = { ...source, status: targetColumnId }
       const next = [...without]
       next.splice(insertAtFlat, 0, moved)
 
       // Persist: update the moved item's column + sort_order for all items in the target column
-      const targetItems = next.filter((it) => it.column === targetColumnId)
+      const targetItems = next.filter((it) => it.status === targetColumnId)
       const updates = targetItems.map((it, idx) => ({
         id: it.id,
-        column: targetColumnId,
+        status: targetColumnId,
         sort_order: idx,
       }))
       // If cross-column move, also update sort_order in the source column
-      if (source.column !== targetColumnId) {
-        const sourceItems = next.filter((it) => it.column === source.column)
+      if (source.status !== targetColumnId) {
+        const sourceItems = next.filter((it) => it.status === source.status)
         sourceItems.forEach((it, idx) => {
-          updates.push({ id: it.id, column: source.column, sort_order: idx })
+          updates.push({ id: it.id, status: source.status, sort_order: idx })
         })
       }
       reorderBookingItems(updates).catch(() => {})
@@ -777,10 +779,10 @@ const BookingsPage = () => {
 
     try {
       if (statusModal.mode === 'create') {
-        const created = await createBookingColumn({ title, description, color })
+        const created = await createBookingStatus({ title, description, color })
         setColumns((prev) => [...prev, created])
       } else if (statusModal.id) {
-        const updated = await updateBookingColumn(statusModal.id, {
+        const updated = await updateBookingStatus(statusModal.id, {
           title,
           description,
           color,
@@ -807,9 +809,9 @@ const BookingsPage = () => {
       return
     }
     try {
-      await deleteBookingColumn(column.id)
+      await deleteBookingStatus(column.id)
       setColumns((prev) => prev.filter((c) => c.id !== column.id))
-      setItems((prev) => prev.filter((it) => it.column !== column.id))
+      setItems((prev) => prev.filter((it) => it.status !== column.id))
     } catch {
       // silently fail
     }
@@ -853,11 +855,12 @@ const BookingsPage = () => {
     )
   }
 
-  const openCreateItem = (columnId: number) => {
+  const openCreateItem = (statusId: number) => {
     setItemModal({
       mode: 'create',
       id: null,
-      columnId,
+      statusId,
+      contactId: null,
       title: '',
       dateOfEvent: '',
       timeOfEvent: '',
@@ -877,7 +880,8 @@ const BookingsPage = () => {
     setItemModal({
       mode: 'edit',
       id: item.id,
-      columnId: item.column,
+      statusId: item.status,
+      contactId: normalizeContactId(item.contact),
       title: item.title,
       dateOfEvent,
       timeOfEvent,
@@ -887,6 +891,7 @@ const BookingsPage = () => {
         item.groups ?? [],
       ),
       notes: item.notes,
+      pdfUrl: bookingPdfToMediaUrl(item.pdf ?? ''),
     })
     setSearchParams(
       (prev) => {
@@ -905,7 +910,8 @@ const BookingsPage = () => {
     }
     const title = itemModal.title.trim() || 'Untitled'
     const notes = itemModal.notes
-    const columnId = itemModal.columnId
+    const statusId = itemModal.statusId
+    const contact = itemModal.contactId
     let date_of_event: string | null = null
     if (itemModal.dateOfEvent) {
       date_of_event = itemModal.timeOfEvent
@@ -943,7 +949,8 @@ const BookingsPage = () => {
       )
       if (itemModal.mode === 'create') {
         const created = await createBookingItem({
-          column: columnId,
+          status: statusId,
+          contact,
           title,
           date_of_event,
           groups,
@@ -958,7 +965,8 @@ const BookingsPage = () => {
           groups,
           field_values,
           notes,
-          column: columnId,
+          status: statusId,
+          contact,
         })
         setItems((prev) =>
           prev.map((it) => (it.id === updated.id ? updated : it)),
@@ -1027,7 +1035,8 @@ const BookingsPage = () => {
       setItemModal({
         mode: 'edit',
         id: item.id,
-        columnId: item.column,
+        statusId: item.status,
+        contactId: normalizeContactId(item.contact),
         title: item.title,
         dateOfEvent,
         timeOfEvent,
@@ -1402,7 +1411,7 @@ const BookingsPage = () => {
                 }
                 const item = entry.item
                 const columnIndex = columns.findIndex(
-                  (c) => c.id === item.column,
+                  (c) => c.id === item.status,
                 )
                 const column =
                   columnIndex >= 0 ? columns[columnIndex] : undefined
@@ -1610,7 +1619,7 @@ const BookingsPage = () => {
                       }
                       const item = row.item
                       const columnIndex = columns.findIndex(
-                        (c) => c.id === item.column,
+                        (c) => c.id === item.status,
                       )
                       const column =
                         columnIndex >= 0 ? columns[columnIndex] : undefined

@@ -6,6 +6,7 @@ export type EmailRecord = {
   cc: string[]
   bcc: string[]
   email_from: string
+  reply_to: string
   subject: string
   body: string
   attachments: string[]
@@ -21,6 +22,7 @@ export type EmailPayload = {
   cc?: string[]
   bcc?: string[]
   email_from?: string
+  reply_to?: string
   subject?: string
   body?: string
   attachments?: string[]

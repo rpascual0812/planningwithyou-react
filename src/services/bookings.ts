@@ -29,7 +29,7 @@ async function bookingApiError(res: Response, fallback: string): Promise<Error> 
 
 /* ── Types ── */
 
-export type BookingColumnRecord = {
+export type BookingStatusRecord = {
   id: number
   title: string
   description: string
@@ -64,74 +64,77 @@ export type BookingFieldValueRecord = {
 
 export type BookingItemRecord = {
   id: number
-  column: number
+  unique_id: string
+  status: number
+  contact: number | null
   title: string
   date_of_event: string | null
   groups?: BookingGroupRecord[]
   field_values: BookingFieldValueRecord[]
   notes: string
   sort_order: number
+  pdf: string
   created_at: string
   updated_at: string
 }
 
-/* ── Columns ── */
+/* ── Statuses ── */
 
-export async function fetchBookingColumns(): Promise<BookingColumnRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/booking-columns/'), {
+export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
+  const res = await apiFetch(buildApiUrl('/api/statuses/'), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load booking columns')
+  if (!res.ok) throw new Error('Failed to load booking statuses')
   return res.json()
 }
 
-export async function createBookingColumn(
-  data: Pick<BookingColumnRecord, 'title' | 'description' | 'color'>,
-): Promise<BookingColumnRecord> {
-  const res = await apiFetch(buildApiUrl('/api/booking-columns/'), {
+export async function createBookingStatus(
+  data: Pick<BookingStatusRecord, 'title' | 'description' | 'color'>,
+): Promise<BookingStatusRecord> {
+  const res = await apiFetch(buildApiUrl('/api/statuses/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('Failed to create column')
+  if (!res.ok) throw new Error('Failed to create status')
   return res.json()
 }
 
-export async function updateBookingColumn(
+export async function updateBookingStatus(
   id: number,
-  data: Partial<Pick<BookingColumnRecord, 'title' | 'description' | 'color' | 'sort_order'>>,
-): Promise<BookingColumnRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-columns/${id}/`), {
+  data: Partial<Pick<BookingStatusRecord, 'title' | 'description' | 'color' | 'sort_order'>>,
+): Promise<BookingStatusRecord> {
+  const res = await apiFetch(buildApiUrl(`/api/statuses/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('Failed to update column')
+  if (!res.ok) throw new Error('Failed to update status')
   return res.json()
 }
 
-export async function deleteBookingColumn(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-columns/${id}/`), {
+export async function deleteBookingStatus(id: number): Promise<void> {
+  const res = await apiFetch(buildApiUrl(`/api/statuses/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to delete column')
+  if (!res.ok) throw new Error('Failed to delete status')
 }
 
-export async function reorderBookingColumns(order: number[]): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/api/booking-columns/reorder/'), {
+export async function reorderBookingStatuses(order: number[]): Promise<void> {
+  const res = await apiFetch(buildApiUrl('/api/statuses/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ order }),
   })
-  if (!res.ok) throw new Error('Failed to reorder columns')
+  if (!res.ok) throw new Error('Failed to reorder statuses')
 }
 
 /* ── Items ── */
 
-export async function fetchBookingItems(columnId?: number): Promise<BookingItemRecord[]> {
+export async function fetchBookingItems(statusId?: number): Promise<BookingItemRecord[]> {
   const params = new URLSearchParams()
-  if (columnId) params.set('column', String(columnId))
+  if (statusId) params.set('status', String(statusId))
   const qs = params.toString() ? `?${params}` : ''
   const res = await apiFetch(buildApiUrl(`/api/booking-items/${qs}`), {
     headers: authHeaders(),
@@ -140,11 +143,19 @@ export async function fetchBookingItems(columnId?: number): Promise<BookingItemR
   return res.json()
 }
 
+export async function fetchBookingItem(id: number): Promise<BookingItemRecord> {
+  const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/`), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load booking')
+  return res.json()
+}
+
 export async function createBookingItem(
   data: Pick<
     BookingItemRecord,
-    'column' | 'title' | 'date_of_event' | 'field_values' | 'notes'
-  > & { groups?: BookingGroupWrite[] },
+    'status' | 'title' | 'date_of_event' | 'field_values' | 'notes'
+  > & { contact?: number | null; groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl('/api/booking-items/'), {
     method: 'POST',
@@ -160,7 +171,13 @@ export async function updateBookingItem(
   data: Partial<
     Pick<
       BookingItemRecord,
-      'column' | 'title' | 'date_of_event' | 'field_values' | 'notes' | 'sort_order'
+      | 'status'
+      | 'contact'
+      | 'title'
+      | 'date_of_event'
+      | 'field_values'
+      | 'notes'
+      | 'sort_order'
     >
   > & { groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
@@ -197,20 +214,20 @@ export async function deleteBookingItem(id: number): Promise<void> {
 
 export async function moveBookingItem(
   id: number,
-  columnId: number,
+  statusId: number,
   sortOrder: number,
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/move/`), {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ column: columnId, sort_order: sortOrder }),
+    body: JSON.stringify({ status: statusId, sort_order: sortOrder }),
   })
   if (!res.ok) throw new Error('Failed to move item')
   return res.json()
 }
 
 export async function reorderBookingItems(
-  items: { id: number; column: number; sort_order: number }[],
+  items: { id: number; status: number; sort_order: number }[],
 ): Promise<void> {
   const res = await apiFetch(buildApiUrl('/api/booking-items/reorder/'), {
     method: 'POST',

@@ -25,7 +25,20 @@ import {
   type CurrencyFormatOptions,
 } from '../utils/currency'
 import SupplierFieldInput from './SupplierFieldInput'
-import { showErrorToast } from '../utils/toast'
+import { fetchContact, fetchContacts, type ContactRecord } from '../services/contacts'
+import {
+  contactAddressLabel,
+  contactDefaultAddress,
+  contactDefaultPhone,
+  contactDisplayName,
+  contactPhoneLabel,
+  formatContactAddress,
+} from '../lib/contactDisplay'
+import EmailSenderModal from './EmailSenderModal'
+import { sendEmail, type EmailPayload } from '../services/emails'
+import { bookingPdfToMediaUrl } from '../lib/bookingPdfUrl'
+import { fetchBookingItem } from '../services/bookings'
+import { showErrorToast, showSuccessToast } from '../utils/toast'
 
 export type BookingFieldOption = {
   label: string
@@ -49,7 +62,8 @@ export type BookingField = {
 export type BookingFormState = {
   mode: 'create' | 'edit'
   id: number | null
-  columnId: number
+  statusId: number
+  contactId: number | null
   title: string
   dateOfEvent: string
   timeOfEvent: string
@@ -57,6 +71,8 @@ export type BookingFormState = {
   /** Empty group accordions (no fields yet); persisted via booking ``groups`` on save. */
   extraGroupNames?: string[]
   notes: string
+  /** Public URL for the generated booking quote PDF, when available. */
+  pdfUrl?: string
 }
 
 export type BookingStatus = {
@@ -144,6 +160,7 @@ function isDraftNonEmpty(data: Partial<BookingFormState>): boolean {
   if (data.dateOfEvent && data.dateOfEvent.trim()) return true
   if (data.timeOfEvent && data.timeOfEvent.trim()) return true
   if (data.notes && data.notes.trim()) return true
+  if (data.contactId != null) return true
   if (data.fields && data.fields.length > 0) return true
   return false
 }
@@ -169,6 +186,12 @@ const BookingEditModal = ({
     currencyCode: 'USD',
     locale: 'en-US',
   })
+  const [contacts, setContacts] = useState<ContactRecord[]>([])
+  const [contactsLoading, setContactsLoading] = useState(true)
+  const [linkedContact, setLinkedContact] = useState<ContactRecord | null>(null)
+  const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const [defaultGroupName, setDefaultGroupName] = useState(DEFAULT_BOOKING_GROUP_NAME)
   const [extraGroupNames, setExtraGroupNames] = useState<string[]>(
     form.extraGroupNames ?? [],
@@ -207,6 +230,110 @@ const BookingEditModal = ({
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    setContactsLoading(true)
+    fetchContacts()
+      .then((rows) => {
+        if (!cancelled) setContacts(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setContacts([])
+      })
+      .finally(() => {
+        if (!cancelled) setContactsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const contactId = form.contactId
+    if (contactId == null) {
+      setLinkedContact(null)
+      return
+    }
+    fetchContact(contactId)
+      .then((contact) => {
+        if (cancelled) return
+        setLinkedContact(contact)
+        setContacts((prev) => {
+          const idx = prev.findIndex((c) => c.id === contact.id)
+          if (idx === -1) return [...prev, contact]
+          const next = [...prev]
+          next[idx] = contact
+          return next
+        })
+      })
+      .catch(() => {
+        if (!cancelled) setLinkedContact(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [form.contactId])
+
+  const selectedContact = useMemo(() => {
+    if (form.contactId == null) return null
+    const id = Number(form.contactId)
+    if (linkedContact?.id === id) return linkedContact
+    return contacts.find((c) => c.id === id) ?? null
+  }, [contacts, form.contactId, linkedContact])
+
+  const defaultContactPhone = useMemo(
+    () => (selectedContact ? contactDefaultPhone(selectedContact) : null),
+    [selectedContact],
+  )
+
+  const defaultContactAddress = useMemo(
+    () => (selectedContact ? contactDefaultAddress(selectedContact) : null),
+    [selectedContact],
+  )
+
+  const bookingEmailDefaults = useMemo((): Partial<EmailPayload> => {
+    const to = selectedContact?.email?.trim()
+    const subject = form.title.trim()
+      ? `Booking: ${form.title.trim()}`
+      : 'Booking details'
+    return {
+      to: to ? [to] : [],
+      subject,
+      attachments: form.pdfUrl ? [form.pdfUrl] : [],
+    }
+  }, [selectedContact, form.title, form.pdfUrl])
+
+  const openBookingEmailModal = async () => {
+    setEmailError(null)
+    if (form.id) {
+      try {
+        const item = await fetchBookingItem(form.id)
+        const pdfUrl = bookingPdfToMediaUrl(item.pdf ?? '')
+        if (pdfUrl !== (form.pdfUrl ?? '')) {
+          onChange({ ...form, pdfUrl })
+        }
+      } catch {
+        // Keep any pdfUrl already on the form.
+      }
+    }
+    setEmailModalOpen(true)
+  }
+
+  const handleBookingEmailSend = async (data: EmailPayload) => {
+    setEmailSending(true)
+    setEmailError(null)
+    try {
+      await sendEmail(data)
+      setEmailModalOpen(false)
+      showSuccessToast('Email queued for delivery.')
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : 'Failed to send email')
+    } finally {
+      setEmailSending(false)
+    }
+  }
 
   useEffect(() => {
     setDismissedApiGroupNames([])
@@ -347,9 +474,10 @@ const BookingEditModal = ({
   const getSavedFieldDisplayPrice = (field: BookingField): string | null =>
     formatFieldPriceAmount(resolveBookingFieldPriceRaw(field))
 
-  // Restore draft on mount
+  // Restore draft on mount (create only — edit keeps server contact/status)
   useEffect(() => {
     originalFormJson.current = JSON.stringify(form)
+    if (form.mode !== 'create') return
     const key = draftKey(form.id)
     const draft = loadDraft(key)
     if (draft && isDraftNonEmpty(draft)) {
@@ -1188,9 +1316,9 @@ const BookingEditModal = ({
                       <select
                         id="booking-status"
                         className="form-select"
-                        value={form.columnId}
+                        value={form.statusId}
                         onChange={(e) =>
-                          onChange({ ...form, columnId: Number(e.target.value) })
+                          onChange({ ...form, statusId: Number(e.target.value) })
                         }
                       >
                         {statuses.map((s) => (
@@ -1200,6 +1328,71 @@ const BookingEditModal = ({
                         ))}
                       </select>
                     </div>
+                    <div className="mb-3">
+                      <label htmlFor="booking-contact" className="form-label">
+                        Contact
+                      </label>
+                      <select
+                        id="booking-contact"
+                        className="form-select"
+                        value={form.contactId != null ? String(form.contactId) : ''}
+                        disabled={contactsLoading}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                          onChange({
+                            ...form,
+                            contactId: raw === '' ? null : Number(raw),
+                          })
+                        }}
+                      >
+                        <option value="">
+                          {contactsLoading ? 'Loading contacts…' : 'Select a contact'}
+                        </option>
+                        {contacts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {contactDisplayName(c)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedContact && (
+                      <div className="booking-contact-summary mb-3">
+                        <div className="booking-contact-summary__row">
+                          <span className="booking-contact-summary__label">First name</span>
+                          <span className="booking-contact-summary__value">
+                            {selectedContact.first_name || '—'}
+                          </span>
+                        </div>
+                        <div className="booking-contact-summary__row">
+                          <span className="booking-contact-summary__label">Last name</span>
+                          <span className="booking-contact-summary__value">
+                            {selectedContact.last_name || '—'}
+                          </span>
+                        </div>
+                        <div className="booking-contact-summary__row">
+                          <span className="booking-contact-summary__label">
+                            {defaultContactPhone
+                              ? contactPhoneLabel(defaultContactPhone)
+                              : 'Phone'}
+                          </span>
+                          <span className="booking-contact-summary__value">
+                            {defaultContactPhone?.number?.trim() || '—'}
+                          </span>
+                        </div>
+                        <div className="booking-contact-summary__row">
+                          <span className="booking-contact-summary__label">
+                            {defaultContactAddress
+                              ? contactAddressLabel(defaultContactAddress)
+                              : 'Address'}
+                          </span>
+                          <span className="booking-contact-summary__value">
+                            {defaultContactAddress
+                              ? formatContactAddress(defaultContactAddress) || '—'
+                              : '—'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <div className="booking-price-summary mt-auto">
                       <h6 className="booking-price-summary__title">Price summary</h6>
                       {priceGroups.length === 0 ? (
@@ -1251,17 +1444,44 @@ const BookingEditModal = ({
                   </div>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  Save
-                </button>
+              <div className="modal-footer booking-edit-modal-footer">
+                <div className="booking-edit-modal-footer__end">
+                {form.mode === 'edit' && (
+                  <>
+                    <div className="booking-edit-modal-footer__send">
+                      <button type="button" className="btn btn-outline-secondary">
+                        <i className="bi bi-calendar-event me-1" aria-hidden="true" />
+                        Send to Calendar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => void openBookingEmailModal()}
+                      >
+                        <i className="bi bi-envelope me-1" aria-hidden="true" />
+                        Send Email to Client
+                      </button>
+                    </div>
+                    <div
+                      className="booking-edit-modal-footer__divider"
+                      role="separator"
+                      aria-orientation="vertical"
+                    />
+                  </>
+                )}
+                <div className="booking-edit-modal-footer__actions">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save
+                  </button>
+                </div>
+                </div>
               </div>
             </form>
           </div>
@@ -1363,6 +1583,21 @@ const BookingEditModal = ({
             </div>
           </div>
         </>
+      )}
+
+      {emailModalOpen && (
+        <EmailSenderModal
+          key={`booking-email-${form.id ?? 'new'}`}
+          error={emailError}
+          sending={emailSending}
+          composeDefaults={bookingEmailDefaults}
+          draftScope={`booking-${form.id ?? 'new'}`}
+          onSend={handleBookingEmailSend}
+          onClose={() => {
+            setEmailModalOpen(false)
+            setEmailError(null)
+          }}
+        />
       )}
     </>
   )

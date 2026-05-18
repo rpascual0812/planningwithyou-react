@@ -33,10 +33,59 @@ function displayName(c: ContactRecord): string {
   return [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email || `Contact #${c.id}`
 }
 
-const EMPTY_PHONE: PhoneNumber = { number: '', label: 'mobile' }
+const EMPTY_PHONE: PhoneNumber = { number: '', label: 'mobile', is_default: true }
 const EMPTY_ADDRESS: Address = {
-  label: 'home', street: '', city: '', state: '', zip_code: '', country: '',
+  label: 'home',
+  street: '',
+  city: '',
+  state: '',
+  zip_code: '',
+  country: '',
+  is_default: true,
 }
+
+function ensureSingleDefault<T extends { is_default: boolean }>(items: T[]): T[] {
+  if (items.length === 0) return items
+  const chosen = items.findIndex((item) => item.is_default)
+  const index = chosen >= 0 ? chosen : 0
+  return items.map((item, i) => ({ ...item, is_default: i === index }))
+}
+
+/** Keep the form's chosen default when empty phone rows are omitted on save. */
+function buildPhoneNumbersForSave(phones: PhoneNumber[]): PhoneNumber[] {
+  const defaultFormIndex = phones.findIndex((p) => p.is_default)
+  const saved: { formIndex: number; phone: PhoneNumber }[] = []
+
+  for (let formIndex = 0; formIndex < phones.length; formIndex += 1) {
+    const phone = phones[formIndex]
+    if (!phone.number.trim()) continue
+
+    const parsed = parsePhoneNumberFromString(phone.number, 'PH')
+    if (!parsed?.isValid()) continue
+
+    saved.push({
+      formIndex,
+      phone: {
+        ...phone,
+        number: parsed.formatInternational(),
+        is_default: false,
+      },
+    })
+  }
+
+  if (saved.length === 0) return []
+
+  const defaultSavedIndex = saved.findIndex((row) => row.formIndex === defaultFormIndex)
+  const chosen = defaultSavedIndex >= 0 ? defaultSavedIndex : 0
+
+  return saved.map((row, i) => ({
+    ...row.phone,
+    is_default: i === chosen,
+  }))
+}
+
+const DEFAULT_PHONE_NUMBERS: PhoneNumber[] = [{ ...EMPTY_PHONE }]
+const DEFAULT_ADDRESSES: Address[] = [{ ...EMPTY_ADDRESS }]
 
 const EMPTY_FORM: ContactPayload = {
   first_name: '',
@@ -44,8 +93,8 @@ const EMPTY_FORM: ContactPayload = {
   email: '',
   company: '',
   notes: '',
-  phone_numbers: [],
-  addresses: [],
+  phone_numbers: DEFAULT_PHONE_NUMBERS.map((p) => ({ ...p })),
+  addresses: DEFAULT_ADDRESSES.map((a) => ({ ...a })),
 }
 
 function formFromContact(c: ContactRecord): ContactPayload {
@@ -55,13 +104,28 @@ function formFromContact(c: ContactRecord): ContactPayload {
     email: c.email,
     company: c.company,
     notes: c.notes,
-    phone_numbers: c.phone_numbers.map((p) => ({
-      number: p.number, label: p.label,
-    })),
-    addresses: c.addresses.map((a) => ({
-      label: a.label, street: a.street, city: a.city,
-      state: a.state, zip_code: a.zip_code, country: a.country,
-    })),
+    phone_numbers: ensureSingleDefault(
+      c.phone_numbers.length > 0
+        ? c.phone_numbers.map((p) => ({
+            number: p.number,
+            label: p.label,
+            is_default: !!p.is_default,
+          }))
+        : DEFAULT_PHONE_NUMBERS.map((p) => ({ ...p })),
+    ),
+    addresses: ensureSingleDefault(
+      c.addresses.length > 0
+        ? c.addresses.map((a) => ({
+            label: a.label,
+            street: a.street,
+            city: a.city,
+            state: a.state,
+            zip_code: a.zip_code,
+            country: a.country,
+            is_default: !!a.is_default,
+          }))
+        : DEFAULT_ADDRESSES.map((a) => ({ ...a })),
+    ),
   }
 }
 
@@ -164,15 +228,11 @@ const ContactsPage = () => {
   const handleSave = async () => {
     setFormError(null)
 
-    // Validate & format phone numbers
-    const formatted: PhoneNumber[] = []
     const invalid: string[] = []
     for (const phone of form.phone_numbers) {
       if (!phone.number.trim()) continue
       const parsed = parsePhoneNumberFromString(phone.number, 'PH')
-      if (parsed && parsed.isValid()) {
-        formatted.push({ ...phone, number: parsed.formatInternational() })
-      } else {
+      if (!parsed?.isValid()) {
         invalid.push(phone.number)
       }
     }
@@ -184,7 +244,11 @@ const ContactsPage = () => {
       return
     }
 
-    const payload = { ...form, phone_numbers: formatted }
+    const payload = {
+      ...form,
+      phone_numbers: buildPhoneNumbersForSave(form.phone_numbers),
+      addresses: ensureSingleDefault(form.addresses.map((a) => ({ ...a }))),
+    }
 
     setSaving(true)
     try {
@@ -436,7 +500,17 @@ const ContactFormModal = ({
   }
 
   const addPhone = () =>
-    setField('phone_numbers', [...form.phone_numbers, { ...EMPTY_PHONE }])
+    setField('phone_numbers', [
+      ...form.phone_numbers,
+      { ...EMPTY_PHONE, is_default: false },
+    ])
+
+  const setDefaultPhone = (idx: number) => {
+    setField(
+      'phone_numbers',
+      form.phone_numbers.map((p, i) => ({ ...p, is_default: i === idx })),
+    )
+  }
 
   const updatePhone = (idx: number, patch: Partial<PhoneNumber>) =>
     setField(
@@ -444,11 +518,27 @@ const ContactFormModal = ({
       form.phone_numbers.map((p, i) => (i === idx ? { ...p, ...patch } : p)),
     )
 
-  const removePhone = (idx: number) =>
-    setField('phone_numbers', form.phone_numbers.filter((_, i) => i !== idx))
+  const removePhone = (idx: number) => {
+    if (form.phone_numbers.length <= 1) {
+      setField('phone_numbers', [{ ...EMPTY_PHONE, is_default: true }])
+      return
+    }
+    const next = form.phone_numbers.filter((_, i) => i !== idx)
+    setField('phone_numbers', ensureSingleDefault(next))
+  }
 
   const addAddress = () =>
-    setField('addresses', [...form.addresses, { ...EMPTY_ADDRESS }])
+    setField('addresses', [
+      ...form.addresses,
+      { ...EMPTY_ADDRESS, is_default: false },
+    ])
+
+  const setDefaultAddress = (idx: number) => {
+    setField(
+      'addresses',
+      form.addresses.map((a, i) => ({ ...a, is_default: i === idx })),
+    )
+  }
 
   const updateAddress = (idx: number, patch: Partial<Address>) =>
     setField(
@@ -456,8 +546,14 @@ const ContactFormModal = ({
       form.addresses.map((a, i) => (i === idx ? { ...a, ...patch } : a)),
     )
 
-  const removeAddress = (idx: number) =>
-    setField('addresses', form.addresses.filter((_, i) => i !== idx))
+  const removeAddress = (idx: number) => {
+    if (form.addresses.length <= 1) {
+      setField('addresses', [{ ...EMPTY_ADDRESS, is_default: true }])
+      return
+    }
+    const next = form.addresses.filter((_, i) => i !== idx)
+    setField('addresses', ensureSingleDefault(next))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -543,9 +639,6 @@ const ContactFormModal = ({
                       <i className="bi bi-plus-lg me-1" />Add
                     </button>
                   </div>
-                  {form.phone_numbers.length === 0 && (
-                    <div className="text-muted small">No phone numbers added.</div>
-                  )}
                   {form.phone_numbers.map((phone, idx) => (
                     <div key={idx} className="mb-2">
                       <div className="row g-2 align-items-end">
@@ -577,11 +670,30 @@ const ContactFormModal = ({
                         </select>
                       </div>
                       <div className="col-auto">
+                        <div className="form-check mb-0">
+                          <input
+                            className="form-check-input"
+                            type="radio"
+                            name="contact-phone-default"
+                            id={`phone-default-${idx}`}
+                            checked={phone.is_default}
+                            onChange={() => setDefaultPhone(idx)}
+                          />
+                          <label
+                            className="form-check-label small"
+                            htmlFor={`phone-default-${idx}`}
+                          >
+                            Default
+                          </label>
+                        </div>
+                      </div>
+                      <div className="col-auto">
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-danger"
                           onClick={() => removePhone(idx)}
-                          title="Remove"
+                          title={form.phone_numbers.length <= 1 ? 'Clear' : 'Remove'}
+                          aria-label={form.phone_numbers.length <= 1 ? 'Clear phone number' : 'Remove phone number'}
                         >
                           <i className="bi bi-x-lg" />
                         </button>
@@ -609,31 +721,47 @@ const ContactFormModal = ({
                       <i className="bi bi-plus-lg me-1" />Add
                     </button>
                   </div>
-                  {form.addresses.length === 0 && (
-                    <div className="text-muted small">No addresses added.</div>
-                  )}
                   {form.addresses.map((addr, idx) => (
                     <div key={idx} className="card card-body p-2 mb-2">
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <select
-                          className="form-select form-select-sm"
-                          style={{ width: 'auto' }}
-                          value={addr.label}
-                          onChange={(e) =>
-                            updateAddress(idx, { label: e.target.value as Address['label'] })
-                          }
-                        >
-                          {ADDRESS_LABELS.map((l) => (
-                            <option key={l} value={l}>
-                              {l.charAt(0).toUpperCase() + l.slice(1)}
-                            </option>
-                          ))}
-                        </select>
+                      <div className="d-flex justify-content-between align-items-center mb-2 gap-2">
+                        <div className="d-flex align-items-center gap-2">
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ width: 'auto' }}
+                            value={addr.label}
+                            onChange={(e) =>
+                              updateAddress(idx, { label: e.target.value as Address['label'] })
+                            }
+                          >
+                            {ADDRESS_LABELS.map((l) => (
+                              <option key={l} value={l}>
+                                {l.charAt(0).toUpperCase() + l.slice(1)}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="form-check mb-0">
+                            <input
+                              className="form-check-input"
+                              type="radio"
+                              name="contact-address-default"
+                              id={`address-default-${idx}`}
+                              checked={addr.is_default}
+                              onChange={() => setDefaultAddress(idx)}
+                            />
+                            <label
+                              className="form-check-label small"
+                              htmlFor={`address-default-${idx}`}
+                            >
+                              Default
+                            </label>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-danger"
                           onClick={() => removeAddress(idx)}
-                          title="Remove"
+                          title={form.addresses.length <= 1 ? 'Clear' : 'Remove'}
+                          aria-label={form.addresses.length <= 1 ? 'Clear address' : 'Remove address'}
                         >
                           <i className="bi bi-x-lg" />
                         </button>

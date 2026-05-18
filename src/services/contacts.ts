@@ -4,6 +4,7 @@ export type PhoneNumber = {
   id?: number
   number: string
   label: 'mobile' | 'home' | 'work' | 'other'
+  is_default: boolean
 }
 
 export type Address = {
@@ -14,6 +15,7 @@ export type Address = {
   state: string
   zip_code: string
   country: string
+  is_default: boolean
 }
 
 export type ContactRecord = {
@@ -45,6 +47,14 @@ export async function fetchContacts(search = ''): Promise<ContactRecord[]> {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load contacts')
+  return res.json()
+}
+
+export async function fetchContact(id: number): Promise<ContactRecord> {
+  const res = await apiFetch(buildApiUrl(`/api/contacts/${id}/`), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load contact')
   return res.json()
 }
 
