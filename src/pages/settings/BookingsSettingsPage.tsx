@@ -113,90 +113,31 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
 /* ------------------------------------------------------------------ */
 
 const BookingsViewOptionsPanel = () => {
-  const [savedView, setSavedView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
-  const [draftView, setDraftView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<BookingsView>(() => loadBookingsDefaultView())
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    fetchBookingViewConfig()
-      .then((data) => {
-        if (cancelled) return
-        const value = isBookingsView(data.value) ? data.value : BOOKING_VIEW_DEFAULT
-        setSavedView(value)
-        setDraftView(value)
-      })
-      .catch((e) => {
-        if (cancelled) return
-        setError(e instanceof Error ? e.message : 'Failed to load booking view')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const isDirty = draftView !== savedView
-
-  const handleSave = async () => {
-    setSaving(true)
-    setError(null)
-    try {
-      const data = await saveBookingViewConfig(draftView)
-      const value = isBookingsView(data.value) ? data.value : draftView
-      setSavedView(value)
-      setDraftView(value)
-      showSuccessToast('Booking view saved.')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save booking view')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) {
-    return <p className="text-muted small mb-0">Loading booking view…</p>
+  const selectView = (next: BookingsView) => {
+    setView(next)
+    saveBookingsDefaultView(next)
   }
 
   return (
-    <div className="bookings-view-settings">
-      <div
-        className="bookings-view-options"
-        role="tablist"
-        aria-label="Default bookings view"
-      >
-        {BOOKINGS_VIEW_OPTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            role="tab"
-            aria-selected={draftView === option.id}
-            className={`bookings-view-option${draftView === option.id ? ' is-active' : ''}`}
-            onClick={() => setDraftView(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-
-      <BookingsViewPlaceholder view={draftView} />
-
-      {error && <p className="bookings-view-settings-error">{error}</p>}
-
-      <button
-        type="button"
-        className="bookings-view-save-btn"
-        disabled={!isDirty || saving}
-        onClick={handleSave}
-      >
-        {saving ? 'Saving…' : 'Save'}
-      </button>
+    <div
+      className="bookings-view-options"
+      role="tablist"
+      aria-label="Default bookings view"
+    >
+      {BOOKINGS_VIEW_OPTIONS.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          role="tab"
+          aria-selected={view === option.id}
+          className={`bookings-view-option${view === option.id ? ' is-active' : ''}`}
+          onClick={() => selectView(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -962,8 +903,8 @@ const TemplateFormModal = ({
 
                   {field.field_type === 'supplier' && (
                     <p className="text-muted small mt-2 mb-0">
-                      On the booking form, users pick a tier first, then a supplier linked
-                      to that tier via supplier settings.
+                      On the booking form, users pick a supplier first, then a tier
+                      configured for that supplier via supplier settings.
                     </p>
                   )}
 

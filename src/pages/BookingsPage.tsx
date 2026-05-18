@@ -237,6 +237,7 @@ const BookingsPage = () => {
   const [drag, setDrag] = useState<DragState | null>(null)
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
   const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
+  const suppressEditFromUrl = useRef(false)
   const [search, setSearch] = useState('')
   const isSearching = search.trim().length > 0
   const [searchParams, setSearchParams] = useSearchParams()
@@ -806,6 +807,7 @@ const BookingsPage = () => {
   }
 
   const closeItemModal = () => {
+    suppressEditFromUrl.current = true
     setItemModal(null)
     clearEditParam()
   }
@@ -911,11 +913,11 @@ const BookingsPage = () => {
           prev.map((it) => (it.id === updated.id ? updated : it)),
         )
       }
+      clearBookingDraft(itemModal.templateId, itemModal.id)
+      closeItemModal()
     } catch {
       // silently fail
     }
-    clearBookingDraft(itemModal.templateId, itemModal.id)
-    closeItemModal()
   }
 
   const handleDeleteItem = async (item: BookingItem) => {
@@ -939,6 +941,12 @@ const BookingsPage = () => {
 
   useEffect(() => {
     if (loading) return
+    if (suppressEditFromUrl.current) {
+      if (!searchParams.get(EDIT_PARAM)) {
+        suppressEditFromUrl.current = false
+      }
+      return
+    }
     const targetId = searchParams.get(EDIT_PARAM)
     if (!targetId) {
       return
@@ -949,14 +957,7 @@ const BookingsPage = () => {
       clearEditParam()
       return
     }
-    if (
-      itemModal &&
-      itemModal.mode === 'edit' &&
-      itemModal.id === item.id &&
-      itemModal.columnId === item.column &&
-      itemModal.title === item.title &&
-      itemModal.notes === item.notes
-    ) {
+    if (itemModal?.mode === 'edit' && itemModal.id === item.id) {
       return
     }
     {

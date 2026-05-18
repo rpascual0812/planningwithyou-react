@@ -1,11 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent, FormEvent } from 'react'
 import {
   FIELD_TYPE_OPTIONS,
   type FieldType,
 } from '../services/formTemplates'
 import { storedValueToTimeInput, timeInputToStored } from '../lib/timeInput'
+import {
+  getBookingPriceLines,
+  sumBookingPriceLines,
+} from '../lib/bookingPriceSummary'
 import { parseSupplierFieldValue } from '../lib/supplierFieldValue'
+import { fetchCurrentAccount } from '../services/accounts'
+import {
+  formatCurrency,
+  localeFromIso2,
+  type CurrencyFormatOptions,
+} from '../utils/currency'
 import SupplierFieldInput from './SupplierFieldInput'
 
 export type BookingFieldOption = {
@@ -134,8 +144,39 @@ const BookingEditModal = ({
   const [fieldDragOver, setFieldDragOver] = useState<number | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [restoredDraft, setRestoredDraft] = useState(false)
+  const [currencyOptions, setCurrencyOptions] = useState<CurrencyFormatOptions>({
+    currencyCode: 'USD',
+    locale: 'en-US',
+  })
   const originalFormJson = useRef(JSON.stringify(form))
   const skipSave = useRef(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchCurrentAccount()
+      .then((account) => {
+        if (cancelled) return
+        setCurrencyOptions({
+          currencyCode: account.country_currency_code || 'USD',
+          locale: localeFromIso2(account.country_iso2_code),
+        })
+      })
+      .catch(() => {
+        // Keep USD fallback.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const priceLines = useMemo(
+    () => getBookingPriceLines(form.fields),
+    [form.fields],
+  )
+  const priceTotal = useMemo(
+    () => sumBookingPriceLines(priceLines),
+    [priceLines],
+  )
 
   // Restore draft on mount
   useEffect(() => {
@@ -480,7 +521,7 @@ const BookingEditModal = ({
                     </button>
                   </div>
                 )}
-                <div className="row">
+                <div className="row align-items-stretch">
                   <div className="col-md-9">
                     <div className="mb-3">
                       <label htmlFor="booking-title" className="form-label">
@@ -713,7 +754,7 @@ const BookingEditModal = ({
                       />
                     </div>
                   </div>
-                  <div className="col-md-3">
+                  <div className="col-md-3 d-flex flex-column booking-edit-modal-sidebar">
                     <div className="mb-3">
                       <label htmlFor="booking-status" className="form-label">
                         Status
@@ -733,7 +774,7 @@ const BookingEditModal = ({
                         ))}
                       </select>
                     </div>
-                    <div className="mb-0">
+                    <div className="mb-3">
                       <label htmlFor="booking-template" className="form-label">
                         Form Template
                       </label>
@@ -752,6 +793,34 @@ const BookingEditModal = ({
                           </option>
                         ))}
                       </select>
+                    </div>
+                    <div className="booking-price-summary mt-auto">
+                      <h6 className="booking-price-summary__title">Price summary</h6>
+                      {priceLines.length === 0 ? (
+                        <p className="booking-price-summary__empty text-muted small mb-0">
+                          Selected fields with prices will appear here.
+                        </p>
+                      ) : (
+                        <ul className="booking-price-summary__list list-unstyled mb-0">
+                          {priceLines.map((line, i) => (
+                            <li
+                              key={`${line.label}-${i}`}
+                              className="booking-price-summary__row"
+                            >
+                              <span className="booking-price-summary__label">
+                                {line.label}
+                              </span>
+                              <span className="booking-price-summary__amount">
+                                {formatCurrency(line.amount, currencyOptions)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="booking-price-summary__total">
+                        <span>Total</span>
+                        <span>{formatCurrency(priceTotal, currencyOptions)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
