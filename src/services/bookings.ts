@@ -67,7 +67,6 @@ export type BookingItemRecord = {
   column: number
   title: string
   date_of_event: string | null
-  form_template: number | null
   groups?: BookingGroupRecord[]
   field_values: BookingFieldValueRecord[]
   notes: string
@@ -144,7 +143,7 @@ export async function fetchBookingItems(columnId?: number): Promise<BookingItemR
 export async function createBookingItem(
   data: Pick<
     BookingItemRecord,
-    'column' | 'title' | 'date_of_event' | 'form_template' | 'field_values' | 'notes'
+    'column' | 'title' | 'date_of_event' | 'field_values' | 'notes'
   > & { groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl('/api/booking-items/'), {
@@ -161,7 +160,7 @@ export async function updateBookingItem(
   data: Partial<
     Pick<
       BookingItemRecord,
-      'column' | 'title' | 'date_of_event' | 'form_template' | 'field_values' | 'notes' | 'sort_order'
+      'column' | 'title' | 'date_of_event' | 'field_values' | 'notes' | 'sort_order'
     >
   > & { groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {

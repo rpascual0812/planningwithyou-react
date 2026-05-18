@@ -105,3 +105,17 @@ export function sumBookingPriceLines(lines: BookingPriceLine[]): number {
 export function sumBookingPriceGroups(groups: BookingPriceGroup[]): number {
   return groups.reduce((sum, group) => sum + group.subtotal, 0)
 }
+
+/** Subtotal per group name (0 when the group has no priced fields). */
+export function getBookingGroupSubtotalMap(
+  fieldGroups: BookingFieldGroup[],
+): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const { groupName } of fieldGroups) {
+    map.set(groupName, 0)
+  }
+  for (const group of getBookingPriceGroups(fieldGroups)) {
+    map.set(group.groupName, group.subtotal)
+  }
+  return map
+}

@@ -854,24 +854,6 @@ const BookingsPage = () => {
   }
 
   const openCreateItem = (columnId: number) => {
-    const defaultTpl = templates.find((t) => t.is_default)
-    const fields: BookingField[] = defaultTpl
-      ? defaultTpl.fields.map((f, idx) => ({
-          label: f.label,
-          group_name: 'Suppliers',
-          field_type: f.field_type as BookingField['field_type'],
-          is_required: f.is_required,
-          options: f.options.map((o) => ({
-            label: o.label,
-            price: o.price,
-            sort_order: o.sort_order,
-          })),
-          price: f.price,
-          sort_order: idx,
-          saved: true,
-          value: '',
-        }))
-      : []
     setItemModal({
       mode: 'create',
       id: null,
@@ -879,8 +861,7 @@ const BookingsPage = () => {
       title: '',
       dateOfEvent: '',
       timeOfEvent: '',
-      templateId: defaultTpl?.id ?? null,
-      fields,
+      fields: [],
       notes: '',
     })
   }
@@ -900,7 +881,6 @@ const BookingsPage = () => {
       title: item.title,
       dateOfEvent,
       timeOfEvent,
-      templateId: item.form_template,
       fields: fieldValuesToFields(item),
       extraGroupNames: emptyBookingGroupNamesFromItem(
         item.field_values ?? [],
@@ -956,7 +936,6 @@ const BookingsPage = () => {
     }
 
     try {
-      const form_template = itemModal.templateId
       const field_values = fieldsToFieldValues(itemModal.fields)
       const groups = buildBookingGroupsPayload(
         itemModal.fields,
@@ -967,7 +946,6 @@ const BookingsPage = () => {
           column: columnId,
           title,
           date_of_event,
-          form_template,
           groups,
           field_values,
           notes,
@@ -977,7 +955,6 @@ const BookingsPage = () => {
         const updated = await updateBookingItem(itemModal.id, {
           title,
           date_of_event,
-          form_template,
           groups,
           field_values,
           notes,
@@ -987,7 +964,7 @@ const BookingsPage = () => {
           prev.map((it) => (it.id === updated.id ? updated : it)),
         )
       }
-      clearBookingDraft(itemModal.templateId, itemModal.id)
+      clearBookingDraft(itemModal.id)
       showSuccessToast(
         itemModal.mode === 'create' ? 'Booking created.' : 'Booking saved.',
       )
@@ -1054,8 +1031,11 @@ const BookingsPage = () => {
         title: item.title,
         dateOfEvent,
         timeOfEvent,
-        templateId: item.form_template,
         fields: fieldValuesToFields(item),
+        extraGroupNames: emptyBookingGroupNamesFromItem(
+          item.field_values ?? [],
+          item.groups ?? [],
+        ),
         notes: item.notes,
       })
     }

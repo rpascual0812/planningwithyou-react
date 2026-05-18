@@ -12,6 +12,7 @@ import {
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
 import {
+  getBookingGroupSubtotalMap,
   getBookingPriceGroups,
   resolveBookingFieldPriceRaw,
   sumBookingPriceGroups,
@@ -52,7 +53,6 @@ export type BookingFormState = {
   title: string
   dateOfEvent: string
   timeOfEvent: string
-  templateId: number | null
   fields: BookingField[]
   /** Empty group accordions (no fields yet); persisted via booking ``groups`` on save. */
   extraGroupNames?: string[]
@@ -118,10 +118,9 @@ const DRAFT_KEY_PREFIX = 'bookingDraft:'
 
 type DraftData = Omit<BookingFormState, 'mode' | 'id'>
 
-function draftKey(templateId: number | null, bookingId: number | null): string {
-  const tplPart = templateId != null ? String(templateId) : 'none'
+function draftKey(bookingId: number | null): string {
   const idPart = bookingId != null ? String(bookingId) : 'new'
-  return `${DRAFT_KEY_PREFIX}${tplPart}:${idPart}`
+  return `${DRAFT_KEY_PREFIX}${idPart}`
 }
 
 function loadDraft(key: string): DraftData | null {
@@ -149,8 +148,8 @@ function isDraftNonEmpty(data: Partial<BookingFormState>): boolean {
   return false
 }
 
-export function clearBookingDraft(templateId: number | null, bookingId: number | null) {
-  localStorage.removeItem(draftKey(templateId, bookingId))
+export function clearBookingDraft(bookingId: number | null) {
+  localStorage.removeItem(draftKey(bookingId))
 }
 
 const BookingEditModal = ({
@@ -175,9 +174,16 @@ const BookingEditModal = ({
     form.extraGroupNames ?? [],
   )
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
-  const [showAddGroupModal, setShowAddGroupModal] = useState(false)
-  const [newGroupInput, setNewGroupInput] = useState('')
-  const [addGroupError, setAddGroupError] = useState<string | null>(null)
+  type GroupNameModal =
+    | { type: 'add' }
+    | { type: 'edit'; originalName: string }
+    | null
+  const [groupNameModal, setGroupNameModal] = useState<GroupNameModal>(null)
+  const [groupNameInput, setGroupNameInput] = useState('')
+  const [groupNameError, setGroupNameError] = useState<string | null>(null)
+  const [addGroupTemplateId, setAddGroupTemplateId] = useState<number | null>(null)
+  /** API group names hidden after rename until the booking is saved. */
+  const [dismissedApiGroupNames, setDismissedApiGroupNames] = useState<string[]>([])
   const originalFormJson = useRef(JSON.stringify(form))
   const groupLabel = defaultGroupName
   const skipSave = useRef(true)
@@ -202,9 +208,26 @@ const BookingEditModal = ({
     }
   }, [])
 
+  useEffect(() => {
+    setDismissedApiGroupNames([])
+  }, [form.id, form.mode])
+
+  const dismissedApiGroupSet = useMemo(
+    () => new Set(dismissedApiGroupNames.map(normalizeBookingGroupName)),
+    [dismissedApiGroupNames],
+  )
+
+  const activeApiGroups = useMemo(
+    () =>
+      bookingGroups.filter(
+        (g) => !dismissedApiGroupSet.has(normalizeBookingGroupName(g.name)),
+      ),
+    [bookingGroups, dismissedApiGroupSet],
+  )
+
   const groupIdByName = useMemo(() => {
     const map = new Map<string, number>()
-    for (const group of bookingGroups) {
+    for (const group of activeApiGroups) {
       map.set(normalizeBookingGroupName(group.name), group.id)
     }
     for (const field of form.fields) {
@@ -213,18 +236,18 @@ const BookingEditModal = ({
       }
     }
     return map
-  }, [bookingGroups, form.fields])
+  }, [activeApiGroups, form.fields])
 
   const fieldGroups = useMemo(
-    () => mergeBookingFieldGroups(form.fields, extraGroupNames, bookingGroups),
-    [form.fields, extraGroupNames, bookingGroups],
+    () => mergeBookingFieldGroups(form.fields, extraGroupNames, activeApiGroups),
+    [form.fields, extraGroupNames, activeApiGroups],
   )
 
   useEffect(() => {
     const namesWithFields = new Set(
       form.fields.map((f) => normalizeBookingGroupName(f.group_name)),
     )
-    const emptyFromApi = bookingGroups
+    const emptyFromApi = activeApiGroups
       .map((g) => normalizeBookingGroupName(g.name))
       .filter((name) => !namesWithFields.has(name))
     if (emptyFromApi.length === 0) return
@@ -239,21 +262,67 @@ const BookingEditModal = ({
       }
       return changed ? merged : prev
     })
-  }, [bookingGroups, form.fields])
+  }, [activeApiGroups, form.fields])
+
+  const fieldGroupNamesKey = useMemo(
+    () => fieldGroups.map((g) => g.groupName).join('\0'),
+    [fieldGroups],
+  )
+
+  const accordionSessionKey = `${form.mode}:${form.id ?? 'new'}`
+  const multiGroupAccordionInitRef = useRef<string | null>(null)
 
   useEffect(() => {
+    multiGroupAccordionInitRef.current = null
+  }, [accordionSessionKey])
+
+  useEffect(() => {
+    if (fieldGroups.length === 0) {
+      setOpenGroups({})
+    }
+  }, [fieldGroupNamesKey, fieldGroups.length])
+
+  useEffect(() => {
+    if (fieldGroups.length !== 1) return
+    const name = fieldGroups[0].groupName
+    setOpenGroups((prev) =>
+      prev[name] === true && Object.keys(prev).length === 1
+        ? prev
+        : { [name]: true },
+    )
+  }, [fieldGroupNamesKey, fieldGroups.length, fieldGroups])
+
+  useEffect(() => {
+    if (fieldGroups.length <= 1) return
+
+    if (multiGroupAccordionInitRef.current !== accordionSessionKey) {
+      const next: Record<string, boolean> = {}
+      for (const group of fieldGroups) {
+        next[group.groupName] = false
+      }
+      setOpenGroups(next)
+      multiGroupAccordionInitRef.current = accordionSessionKey
+      return
+    }
+
     setOpenGroups((prev) => {
       const next = { ...prev }
       let changed = false
-      fieldGroups.forEach((group, index) => {
+      for (const group of fieldGroups) {
         if (next[group.groupName] === undefined) {
-          next[group.groupName] = index === 0
+          next[group.groupName] = false
           changed = true
         }
-      })
+      }
+      for (const key of Object.keys(next)) {
+        if (!fieldGroups.some((g) => g.groupName === key)) {
+          delete next[key]
+          changed = true
+        }
+      }
       return changed ? next : prev
     })
-  }, [fieldGroups])
+  }, [accordionSessionKey, fieldGroupNamesKey, fieldGroups])
 
   const priceGroups = useMemo(
     () => getBookingPriceGroups(fieldGroups),
@@ -262,6 +331,10 @@ const BookingEditModal = ({
   const priceTotal = useMemo(
     () => sumBookingPriceGroups(priceGroups),
     [priceGroups],
+  )
+  const groupSubtotals = useMemo(
+    () => getBookingGroupSubtotalMap(fieldGroups),
+    [fieldGroups],
   )
 
   const formatFieldPriceAmount = (raw: string | null | undefined): string | null => {
@@ -277,7 +350,7 @@ const BookingEditModal = ({
   // Restore draft on mount
   useEffect(() => {
     originalFormJson.current = JSON.stringify(form)
-    const key = draftKey(form.templateId, form.id)
+    const key = draftKey(form.id)
     const draft = loadDraft(key)
     if (draft && isDraftNonEmpty(draft)) {
       onChange({ ...form, ...draft })
@@ -292,7 +365,7 @@ const BookingEditModal = ({
       skipSave.current = false
       return
     }
-    const key = draftKey(form.templateId, form.id)
+    const key = draftKey(form.id)
     if (isDraftNonEmpty(form)) {
       saveDraft(key, form)
     } else {
@@ -300,10 +373,17 @@ const BookingEditModal = ({
     }
   }, [form])
 
-  const templateFieldsToBookingFields = (tpl: BookingTemplate): BookingField[] =>
-    tpl.fields.map((f, idx) => ({
+  const templateFieldsToBookingFields = (
+    tpl: BookingTemplate,
+    groupName: string,
+  ): BookingField[] => {
+    const normalized = normalizeBookingGroupName(groupName)
+    const booking_group_id = groupIdByName.get(normalized) ?? null
+    const baseOrder = form.fields.length
+    return tpl.fields.map((f, idx) => ({
       label: f.label,
-      group_name: defaultGroupName,
+      group_name: normalized,
+      booking_group_id,
       field_type: f.field_type,
       is_required: f.is_required,
       options: f.options.map((o) => ({
@@ -312,29 +392,14 @@ const BookingEditModal = ({
         sort_order: o.sort_order,
       })),
       price: f.price,
-      sort_order: idx,
+      sort_order: baseOrder + idx,
       saved: true,
       value: '',
     }))
-
-  const handleTemplateChange = (newTemplateId: number | null) => {
-    setRestoredDraft(false)
-
-    // Populate fields from the selected template
-    if (newTemplateId != null) {
-      const tpl = templates.find((t) => t.id === newTemplateId)
-      if (tpl && tpl.fields.length > 0) {
-        onChange({ ...form, templateId: newTemplateId, fields: templateFieldsToBookingFields(tpl) })
-        return
-      }
-    }
-
-    // No template or template has no fields — clear fields
-    onChange({ ...form, templateId: newTemplateId, fields: [] })
   }
 
   const handleReset = () => {
-    const key = draftKey(form.templateId, form.id)
+    const key = draftKey(form.id)
     localStorage.removeItem(key)
     setRestoredDraft(false)
     onChange(JSON.parse(originalFormJson.current) as BookingFormState)
@@ -355,7 +420,6 @@ const BookingEditModal = ({
         },
       ],
     })
-    setOpenGroups((prev) => ({ ...prev, [normalized]: true }))
   }
 
   const removeGroupFromForm = (normalized: string) => {
@@ -367,11 +431,6 @@ const BookingEditModal = ({
     )
     setExtraGroupNames(nextExtra)
     onChange({ ...form, fields: nextFields, extraGroupNames: nextExtra })
-    setOpenGroups((prev) => {
-      const next = { ...prev }
-      delete next[normalized]
-      return next
-    })
   }
 
   const deleteFieldGroup = async (groupName: string) => {
@@ -406,32 +465,101 @@ const BookingEditModal = ({
   }
 
   const openAddGroupModal = () => {
-    setNewGroupInput('')
-    setAddGroupError(null)
-    setShowAddGroupModal(true)
+    setGroupNameInput('')
+    setGroupNameError(null)
+    setAddGroupTemplateId(null)
+    setGroupNameModal({ type: 'add' })
   }
 
-  const closeAddGroupModal = () => {
-    setShowAddGroupModal(false)
-    setNewGroupInput('')
-    setAddGroupError(null)
+  const openEditGroupModal = (originalName: string) => {
+    setGroupNameInput(originalName)
+    setGroupNameError(null)
+    setAddGroupTemplateId(null)
+    setGroupNameModal({ type: 'edit', originalName })
   }
 
-  const handleAddGroupSave = () => {
-    const name = normalizeBookingGroupName(newGroupInput)
-    if (!newGroupInput.trim()) {
-      setAddGroupError(`Enter a ${groupLabel} name.`)
-      return
+  const closeGroupNameModal = () => {
+    setGroupNameModal(null)
+    setGroupNameInput('')
+    setGroupNameError(null)
+    setAddGroupTemplateId(null)
+  }
+
+  const dedupeGroupNames = (names: string[]): string[] => {
+    const seen = new Set<string>()
+    const result: string[] = []
+    for (const raw of names) {
+      const norm = normalizeBookingGroupName(raw)
+      if (seen.has(norm)) continue
+      seen.add(norm)
+      result.push(norm)
     }
-    if (fieldGroups.some((g) => g.groupName === name)) {
-      setAddGroupError(`A ${groupLabel} group with that name already exists.`)
-      return
-    }
-    const nextExtra = [...extraGroupNames, name]
+    return result
+  }
+
+  const renameBookingGroup = (oldName: string, newName: string) => {
+    const oldNorm = normalizeBookingGroupName(oldName)
+    const newNorm = normalizeBookingGroupName(newName)
+    if (oldNorm === newNorm) return
+
+    const nextFields = form.fields.map((f) =>
+      normalizeBookingGroupName(f.group_name) === oldNorm
+        ? { ...f, group_name: newNorm }
+        : f,
+    )
+    const nextExtra = dedupeGroupNames(
+      extraGroupNames.map((n) =>
+        normalizeBookingGroupName(n) === oldNorm ? newNorm : n,
+      ),
+    )
+    setDismissedApiGroupNames((prev) => {
+      const next = new Set(prev.map(normalizeBookingGroupName))
+      next.add(oldNorm)
+      next.delete(newNorm)
+      return [...next]
+    })
     setExtraGroupNames(nextExtra)
-    onChange({ ...form, extraGroupNames: nextExtra })
-    setOpenGroups((prev) => ({ ...prev, [name]: true }))
-    closeAddGroupModal()
+    onChange({ ...form, fields: nextFields, extraGroupNames: nextExtra })
+  }
+
+  const handleGroupNameSave = () => {
+    const name = normalizeBookingGroupName(groupNameInput)
+    if (!groupNameInput.trim()) {
+      setGroupNameError(`Enter a ${groupLabel} name.`)
+      return
+    }
+
+    if (groupNameModal?.type === 'add') {
+      if (fieldGroups.some((g) => g.groupName === name)) {
+        setGroupNameError(`A ${groupLabel} group with that name already exists.`)
+        return
+      }
+      const nextExtra = [...extraGroupNames, name]
+      setExtraGroupNames(nextExtra)
+      let nextFields = form.fields
+      if (addGroupTemplateId != null) {
+        const tpl = templates.find((t) => t.id === addGroupTemplateId)
+        if (tpl && tpl.fields.length > 0) {
+          nextFields = [...form.fields, ...templateFieldsToBookingFields(tpl, name)]
+        }
+      }
+      onChange({ ...form, fields: nextFields, extraGroupNames: nextExtra })
+      closeGroupNameModal()
+      return
+    }
+
+    if (groupNameModal?.type === 'edit') {
+      const oldNorm = normalizeBookingGroupName(groupNameModal.originalName)
+      if (
+        name !== oldNorm &&
+        fieldGroups.some((g) => g.groupName === name)
+      ) {
+        setGroupNameError(`A ${groupLabel} group with that name already exists.`)
+        return
+      }
+      renameBookingGroup(groupNameModal.originalName, name)
+      closeGroupNameModal()
+    }
   }
 
   const updateField = (idx: number, patch: Partial<BookingField>) => {
@@ -964,25 +1092,42 @@ const BookingEditModal = ({
                       <ul className="faq-list booking-fields-group-list">
                         {fieldGroups.map((group) => {
                           const isOpen = openGroups[group.groupName] ?? false
+                          const subtotal = groupSubtotals.get(group.groupName) ?? 0
                           return (
                             <li
                               key={group.groupName}
                               className={`faq-item${isOpen ? ' is-open' : ''}`}
                             >
-                              <button
-                                type="button"
-                                className="faq-toggle"
-                                aria-expanded={isOpen}
-                                onClick={() => toggleFieldGroup(group.groupName)}
-                              >
-                                <span className="faq-icon" aria-hidden="true">
-                                  <i className="bi bi-collection" />
-                                </span>
-                                <span className="faq-question">{group.groupName}</span>
-                                <span className="faq-chevron" aria-hidden="true">
-                                  <i className="bi bi-chevron-down" />
-                                </span>
-                              </button>
+                              <div className="booking-fields-group-head">
+                                <button
+                                  type="button"
+                                  className="faq-toggle booking-fields-group-toggle"
+                                  aria-expanded={isOpen}
+                                  onClick={() => toggleFieldGroup(group.groupName)}
+                                >
+                                  <span className="faq-icon" aria-hidden="true">
+                                    <i className="bi bi-collection" />
+                                  </span>
+                                  <span className="faq-question-row">
+                                    <span className="faq-question">{group.groupName}</span>
+                                    <span className="booking-fields-group-subtotal">
+                                      {formatCurrency(subtotal, currencyOptions)}
+                                    </span>
+                                  </span>
+                                  <span className="faq-chevron" aria-hidden="true">
+                                    <i className="bi bi-chevron-down" />
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="booking-fields-group-edit btn btn-link"
+                                  aria-label={`Rename ${group.groupName}`}
+                                  title={`Rename ${group.groupName}`}
+                                  onClick={() => openEditGroupModal(group.groupName)}
+                                >
+                                  <i className="bi bi-pencil-square" aria-hidden="true" />
+                                </button>
+                              </div>
                               {isOpen && (
                                 <div className="faq-answer faq-answer--form">
                                   {group.items.map(({ field, idx }) =>
@@ -1055,26 +1200,6 @@ const BookingEditModal = ({
                         ))}
                       </select>
                     </div>
-                    <div className="mb-3">
-                      <label htmlFor="booking-template" className="form-label">
-                        Form Template
-                      </label>
-                      <select
-                        id="booking-template"
-                        className="form-select"
-                        value={form.templateId ?? ''}
-                        onChange={(e) =>
-                          handleTemplateChange(e.target.value ? Number(e.target.value) : null)
-                        }
-                      >
-                        <option value="">None</option>
-                        {templates.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                     <div className="booking-price-summary mt-auto">
                       <h6 className="booking-price-summary__title">Price summary</h6>
                       {priceGroups.length === 0 ? (
@@ -1143,64 +1268,93 @@ const BookingEditModal = ({
         </div>
       </div>
 
-      {showAddGroupModal && (
+      {groupNameModal && (
         <>
           <div
             className="booking-group-modal-backdrop"
             aria-hidden="true"
-            onClick={closeAddGroupModal}
+            onClick={closeGroupNameModal}
           />
           <div
             className="booking-group-modal modal fade show d-block"
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-labelledby="bookingAddGroupTitle"
+            aria-labelledby="bookingGroupNameModalTitle"
           >
             <div className="modal-dialog modal-dialog-centered modal-sm">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2 id="bookingAddGroupTitle" className="modal-title fs-6">
-                    Add {groupLabel}
+                  <h2 id="bookingGroupNameModalTitle" className="modal-title fs-6">
+                    {groupNameModal.type === 'add'
+                      ? `Add ${groupLabel}`
+                      : `Rename ${groupLabel}`}
                   </h2>
                   <button
                     type="button"
                     className="btn-close"
                     aria-label="Close"
-                    onClick={closeAddGroupModal}
+                    onClick={closeGroupNameModal}
                   />
                 </div>
                 <div className="modal-body">
-                  <label htmlFor="booking-new-group-name" className="form-label">
+                  <label htmlFor="booking-group-name-input" className="form-label">
                     {groupLabel} name
                   </label>
                   <input
-                    id="booking-new-group-name"
+                    id="booking-group-name-input"
                     type="text"
-                    className={`form-control${addGroupError ? ' is-invalid' : ''}`}
-                    value={newGroupInput}
+                    className={`form-control${groupNameError ? ' is-invalid' : ''}`}
+                    value={groupNameInput}
                     onChange={(e) => {
-                      setNewGroupInput(e.target.value)
-                      setAddGroupError(null)
+                      setGroupNameInput(e.target.value)
+                      setGroupNameError(null)
                     }}
                     autoFocus
                   />
-                  {addGroupError && (
-                    <div className="invalid-feedback d-block">{addGroupError}</div>
+                  {groupNameError && (
+                    <div className="invalid-feedback d-block">{groupNameError}</div>
+                  )}
+                  {groupNameModal.type === 'add' && (
+                    <div className="mt-3">
+                      <label htmlFor="booking-group-template" className="form-label">
+                        Form Template
+                      </label>
+                      <select
+                        id="booking-group-template"
+                        className="form-select"
+                        value={addGroupTemplateId ?? ''}
+                        onChange={(e) =>
+                          setAddGroupTemplateId(
+                            e.target.value ? Number(e.target.value) : null,
+                          )
+                        }
+                      >
+                        <option value="">None</option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="form-text small mb-0">
+                        Optional. Adds template fields to this group.
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div className="modal-footer">
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
-                    onClick={closeAddGroupModal}
+                    onClick={closeGroupNameModal}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    onClick={handleAddGroupSave}
+                    onClick={handleGroupNameSave}
                   >
                     Save
                   </button>
