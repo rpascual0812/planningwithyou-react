@@ -1,5 +1,13 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 
+export type AccountSupplierTierSummary = {
+  tier_id: number
+  tier_name: string
+  discount: string | null
+  mark_up: string | null
+  price: string | null
+}
+
 export type AccountRecord = {
   id: number
   name: string
@@ -15,6 +23,8 @@ export type AccountRecord = {
   discount: string | null
   price_adjustment: string | null
   price: string | null
+  tier_id?: number | null
+  supplier_tiers?: AccountSupplierTierSummary[]
   supplier_type: number
   supplier_type_name: string
   created_at: string
@@ -28,6 +38,7 @@ export type AccountPayload = {
   discount?: string | null
   price_adjustment?: string | null
   price?: string | null
+  tier_id?: number | null
   supplier_type?: number
 }
 

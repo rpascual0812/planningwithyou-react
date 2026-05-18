@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  fetchAccountTierPricing,
+  updateAccountTierPricing,
+  type AccountTierPricingRow,
+} from '../../services/accountTierPricing'
+import {
   deleteAccount,
   fetchAccountsBySupplierType,
   updateAccount,
   type AccountRecord,
+  type AccountSupplierTierSummary,
 } from '../../services/accounts'
 import {
   fetchActiveSupplierTypes,
@@ -11,6 +17,14 @@ import {
 } from '../../services/supplierTypes'
 
 const PAGE_SIZES = [10, 25, 50, 100] as const
+
+type TierPricingFormRow = {
+  tier_id: number
+  tier_name: string
+  discount: string
+  mark_up: string
+  price: string
+}
 
 function formatMoney(value: string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—'
@@ -21,6 +35,35 @@ function formatMoney(value: string | null | undefined): string {
     currency: 'USD',
     minimumFractionDigits: 2,
   }).format(n)
+}
+
+function formatTierColumn(
+  tiers: AccountSupplierTierSummary[] | undefined,
+  field: 'discount' | 'mark_up' | 'price',
+) {
+  if (!tiers || tiers.length === 0) return <span>—</span>
+  return (
+    <ul className="suppliers-tier-value-list list-unstyled mb-0">
+      {tiers.map((tier) => (
+        <li key={tier.tier_id} className="suppliers-tier-value-list__row">
+          <span className="suppliers-tier-value-list__name">{tier.tier_name}</span>
+          <span className="suppliers-tier-value-list__value">
+            {formatMoney(tier[field])}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function tierRowToForm(row: AccountTierPricingRow): TierPricingFormRow {
+  return {
+    tier_id: row.tier_id,
+    tier_name: row.tier_name,
+    discount: row.discount ?? '',
+    mark_up: row.mark_up ?? '',
+    price: row.price ?? '',
+  }
 }
 
 const SupplierSettingsPage = () => {
@@ -40,9 +83,8 @@ const SupplierSettingsPage = () => {
 
   const [editTarget, setEditTarget] = useState<AccountRecord | null>(null)
   const [editName, setEditName] = useState('')
-  const [editDiscount, setEditDiscount] = useState('')
-  const [editPriceAdjustment, setEditPriceAdjustment] = useState('')
-  const [editPrice, setEditPrice] = useState('')
+  const [tierPricing, setTierPricing] = useState<TierPricingFormRow[]>([])
+  const [tierPricingLoading, setTierPricingLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const loadTypes = useCallback(async () => {
@@ -131,28 +173,56 @@ const SupplierSettingsPage = () => {
     }
   }
 
-  const openEdit = (row: AccountRecord) => {
+  const openEdit = async (row: AccountRecord) => {
     setEditTarget(row)
     setEditName(row.name)
-    setEditDiscount(row.discount ?? '')
-    setEditPriceAdjustment(row.price_adjustment ?? '')
-    setEditPrice(row.price ?? '')
+    setTierPricing([])
+    setTierPricingLoading(true)
+    setAccountsError(null)
+    try {
+      const data = await fetchAccountTierPricing(row.id)
+      setEditName(data.name)
+      setTierPricing(data.tiers.map(tierRowToForm))
+    } catch (e) {
+      setAccountsError(
+        e instanceof Error ? e.message : 'Failed to load tier pricing',
+      )
+      setEditTarget(null)
+    } finally {
+      setTierPricingLoading(false)
+    }
   }
 
   const closeEdit = () => {
     setEditTarget(null)
+    setTierPricing([])
+  }
+
+  const updateTierField = (
+    tierId: number,
+    field: 'discount' | 'mark_up' | 'price',
+    value: string,
+  ) => {
+    setTierPricing((prev) =>
+      prev.map((row) =>
+        row.tier_id === tierId ? { ...row, [field]: value } : row,
+      ),
+    )
   }
 
   const handleSaveEdit = async () => {
     if (!editTarget) return
     setSaving(true)
+    setAccountsError(null)
     try {
-      await updateAccount(editTarget.id, {
+      await updateAccountTierPricing(editTarget.id, {
         name: editName.trim() || editTarget.name,
-        discount: editDiscount.trim() === '' ? null : editDiscount.trim(),
-        price_adjustment:
-          editPriceAdjustment.trim() === '' ? null : editPriceAdjustment.trim(),
-        price: editPrice.trim() === '' ? null : editPrice.trim(),
+        tiers: tierPricing.map((row) => ({
+          tier_id: row.tier_id,
+          discount: row.discount.trim() === '' ? null : row.discount.trim(),
+          mark_up: row.mark_up.trim() === '' ? null : row.mark_up.trim(),
+          price: row.price.trim() === '' ? null : row.price.trim(),
+        })),
       })
       closeEdit()
       await loadAccounts()
@@ -257,7 +327,7 @@ const SupplierSettingsPage = () => {
             <div className="users-table-empty-wrap">
               <span className="users-table-empty">Loading accounts…</span>
             </div>
-          ) : accountsError ? (
+          ) : accountsError && !editTarget ? (
             <div className="users-table-empty-wrap">
               <span className="users-table-empty users-table-error">{accountsError}</span>
             </div>
@@ -268,7 +338,7 @@ const SupplierSettingsPage = () => {
                   <th className="suppliers-th-active">Active</th>
                   <th>Name</th>
                   <th>Discount</th>
-                  <th>Price Adjustment</th>
+                  <th>Mark-up</th>
                   <th>Price</th>
                   <th className="users-th-actions">Action</th>
                 </tr>
@@ -290,16 +360,16 @@ const SupplierSettingsPage = () => {
                       </button>
                     </td>
                     <td className="users-table-name">{row.name}</td>
-                    <td>{formatMoney(row.discount)}</td>
-                    <td>{formatMoney(row.price_adjustment)}</td>
-                    <td>{formatMoney(row.price)}</td>
+                    <td>{formatTierColumn(row.supplier_tiers, 'discount')}</td>
+                    <td>{formatTierColumn(row.supplier_tiers, 'mark_up')}</td>
+                    <td>{formatTierColumn(row.supplier_tiers, 'price')}</td>
                     <td>
                       <div className="users-actions">
                         <button
                           type="button"
                           className="users-action-btn users-action-edit"
                           title="Edit account"
-                          onClick={() => openEdit(row)}
+                          onClick={() => void openEdit(row)}
                         >
                           <i className="bi bi-pencil-square" />
                         </button>
@@ -317,7 +387,7 @@ const SupplierSettingsPage = () => {
                 ))}
                 {pageRows.length === 0 && !accountsLoading && (
                   <tr>
-                    <td colSpan={5} className="users-table-empty">
+                    <td colSpan={6} className="users-table-empty">
                       {!selectedId
                         ? 'Select a supplier type.'
                         : debouncedSearch
@@ -359,64 +429,148 @@ const SupplierSettingsPage = () => {
       {editTarget && (
         <>
           <div className="modal-backdrop fade show" onClick={closeEdit} />
-          <div className="modal fade show d-block" role="dialog" aria-modal="true">
-            <div className="modal-dialog modal-dialog-centered">
+          <div
+            className="modal fade show d-block supplier-edit-modal"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
               <div className="modal-content">
                 <div className="modal-header">
                   <h2 className="modal-title fs-5">Edit account</h2>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={closeEdit} />
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={closeEdit}
+                  />
                 </div>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label" htmlFor="edit-account-name">Name</label>
+                    <label className="form-label" htmlFor="edit-account-name">
+                      Name
+                    </label>
                     <input
                       id="edit-account-name"
                       className="form-control"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="edit-account-discount">Discount</label>
-                    <input
-                      id="edit-account-discount"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="form-control"
-                      value={editDiscount}
-                      onChange={(e) => setEditDiscount(e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="edit-account-price-adj">Price Adjustment</label>
-                    <input
-                      id="edit-account-price-adj"
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      value={editPriceAdjustment}
-                      onChange={(e) => setEditPriceAdjustment(e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="edit-account-price">Price</label>
-                    <input
-                      id="edit-account-price"
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      value={editPrice}
-                      onChange={(e) => setEditPrice(e.target.value)}
+                      disabled={tierPricingLoading}
                     />
                   </div>
 
+                  {tierPricingLoading ? (
+                    <p className="text-muted small mb-0">Loading tiers…</p>
+                  ) : tierPricing.length === 0 ? (
+                    <p className="text-muted small mb-0">
+                      No tiers configured for your account.
+                    </p>
+                  ) : (
+                    <div className="supplier-tier-pricing-cards">
+                      {tierPricing.map((tier) => (
+                        <div
+                          key={tier.tier_id}
+                          className="supplier-tier-pricing-card"
+                        >
+                          <h3 className="supplier-tier-pricing-card__title">
+                            {tier.tier_name}
+                          </h3>
+                          <div className="row g-2">
+                            <div className="col-sm-4">
+                              <label
+                                className="form-label"
+                                htmlFor={`tier-discount-${tier.tier_id}`}
+                              >
+                                Discount
+                              </label>
+                              <input
+                                id={`tier-discount-${tier.tier_id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="form-control form-control-sm"
+                                value={tier.discount}
+                                onChange={(e) =>
+                                  updateTierField(
+                                    tier.tier_id,
+                                    'discount',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="col-sm-4">
+                              <label
+                                className="form-label"
+                                htmlFor={`tier-markup-${tier.tier_id}`}
+                              >
+                                Mark-up
+                              </label>
+                              <input
+                                id={`tier-markup-${tier.tier_id}`}
+                                type="number"
+                                step="0.01"
+                                className="form-control form-control-sm"
+                                value={tier.mark_up}
+                                onChange={(e) =>
+                                  updateTierField(
+                                    tier.tier_id,
+                                    'mark_up',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="col-sm-4">
+                              <label
+                                className="form-label"
+                                htmlFor={`tier-price-${tier.tier_id}`}
+                              >
+                                Price
+                              </label>
+                              <input
+                                id={`tier-price-${tier.tier_id}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                className="form-control form-control-sm"
+                                value={tier.price}
+                                onChange={(e) =>
+                                  updateTierField(
+                                    tier.tier_id,
+                                    'price',
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {accountsError && editTarget && (
+                    <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">
+                      {accountsError}
+                    </div>
+                  )}
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={closeEdit} disabled={saving}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={closeEdit}
+                    disabled={saving}
+                  >
                     Cancel
                   </button>
-                  <button type="button" className="btn btn-primary" onClick={handleSaveEdit} disabled={saving}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => void handleSaveEdit()}
+                    disabled={saving || tierPricingLoading}
+                  >
                     {saving ? 'Saving…' : 'Save'}
                   </button>
                 </div>

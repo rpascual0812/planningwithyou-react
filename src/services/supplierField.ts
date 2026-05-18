@@ -6,8 +6,10 @@ export type SupplierOptionRecord = {
   name: string
   discount?: string | null
   discount_type?: string
-  price_adjustment?: string | null
-  price_adjustment_type?: string
+  mark_up?: string | null
+  mark_up_type?: string
+  price_override?: string | null
+  tax?: string | null
   price?: string | null
 }
 
@@ -17,8 +19,10 @@ export type SupplierTierOptionRecord = {
   is_active: boolean
   discount: string | null
   discount_type: string
-  price_adjustment: string | null
-  price_adjustment_type: string
+  mark_up: string | null
+  mark_up_type: string
+  price_override: string | null
+  tax: string | null
   price: string | null
 }
 

@@ -25,7 +25,15 @@ import {
   isBookingsView,
   type BookingsView,
 } from '../../utils/bookingsView'
-import { showSuccessToast } from '../../utils/toast'
+import {
+  createTier,
+  deleteTier,
+  fetchAllTiers,
+  updateTier,
+  type TierPayload,
+  type TierRecord,
+} from '../../services/tiers'
+import { showErrorToast, showSuccessToast } from '../../utils/toast'
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -305,12 +313,320 @@ const BookingsGroupNamePanel = () => {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Tiers panel                                                        */
+/* ------------------------------------------------------------------ */
+
+const BookingsTiersPanel = () => {
+  const [tiers, setTiers] = useState<TierRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const [showModal, setShowModal] = useState(false)
+  const [editing, setEditing] = useState<TierRecord | null>(null)
+  const [name, setName] = useState('')
+  const [isActive, setIsActive] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const [deleteTarget, setDeleteTarget] = useState<TierRecord | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      setTiers(await fetchAllTiers())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load tiers')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const openAdd = () => {
+    setEditing(null)
+    setName('')
+    setIsActive(true)
+    setFormError(null)
+    setShowModal(true)
+  }
+
+  const openEdit = (tier: TierRecord) => {
+    setEditing(tier)
+    setName(tier.name)
+    setIsActive(tier.is_active)
+    setFormError(null)
+    setShowModal(true)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditing(null)
+    setFormError(null)
+  }
+
+  const handleSave = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setFormError('Name is required.')
+      return
+    }
+    setSaving(true)
+    setFormError(null)
+    const payload: TierPayload = { name: trimmed, is_active: isActive }
+    try {
+      if (editing) {
+        await updateTier(editing.id, payload)
+        showSuccessToast('Tier updated.')
+      } else {
+        await createTier(payload)
+        showSuccessToast('Tier created.')
+      }
+      closeModal()
+      await load()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Save failed'
+      setFormError(message)
+      showErrorToast(message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteTier(deleteTarget.id)
+      showSuccessToast('Tier deleted.')
+      setDeleteTarget(null)
+      if (editing?.id === deleteTarget.id) closeModal()
+      await load()
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Delete failed'
+      setError(message)
+      showErrorToast(message)
+      setDeleteTarget(null)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <span className="text-muted small">
+          {tiers.length} tier{tiers.length !== 1 && 's'}
+        </span>
+        <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+          <i className="bi bi-plus-lg me-1" />
+          Add tier
+        </button>
+      </div>
+
+      {error && <div className="alert alert-danger py-2">{error}</div>}
+
+      {loading && tiers.length === 0 ? (
+        <div className="text-muted">Loading…</div>
+      ) : tiers.length === 0 ? (
+        <div className="text-muted small">
+          No tiers yet. Click &quot;Add tier&quot; to create one.
+        </div>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-sm table-hover align-middle mb-0 bookings-tiers-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th className="bookings-tiers-table__active">Active</th>
+                <th className="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((tier) => (
+                <tr key={tier.id}>
+                  <td className="fw-semibold">{tier.name}</td>
+                  <td className="bookings-tiers-table__active">
+                    {tier.is_active ? (
+                      <span className="badge text-bg-success">Yes</span>
+                    ) : (
+                      <span className="badge text-bg-secondary">No</span>
+                    )}
+                  </td>
+                  <td className="text-end">
+                    <div className="d-inline-flex gap-1">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        title="Edit tier"
+                        onClick={() => openEdit(tier)}
+                      >
+                        <i className="bi bi-pencil-square" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        title="Delete tier"
+                        onClick={() => setDeleteTarget(tier)}
+                      >
+                        <i className="bi bi-trash3" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showModal && (
+        <>
+          <div
+            className="modal-backdrop fade show"
+            onClick={closeModal}
+          />
+          <div
+            className="modal fade show d-block"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h2 className="modal-title fs-5">
+                    {editing ? 'Edit tier' : 'Add tier'}
+                  </h2>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={closeModal}
+                  />
+                </div>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="tier-name">
+                      Name
+                    </label>
+                    <input
+                      id="tier-name"
+                      type="text"
+                      className="form-control"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="form-check">
+                    <input
+                      id="tier-is-active"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={isActive}
+                      onChange={(e) => setIsActive(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="tier-is-active">
+                      Active
+                    </label>
+                  </div>
+                  {formError && (
+                    <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">
+                      {formError}
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={closeModal}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => void handleSave()}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {deleteTarget && (
+        <>
+          <div
+            className="modal-backdrop fade show"
+            onClick={() => setDeleteTarget(null)}
+          />
+          <div
+            className="modal fade show d-block"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-dialog modal-dialog-centered modal-sm">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h2 className="modal-title fs-5">Delete tier</h2>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={() => setDeleteTarget(null)}
+                  />
+                </div>
+                <div className="modal-body">
+                  <p className="mb-0">
+                    Delete <strong>{deleteTarget.name}</strong>? Supplier pricing
+                    for this tier will be removed.
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setDeleteTarget(null)}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={() => void confirmDelete()}
+                    disabled={deleting}
+                  >
+                    {deleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
 /*  BookingsSettingsPage                                                */
 /* ------------------------------------------------------------------ */
 
 const BookingsSettingsPage = () => {
   const [viewOpen, setViewOpen] = useState(false)
   const [groupNameOpen, setGroupNameOpen] = useState(false)
+  const [tiersOpen, setTiersOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
 
   return (
@@ -356,6 +672,28 @@ const BookingsSettingsPage = () => {
           {groupNameOpen && (
             <div className="faq-answer faq-answer--view">
               <BookingsGroupNamePanel />
+            </div>
+          )}
+        </li>
+
+        <li className={`faq-item${tiersOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={tiersOpen}
+            onClick={() => setTiersOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-layers" />
+            </span>
+            <span className="faq-question">Tiers</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {tiersOpen && (
+            <div className="faq-answer faq-answer--view">
+              <BookingsTiersPanel />
             </div>
           )}
         </li>
