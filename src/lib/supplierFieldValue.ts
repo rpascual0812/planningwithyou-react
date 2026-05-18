@@ -40,16 +40,34 @@ export function parseSupplierFieldValue(value: string): SupplierFieldValue {
   }
 }
 
+/** JSON stored in ``booking_items.value`` (price lives on ``booking_items.price``). */
 export function serializeSupplierFieldValue(value: SupplierFieldValue): string {
   if (value.tier_id == null && value.supplier_id == null) {
     return ''
   }
-  const payload: Record<string, unknown> = {
+  return JSON.stringify({
     tier_id: value.tier_id,
     supplier_id: value.supplier_id,
+  })
+}
+
+/** Normalize supplier line for API save / load (price column + value without price). */
+export function supplierFieldForStorage(
+  value: string,
+  linePrice: string | null | undefined,
+): { value: string; price: string | null } {
+  const parsed = parseSupplierFieldValue(value)
+  const price =
+    linePrice != null && linePrice !== ''
+      ? linePrice
+      : parsed.price != null && parsed.price !== ''
+        ? parsed.price
+        : null
+  return {
+    value: serializeSupplierFieldValue({
+      tier_id: parsed.tier_id,
+      supplier_id: parsed.supplier_id,
+    }),
+    price,
   }
-  if (value.price != null && value.price !== '') {
-    payload.price = value.price
-  }
-  return JSON.stringify(payload)
 }

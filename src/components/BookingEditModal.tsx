@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Swal from 'sweetalert2'
 import type { DragEvent, FormEvent } from 'react'
 import {
   FIELD_TYPE_OPTIONS,
@@ -6,10 +7,16 @@ import {
 } from '../services/formTemplates'
 import { storedValueToTimeInput, timeInputToStored } from '../lib/timeInput'
 import {
-  getBookingPriceLines,
-  sumBookingPriceLines,
+  DEFAULT_BOOKING_GROUP_NAME,
+  mergeBookingFieldGroups,
+  normalizeBookingGroupName,
+} from '../lib/bookingFieldGroups'
+import {
+  getBookingPriceGroups,
+  resolveBookingFieldPriceRaw,
+  sumBookingPriceGroups,
 } from '../lib/bookingPriceSummary'
-import { parseSupplierFieldValue } from '../lib/supplierFieldValue'
+import { fetchBookingsGroupNameConfig } from '../services/config'
 import { fetchCurrentAccount } from '../services/accounts'
 import {
   formatCurrency,
@@ -17,6 +24,7 @@ import {
   type CurrencyFormatOptions,
 } from '../utils/currency'
 import SupplierFieldInput from './SupplierFieldInput'
+import { showErrorToast } from '../utils/toast'
 
 export type BookingFieldOption = {
   label: string
@@ -26,6 +34,8 @@ export type BookingFieldOption = {
 
 export type BookingField = {
   label: string
+  group_name: string
+  booking_group_id?: number | null
   field_type: FieldType
   is_required: boolean
   options: BookingFieldOption[]
@@ -44,6 +54,8 @@ export type BookingFormState = {
   timeOfEvent: string
   templateId: number | null
   fields: BookingField[]
+  /** Empty group accordions (no fields yet); persisted via booking ``groups`` on save. */
+  extraGroupNames?: string[]
   notes: string
 }
 
@@ -68,17 +80,25 @@ export type BookingTemplate = {
   fields: BookingTemplateField[]
 }
 
+export type BookingGroupRef = {
+  id: number
+  name: string
+}
+
 type BookingEditModalProps = {
   form: BookingFormState
   statuses: BookingStatus[]
   templates: BookingTemplate[]
+  bookingGroups?: BookingGroupRef[]
   onChange: (next: BookingFormState) => void
+  onDeleteGroup?: (bookingId: number, groupId: number) => Promise<void>
   onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>
 }
 
 const EMPTY_FIELD: BookingField = {
   label: '',
+  group_name: DEFAULT_BOOKING_GROUP_NAME,
   field_type: 'text',
   is_required: false,
   options: [],
@@ -137,7 +157,9 @@ const BookingEditModal = ({
   form,
   statuses,
   templates,
+  bookingGroups = [],
   onChange,
+  onDeleteGroup,
   onClose,
   onSubmit,
 }: BookingEditModalProps) => {
@@ -148,35 +170,109 @@ const BookingEditModal = ({
     currencyCode: 'USD',
     locale: 'en-US',
   })
+  const [defaultGroupName, setDefaultGroupName] = useState(DEFAULT_BOOKING_GROUP_NAME)
+  const [extraGroupNames, setExtraGroupNames] = useState<string[]>(
+    form.extraGroupNames ?? [],
+  )
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  const [showAddGroupModal, setShowAddGroupModal] = useState(false)
+  const [newGroupInput, setNewGroupInput] = useState('')
+  const [addGroupError, setAddGroupError] = useState<string | null>(null)
   const originalFormJson = useRef(JSON.stringify(form))
+  const groupLabel = defaultGroupName
   const skipSave = useRef(true)
 
   useEffect(() => {
     let cancelled = false
-    fetchCurrentAccount()
-      .then((account) => {
+    Promise.all([fetchCurrentAccount(), fetchBookingsGroupNameConfig()])
+      .then(([account, groupConfig]) => {
         if (cancelled) return
         setCurrencyOptions({
           currencyCode: account.country_currency_code || 'USD',
           locale: localeFromIso2(account.country_iso2_code),
         })
+        const name = groupConfig.value?.trim()
+        if (name) setDefaultGroupName(name)
       })
       .catch(() => {
-        // Keep USD fallback.
+        // Keep defaults.
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  const priceLines = useMemo(
-    () => getBookingPriceLines(form.fields),
-    [form.fields],
+  const groupIdByName = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const group of bookingGroups) {
+      map.set(normalizeBookingGroupName(group.name), group.id)
+    }
+    for (const field of form.fields) {
+      if (field.booking_group_id != null) {
+        map.set(normalizeBookingGroupName(field.group_name), field.booking_group_id)
+      }
+    }
+    return map
+  }, [bookingGroups, form.fields])
+
+  const fieldGroups = useMemo(
+    () => mergeBookingFieldGroups(form.fields, extraGroupNames, bookingGroups),
+    [form.fields, extraGroupNames, bookingGroups],
+  )
+
+  useEffect(() => {
+    const namesWithFields = new Set(
+      form.fields.map((f) => normalizeBookingGroupName(f.group_name)),
+    )
+    const emptyFromApi = bookingGroups
+      .map((g) => normalizeBookingGroupName(g.name))
+      .filter((name) => !namesWithFields.has(name))
+    if (emptyFromApi.length === 0) return
+    setExtraGroupNames((prev) => {
+      const merged = [...prev]
+      let changed = false
+      for (const name of emptyFromApi) {
+        if (!merged.includes(name)) {
+          merged.push(name)
+          changed = true
+        }
+      }
+      return changed ? merged : prev
+    })
+  }, [bookingGroups, form.fields])
+
+  useEffect(() => {
+    setOpenGroups((prev) => {
+      const next = { ...prev }
+      let changed = false
+      fieldGroups.forEach((group, index) => {
+        if (next[group.groupName] === undefined) {
+          next[group.groupName] = index === 0
+          changed = true
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [fieldGroups])
+
+  const priceGroups = useMemo(
+    () => getBookingPriceGroups(fieldGroups),
+    [fieldGroups],
   )
   const priceTotal = useMemo(
-    () => sumBookingPriceLines(priceLines),
-    [priceLines],
+    () => sumBookingPriceGroups(priceGroups),
+    [priceGroups],
   )
+
+  const formatFieldPriceAmount = (raw: string | null | undefined): string | null => {
+    if (raw === null || raw === undefined || raw === '') return null
+    const amount = Number(raw)
+    if (Number.isNaN(amount)) return String(raw)
+    return formatCurrency(amount, currencyOptions)
+  }
+
+  const getSavedFieldDisplayPrice = (field: BookingField): string | null =>
+    formatFieldPriceAmount(resolveBookingFieldPriceRaw(field))
 
   // Restore draft on mount
   useEffect(() => {
@@ -207,6 +303,7 @@ const BookingEditModal = ({
   const templateFieldsToBookingFields = (tpl: BookingTemplate): BookingField[] =>
     tpl.fields.map((f, idx) => ({
       label: f.label,
+      group_name: defaultGroupName,
       field_type: f.field_type,
       is_required: f.is_required,
       options: f.options.map((o) => ({
@@ -243,11 +340,98 @@ const BookingEditModal = ({
     onChange(JSON.parse(originalFormJson.current) as BookingFormState)
   }
 
-  const addField = () => {
+  const addFieldToGroup = (groupName: string) => {
+    const normalized = normalizeBookingGroupName(groupName)
+    const booking_group_id = groupIdByName.get(normalized) ?? null
     onChange({
       ...form,
-      fields: [...form.fields, { ...EMPTY_FIELD, sort_order: form.fields.length }],
+      fields: [
+        ...form.fields,
+        {
+          ...EMPTY_FIELD,
+          group_name: normalized,
+          booking_group_id,
+          sort_order: form.fields.length,
+        },
+      ],
     })
+    setOpenGroups((prev) => ({ ...prev, [normalized]: true }))
+  }
+
+  const removeGroupFromForm = (normalized: string) => {
+    const nextFields = form.fields.filter(
+      (f) => normalizeBookingGroupName(f.group_name) !== normalized,
+    )
+    const nextExtra = extraGroupNames.filter(
+      (n) => normalizeBookingGroupName(n) !== normalized,
+    )
+    setExtraGroupNames(nextExtra)
+    onChange({ ...form, fields: nextFields, extraGroupNames: nextExtra })
+    setOpenGroups((prev) => {
+      const next = { ...prev }
+      delete next[normalized]
+      return next
+    })
+  }
+
+  const deleteFieldGroup = async (groupName: string) => {
+    const normalized = normalizeBookingGroupName(groupName)
+    const result = await Swal.fire({
+      title: `Delete "${groupName}"?`,
+      text: 'This will permanently delete the group and all fields in it.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Delete',
+      confirmButtonColor: '#d65a5a',
+    })
+    if (!result.isConfirmed) return
+
+    const groupId = groupIdByName.get(normalized)
+    if (form.mode === 'edit' && form.id != null && groupId != null && onDeleteGroup) {
+      try {
+        await onDeleteGroup(form.id, groupId)
+      } catch {
+        await Swal.fire('Error', 'Failed to delete group.', 'error')
+        return
+      }
+    }
+    removeGroupFromForm(normalized)
+  }
+
+  const toggleFieldGroup = (groupName: string) => {
+    setOpenGroups((prev) => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }))
+  }
+
+  const openAddGroupModal = () => {
+    setNewGroupInput('')
+    setAddGroupError(null)
+    setShowAddGroupModal(true)
+  }
+
+  const closeAddGroupModal = () => {
+    setShowAddGroupModal(false)
+    setNewGroupInput('')
+    setAddGroupError(null)
+  }
+
+  const handleAddGroupSave = () => {
+    const name = normalizeBookingGroupName(newGroupInput)
+    if (!newGroupInput.trim()) {
+      setAddGroupError(`Enter a ${groupLabel} name.`)
+      return
+    }
+    if (fieldGroups.some((g) => g.groupName === name)) {
+      setAddGroupError(`A ${groupLabel} group with that name already exists.`)
+      return
+    }
+    const nextExtra = [...extraGroupNames, name]
+    setExtraGroupNames(nextExtra)
+    onChange({ ...form, extraGroupNames: nextExtra })
+    setOpenGroups((prev) => ({ ...prev, [name]: true }))
+    closeAddGroupModal()
   }
 
   const updateField = (idx: number, patch: Partial<BookingField>) => {
@@ -325,11 +509,16 @@ const BookingEditModal = ({
 
   const saveField = (idx: number) => {
     const field = form.fields[idx]
-    if (!field.label.trim()) return
-    if (field.field_type === 'select' && field.options.filter((o) => o.label.trim()).length < 1) return
-    if (field.field_type === 'supplier') {
-      const { tier_id, supplier_id } = parseSupplierFieldValue(field.value)
-      if (field.is_required && (tier_id == null || supplier_id == null)) return
+    if (!field.label.trim()) {
+      showErrorToast('Enter a field label before saving.')
+      return
+    }
+    if (
+      field.field_type === 'select' &&
+      field.options.filter((o) => o.label.trim()).length < 1
+    ) {
+      showErrorToast('Add at least one option for dropdown fields.')
+      return
     }
     updateField(idx, { saved: true })
   }
@@ -338,35 +527,229 @@ const BookingEditModal = ({
     updateField(idx, { saved: false })
   }
 
+  const renderUnsavedFieldCard = (idx: number) => {
+    const field = form.fields[idx]
+    return (
+      <div
+        key={idx}
+        className={`card card-body p-3 mb-2${fieldDragOver === idx ? ' border-primary' : ''}`}
+        draggable
+        onDragStart={(e) => handleFieldDragStart(e, idx)}
+        onDragOver={(e) => handleFieldDragOver(e, idx)}
+        onDrop={(e) => handleFieldDrop(e, idx)}
+        onDragEnd={handleFieldDragEnd}
+      >
+        <div className="d-flex justify-content-between align-items-start mb-2">
+          <div className="d-flex align-items-center gap-2">
+            <i
+              className="bi bi-grip-vertical text-muted"
+              style={{ cursor: 'grab', fontSize: '1.1rem' }}
+              title="Drag to reorder"
+            />
+            <span className="badge bg-light text-dark">#{idx + 1}</span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-danger"
+            title="Remove field"
+            onClick={() => removeField(idx)}
+          >
+            <i className="bi bi-x-lg" />
+          </button>
+        </div>
+        <div className="row g-2">
+          <div className="col-sm-4">
+            <label className="form-label">Label *</label>
+            <input
+              className="form-control form-control-sm"
+              placeholder="Field label"
+              value={field.label}
+              onChange={(e) => updateField(idx, { label: e.target.value })}
+            />
+          </div>
+          <div className="col-sm-3">
+            <label className="form-label">Type</label>
+            <select
+              className="form-select form-select-sm"
+              value={field.field_type}
+              onChange={(e) => {
+                const field_type = e.target.value as FieldType
+                if (field_type === 'supplier') {
+                  updateField(idx, {
+                    field_type,
+                    price: null,
+                    value: '',
+                    options: [],
+                  })
+                  return
+                }
+                if (field_type === 'select') {
+                  updateField(idx, {
+                    field_type,
+                    price: null,
+                    value: '',
+                    options:
+                      field.options.length > 0
+                        ? field.options
+                        : [{ ...EMPTY_OPTION }],
+                  })
+                  return
+                }
+                updateField(idx, { field_type })
+              }}
+            >
+              {FIELD_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          {field.field_type !== 'select' && field.field_type !== 'supplier' && (
+            <div className="col-sm-3">
+              <label className="form-label">Price</label>
+              <input
+                type="number"
+                className="form-control form-control-sm"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                value={field.price ?? ''}
+                onChange={(e) =>
+                  updateField(idx, {
+                    price: e.target.value === '' ? null : e.target.value,
+                  })
+                }
+              />
+            </div>
+          )}
+          <div
+            className={`${
+              field.field_type === 'select' || field.field_type === 'supplier'
+                ? 'col-sm-5'
+                : 'col-sm-2'
+            } d-flex align-items-end`}
+          >
+            <div className="form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id={`booking-req-${idx}`}
+                checked={field.is_required}
+                onChange={(e) =>
+                  updateField(idx, { is_required: e.target.checked })
+                }
+              />
+              <label className="form-check-label" htmlFor={`booking-req-${idx}`}>
+                Required
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {field.field_type === 'select' && (
+          <div className="mt-2">
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <small className="text-muted fw-semibold">Options</small>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary py-0 px-1"
+                onClick={() => addOption(idx)}
+              >
+                <i className="bi bi-plus" />
+              </button>
+            </div>
+            {field.options.length === 0 && (
+              <div className="text-muted small">No options added.</div>
+            )}
+            {field.options.map((opt, optIdx) => (
+              <div key={optIdx} className="row g-1 mb-1 align-items-center">
+                <div className="col">
+                  <input
+                    className="form-control form-control-sm"
+                    placeholder={`Option ${optIdx + 1}`}
+                    value={opt.label}
+                    onChange={(e) =>
+                      updateOption(idx, optIdx, { label: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="col-auto" style={{ width: '110px' }}>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm"
+                    placeholder="Price"
+                    step="0.01"
+                    min="0"
+                    value={opt.price ?? ''}
+                    onChange={(e) =>
+                      updateOption(idx, optIdx, {
+                        price: e.target.value === '' ? null : e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-auto">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    title="Remove"
+                    onClick={() => removeOption(idx, optIdx)}
+                  >
+                    <i className="bi bi-x-lg" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 text-end">
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={() => saveField(idx)}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const renderSavedField = (field: BookingField, idx: number) => {
     const requiredMark = field.is_required ? ' *' : ''
     const fieldLabel = `${field.label}${requiredMark}`
-    const priceNote = field.price ? ` — $${field.price}` : ''
+    const displayPrice = getSavedFieldDisplayPrice(field)
 
     return (
-      <div key={idx} className="mb-3">
-        <div className="d-flex justify-content-between align-items-center mb-1">
-          <label className="form-label mb-0">
+      <div key={idx} className="mb-3 booking-saved-field">
+        <div className="booking-field-header">
+          <label className="form-label mb-0 booking-field-header__label">
             {fieldLabel}
-            {priceNote && <small className="text-muted">{priceNote}</small>}
           </label>
-          <div className="d-flex gap-1">
-            <button
-              type="button"
-              className="btn btn-sm btn-link p-0"
-              title="Edit field"
-              onClick={() => editField(idx)}
-            >
-              <i className="bi bi-pencil-square" />
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-link p-0 text-danger"
-              title="Remove field"
-              onClick={() => removeField(idx)}
-            >
-              <i className="bi bi-x-lg" />
-            </button>
+          <div className="booking-field-header__end">
+            {displayPrice && (
+              <span className="booking-field-price">{displayPrice}</span>
+            )}
+            <div className="d-flex gap-1">
+              <button
+                type="button"
+                className="btn btn-sm btn-link p-0"
+                title="Edit field"
+                onClick={() => editField(idx)}
+              >
+                <i className="bi bi-pencil-square" />
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-link p-0 text-danger"
+                title="Remove field"
+                onClick={() => removeField(idx)}
+              >
+                <i className="bi bi-x-lg" />
+              </button>
+            </div>
           </div>
         </div>
         {field.field_type === 'text' && (
@@ -458,17 +841,23 @@ const BookingEditModal = ({
             required={field.is_required}
           >
             <option value="">Select...</option>
-            {field.options.filter((o) => o.label.trim()).map((opt, oi) => (
-              <option key={oi} value={opt.label}>
-                {opt.label}{opt.price ? ` ($${opt.price})` : ''}
-              </option>
-            ))}
+            {field.options.filter((o) => o.label.trim()).map((opt, oi) => {
+              const optionPrice = formatFieldPriceAmount(opt.price)
+              return (
+                <option key={oi} value={opt.label}>
+                  {opt.label}
+                  {optionPrice ? ` — ${optionPrice}` : ''}
+                </option>
+              )
+            })}
           </select>
         )}
         {field.field_type === 'supplier' && (
           <SupplierFieldInput
             value={field.value}
-            onChange={(value) => updateField(idx, { value })}
+            onChange={(value, price) =>
+              updateField(idx, { value, price: price ?? null })
+            }
             required={field.is_required}
           />
         )}
@@ -562,182 +951,74 @@ const BookingEditModal = ({
                         />
                       </div>
                     </div>
-                    <div className="mb-3 border rounded p-3">
-                      {form.fields.map((field, idx) =>
-                        field.saved ? (
-                          renderSavedField(field, idx)
-                        ) : (
-                        <div
-                          key={idx}
-                          className={`card card-body p-3 mb-2${fieldDragOver === idx ? ' border-primary' : ''}`}
-                          draggable
-                          onDragStart={(e) => handleFieldDragStart(e, idx)}
-                          onDragOver={(e) => handleFieldDragOver(e, idx)}
-                          onDrop={(e) => handleFieldDrop(e, idx)}
-                          onDragEnd={handleFieldDragEnd}
+                    <div className="mb-3 booking-fields-groups">
+                      <div className="booking-fields-groups-toolbar">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={openAddGroupModal}
                         >
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div className="d-flex align-items-center gap-2">
-                              <i
-                                className="bi bi-grip-vertical text-muted"
-                                style={{ cursor: 'grab', fontSize: '1.1rem' }}
-                                title="Drag to reorder"
-                              />
-                              <span className="badge bg-light text-dark">#{idx + 1}</span>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger"
-                              title="Remove field"
-                              onClick={() => removeField(idx)}
+                          + Add {groupLabel}
+                        </button>
+                      </div>
+                      <ul className="faq-list booking-fields-group-list">
+                        {fieldGroups.map((group) => {
+                          const isOpen = openGroups[group.groupName] ?? false
+                          return (
+                            <li
+                              key={group.groupName}
+                              className={`faq-item${isOpen ? ' is-open' : ''}`}
                             >
-                              <i className="bi bi-x-lg" />
-                            </button>
-                          </div>
-                          <div className="row g-2">
-                            <div className="col-sm-4">
-                              <label className="form-label">Label *</label>
-                              <input
-                                className="form-control form-control-sm"
-                                placeholder="Field label"
-                                value={field.label}
-                                onChange={(e) => updateField(idx, { label: e.target.value })}
-                              />
-                            </div>
-                            <div className="col-sm-3">
-                              <label className="form-label">Type</label>
-                              <select
-                                className="form-select form-select-sm"
-                                value={field.field_type}
-                                onChange={(e) =>
-                                  updateField(idx, { field_type: e.target.value as FieldType })
-                                }
+                              <button
+                                type="button"
+                                className="faq-toggle"
+                                aria-expanded={isOpen}
+                                onClick={() => toggleFieldGroup(group.groupName)}
                               >
-                                {FIELD_TYPE_OPTIONS.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            {field.field_type !== 'select' && field.field_type !== 'supplier' && (
-                              <div className="col-sm-3">
-                                <label className="form-label">Price</label>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  placeholder="0.00"
-                                  step="0.01"
-                                  min="0"
-                                  value={field.price ?? ''}
-                                  onChange={(e) =>
-                                    updateField(idx, {
-                                      price: e.target.value === '' ? null : e.target.value,
-                                    })
-                                  }
-                                />
-                              </div>
-                            )}
-                            <div
-                              className={`${
-                                field.field_type === 'select' || field.field_type === 'supplier'
-                                  ? 'col-sm-5'
-                                  : 'col-sm-2'
-                              } d-flex align-items-end`}
-                            >
-                              <div className="form-check">
-                                <input
-                                  className="form-check-input"
-                                  type="checkbox"
-                                  id={`booking-req-${idx}`}
-                                  checked={field.is_required}
-                                  onChange={(e) =>
-                                    updateField(idx, { is_required: e.target.checked })
-                                  }
-                                />
-                                <label className="form-check-label" htmlFor={`booking-req-${idx}`}>
-                                  Required
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-
-                          {field.field_type === 'select' && (
-                            <div className="mt-2">
-                              <div className="d-flex align-items-center gap-2 mb-1">
-                                <small className="text-muted fw-semibold">Options</small>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-secondary py-0 px-1"
-                                  onClick={() => addOption(idx)}
-                                >
-                                  <i className="bi bi-plus" />
-                                </button>
-                              </div>
-                              {field.options.length === 0 && (
-                                <div className="text-muted small">No options added.</div>
-                              )}
-                              {field.options.map((opt, optIdx) => (
-                                <div key={optIdx} className="row g-1 mb-1 align-items-center">
-                                  <div className="col">
-                                    <input
-                                      className="form-control form-control-sm"
-                                      placeholder={`Option ${optIdx + 1}`}
-                                      value={opt.label}
-                                      onChange={(e) =>
-                                        updateOption(idx, optIdx, { label: e.target.value })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="col-auto" style={{ width: '110px' }}>
-                                    <input
-                                      type="number"
-                                      className="form-control form-control-sm"
-                                      placeholder="Price"
-                                      step="0.01"
-                                      min="0"
-                                      value={opt.price ?? ''}
-                                      onChange={(e) =>
-                                        updateOption(idx, optIdx, {
-                                          price: e.target.value === '' ? null : e.target.value,
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                  <div className="col-auto">
+                                <span className="faq-icon" aria-hidden="true">
+                                  <i className="bi bi-collection" />
+                                </span>
+                                <span className="faq-question">{group.groupName}</span>
+                                <span className="faq-chevron" aria-hidden="true">
+                                  <i className="bi bi-chevron-down" />
+                                </span>
+                              </button>
+                              {isOpen && (
+                                <div className="faq-answer faq-answer--form">
+                                  {group.items.map(({ field, idx }) =>
+                                    field.saved ? (
+                                      renderSavedField(field, idx)
+                                    ) : (
+                                      renderUnsavedFieldCard(idx)
+                                    ),
+                                  )}
+                                  {group.items.length === 0 && (
+                                    <p className="text-muted small mb-0">
+                                      No fields in this group yet.
+                                    </p>
+                                  )}
+                                  <div className="booking-fields-group-actions">
                                     <button
                                       type="button"
                                       className="btn btn-sm btn-outline-danger"
-                                      title="Remove"
-                                      onClick={() => removeOption(idx, optIdx)}
+                                      onClick={() => void deleteFieldGroup(group.groupName)}
                                     >
-                                      <i className="bi bi-x-lg" />
+                                      Delete
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={() => addFieldToGroup(group.groupName)}
+                                    >
+                                      + Add Field
                                     </button>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="mt-2 text-end">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-primary"
-                              onClick={() => saveField(idx)}
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                        ),
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={addField}
-                      >
-                        + Add Field
-                      </button>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
                     </div>
                     <div className="mb-0">
                       <label htmlFor="booking-notes" className="form-label">
@@ -796,26 +1077,46 @@ const BookingEditModal = ({
                     </div>
                     <div className="booking-price-summary mt-auto">
                       <h6 className="booking-price-summary__title">Price summary</h6>
-                      {priceLines.length === 0 ? (
+                      {priceGroups.length === 0 ? (
                         <p className="booking-price-summary__empty text-muted small mb-0">
                           Selected fields with prices will appear here.
                         </p>
                       ) : (
-                        <ul className="booking-price-summary__list list-unstyled mb-0">
-                          {priceLines.map((line, i) => (
-                            <li
-                              key={`${line.label}-${i}`}
-                              className="booking-price-summary__row"
+                        <div className="booking-price-summary__groups">
+                          {priceGroups.map((group) => (
+                            <div
+                              key={group.groupName}
+                              className="booking-price-summary__group"
                             >
-                              <span className="booking-price-summary__label">
-                                {line.label}
-                              </span>
-                              <span className="booking-price-summary__amount">
-                                {formatCurrency(line.amount, currencyOptions)}
-                              </span>
-                            </li>
+                              <h6 className="booking-price-summary__group-title">
+                                {group.groupName}
+                              </h6>
+                              <ul className="booking-price-summary__list list-unstyled mb-0">
+                                {group.lines.map((line, i) => (
+                                  <li
+                                    key={`${group.groupName}-${line.label}-${i}`}
+                                    className="booking-price-summary__row"
+                                  >
+                                    <span className="booking-price-summary__label">
+                                      {line.label}
+                                    </span>
+                                    <span className="booking-price-summary__amount">
+                                      {formatCurrency(line.amount, currencyOptions)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                              {priceGroups.length > 1 && (
+                                <div className="booking-price-summary__group-total">
+                                  <span>Subtotal</span>
+                                  <span>
+                                    {formatCurrency(group.subtotal, currencyOptions)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       )}
                       <div className="booking-price-summary__total">
                         <span>Total</span>
@@ -841,6 +1142,74 @@ const BookingEditModal = ({
           </div>
         </div>
       </div>
+
+      {showAddGroupModal && (
+        <>
+          <div
+            className="booking-group-modal-backdrop"
+            aria-hidden="true"
+            onClick={closeAddGroupModal}
+          />
+          <div
+            className="booking-group-modal modal fade show d-block"
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bookingAddGroupTitle"
+          >
+            <div className="modal-dialog modal-dialog-centered modal-sm">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h2 id="bookingAddGroupTitle" className="modal-title fs-6">
+                    Add {groupLabel}
+                  </h2>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={closeAddGroupModal}
+                  />
+                </div>
+                <div className="modal-body">
+                  <label htmlFor="booking-new-group-name" className="form-label">
+                    {groupLabel} name
+                  </label>
+                  <input
+                    id="booking-new-group-name"
+                    type="text"
+                    className={`form-control${addGroupError ? ' is-invalid' : ''}`}
+                    value={newGroupInput}
+                    onChange={(e) => {
+                      setNewGroupInput(e.target.value)
+                      setAddGroupError(null)
+                    }}
+                    autoFocus
+                  />
+                  {addGroupError && (
+                    <div className="invalid-feedback d-block">{addGroupError}</div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={closeAddGroupModal}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleAddGroupSave}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }

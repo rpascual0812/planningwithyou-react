@@ -15,7 +15,9 @@ import {
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
 import {
   fetchBookingViewConfig,
+  fetchBookingsGroupNameConfig,
   saveBookingViewConfig,
+  saveBookingsGroupNameConfig,
 } from '../../services/config'
 import {
   BOOKING_VIEW_DEFAULT,
@@ -113,31 +115,191 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
 /* ------------------------------------------------------------------ */
 
 const BookingsViewOptionsPanel = () => {
-  const [view, setView] = useState<BookingsView>(() => loadBookingsDefaultView())
+  const [savedView, setSavedView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
+  const [view, setView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const selectView = (next: BookingsView) => {
-    setView(next)
-    saveBookingsDefaultView(next)
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetchBookingViewConfig()
+      .then((config) => {
+        if (cancelled) return
+        const next = isBookingsView(config.value)
+          ? config.value
+          : BOOKING_VIEW_DEFAULT
+        setSavedView(next)
+        setView(next)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Could not load booking view setting.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isDirty = view !== savedView
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const config = await saveBookingViewConfig(view)
+      const next = isBookingsView(config.value) ? config.value : view
+      setSavedView(next)
+      setView(next)
+      showSuccessToast('Booking view saved.')
+    } catch {
+      setError('Could not save booking view setting.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bookings-view-settings text-muted small">
+        Loading booking view…
+      </div>
+    )
   }
 
   return (
-    <div
-      className="bookings-view-options"
-      role="tablist"
-      aria-label="Default bookings view"
-    >
-      {BOOKINGS_VIEW_OPTIONS.map((option) => (
+    <div className="bookings-view-settings">
+      <div
+        className="bookings-view-options"
+        role="tablist"
+        aria-label="Default bookings view"
+      >
+        {BOOKINGS_VIEW_OPTIONS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={view === option.id}
+            className={`bookings-view-option${view === option.id ? ' is-active' : ''}`}
+            onClick={() => setView(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <div className="bookings-view-preview">
+        <BookingsViewPlaceholder view={view} />
+      </div>
+      {error && (
+        <p className="bookings-view-settings-error mb-0" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        type="button"
+        className="bookings-view-save-btn"
+        disabled={!isDirty || saving}
+        onClick={() => void handleSave()}
+      >
+        {saving ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
+const BookingsGroupNamePanel = () => {
+  const [savedName, setSavedName] = useState('')
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetchBookingsGroupNameConfig()
+      .then((config) => {
+        if (cancelled) return
+        const next = config.value ?? ''
+        setSavedName(next)
+        setName(next)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Could not load bookings group name.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const isDirty = name !== savedName
+
+  const handleSave = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const config = await saveBookingsGroupNameConfig(name)
+      const next = config.value ?? ''
+      setSavedName(next)
+      setName(next)
+      showSuccessToast('Bookings group name saved.')
+    } catch {
+      setError('Could not save bookings group name.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bookings-group-name-settings text-muted small">
+        Loading…
+      </div>
+    )
+  }
+
+  return (
+    <div className="bookings-group-name-settings">
+      <label htmlFor="bookings-group-name" className="form-label">
+        Group name
+      </label>
+      <div className="input-group bookings-group-name-input-group">
+        <input
+          id="bookings-group-name"
+          type="text"
+          className="form-control"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={saving}
+          maxLength={255}
+          placeholder="e.g. Projects, Events, Clients"
+        />
         <button
-          key={option.id}
           type="button"
-          role="tab"
-          aria-selected={view === option.id}
-          className={`bookings-view-option${view === option.id ? ' is-active' : ''}`}
-          onClick={() => selectView(option.id)}
+          className="btn btn-primary"
+          disabled={!isDirty || saving}
+          onClick={() => void handleSave()}
         >
-          {option.label}
+          {saving ? 'Saving…' : 'Save'}
         </button>
-      ))}
+      </div>
+      {error && (
+        <p className="bookings-view-settings-error mb-0 mt-2" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -148,6 +310,7 @@ const BookingsViewOptionsPanel = () => {
 
 const BookingsSettingsPage = () => {
   const [viewOpen, setViewOpen] = useState(false)
+  const [groupNameOpen, setGroupNameOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
 
   return (
@@ -171,6 +334,28 @@ const BookingsSettingsPage = () => {
           {viewOpen && (
             <div className="faq-answer faq-answer--view">
               <BookingsViewOptionsPanel />
+            </div>
+          )}
+        </li>
+
+        <li className={`faq-item${groupNameOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={groupNameOpen}
+            onClick={() => setGroupNameOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-collection" />
+            </span>
+            <span className="faq-question">Bookings Group Name</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {groupNameOpen && (
+            <div className="faq-answer faq-answer--view">
+              <BookingsGroupNamePanel />
             </div>
           )}
         </li>

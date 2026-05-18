@@ -1,25 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   parseSupplierFieldValue,
   serializeSupplierFieldValue,
   type SupplierFieldValue,
 } from '../lib/supplierFieldValue'
-import { fetchCurrentAccount } from '../services/accounts'
 import {
   fetchSupplierOptions,
   fetchTiersForSupplier,
   type SupplierOptionRecord,
   type SupplierTierOptionRecord,
 } from '../services/supplierField'
-import {
-  formatCurrency,
-  localeFromIso2,
-  type CurrencyFormatOptions,
-} from '../utils/currency'
 
 type SupplierFieldInputProps = {
   value: string
-  onChange: (value: string) => void
+  /** Second argument is tier price for ``booking_items.price``. */
+  onChange: (value: string, price?: string | null) => void
   required?: boolean
   tierLabel?: string
   supplierLabel?: string
@@ -44,28 +39,6 @@ export default function SupplierFieldInput({
   const [loadingSuppliers, setLoadingSuppliers] = useState(true)
   const [loadingTiers, setLoadingTiers] = useState(false)
   const [loadError, setLoadError] = useState('')
-  const [currencyOptions, setCurrencyOptions] = useState<CurrencyFormatOptions>({
-    currencyCode: 'USD',
-    locale: 'en-US',
-  })
-
-  useEffect(() => {
-    let cancelled = false
-    fetchCurrentAccount()
-      .then((account) => {
-        if (cancelled) return
-        setCurrencyOptions({
-          currencyCode: account.country_currency_code || 'USD',
-          locale: localeFromIso2(account.country_iso2_code),
-        })
-      })
-      .catch(() => {
-        // Keep USD fallback.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -125,7 +98,13 @@ export default function SupplierFieldInput({
   }, [parsed.supplier_id])
 
   const emit = (next: SupplierFieldValue) => {
-    onChange(serializeSupplierFieldValue(next))
+    onChange(
+      serializeSupplierFieldValue({
+        tier_id: next.tier_id,
+        supplier_id: next.supplier_id,
+      }),
+      next.price ?? null,
+    )
   }
 
   const handleSupplierChange = (supplierId: string) => {
@@ -161,18 +140,6 @@ export default function SupplierFieldInput({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tiers, parsed.tier_id, parsed.supplier_id, tierStillValid])
-
-  const selectedTier = useMemo(() => {
-    if (parsed.tier_id == null || !tierStillValid) return null
-    return tiers.find((t) => t.id === parsed.tier_id) ?? null
-  }, [parsed.tier_id, tierStillValid, tiers])
-
-  const formatTierPrice = (price: string | null): string => {
-    if (price === null || price === '') return '—'
-    const amount = Number(price)
-    if (Number.isNaN(amount)) return price
-    return formatCurrency(amount, currencyOptions)
-  }
 
   return (
     <div className="row g-2">
@@ -229,14 +196,6 @@ export default function SupplierFieldInput({
             </option>
           ))}
         </select>
-        {selectedTier && (
-          <p className="mb-0 mt-1 small text-muted">
-            Price:{' '}
-            <span className="fw-semibold text-body">
-              {formatTierPrice(selectedTier.price)}
-            </span>
-          </p>
-        )}
       </div>
       {loadError && (
         <div className="col-12">

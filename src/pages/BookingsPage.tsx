@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, PointerEvent as ReactPointerEvent, SubmitEvent } from 'react'
+import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   type BookingColumnRecord,
@@ -7,15 +7,19 @@ import {
   createBookingColumn,
   createBookingItem,
   deleteBookingColumn,
+  deleteBookingGroup,
   deleteBookingItem,
   fetchBookingColumns,
   fetchBookingItems,
-  moveBookingItem,
   reorderBookingItems,
   updateBookingColumn,
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
+import {
+  parseSupplierFieldValue,
+  supplierFieldForStorage,
+} from '../lib/supplierFieldValue'
 import StatusEditModal, { COLOR_SWATCHES, type StatusFormState } from '../components/StatusEditModal'
 import { type FormTemplateRecord, fetchFormTemplates } from '../services/formTemplates'
 import { fetchBookingViewConfig } from '../services/config'
@@ -24,43 +28,64 @@ import {
   isBookingsView,
   type BookingsView,
 } from '../utils/bookingsView'
+import {
+  buildBookingGroupsPayload,
+  emptyBookingGroupNamesFromItem,
+} from '../lib/bookingFieldGroups'
+import { showErrorToast, showSuccessToast } from '../utils/toast'
 
 type BookingColumn = BookingColumnRecord
 type BookingItem = BookingItemRecord
 
 function fieldValuesToFields(item: BookingItem): BookingField[] {
-  return (item.field_values ?? []).map((fv) => ({
-    label: fv.label,
-    field_type: fv.field_type as BookingField['field_type'],
-    is_required: fv.is_required,
-    options: (fv.options ?? []).map((o) => ({
-      label: o.label,
-      price: o.price,
-      sort_order: o.sort_order,
-    })),
-    price: fv.price,
-    sort_order: fv.sort_order,
-    saved: true,
-    value: fv.value,
-  }))
+  return (item.field_values ?? []).map((fv) => {
+    const fieldType = fv.field_type as BookingField['field_type']
+    const stored =
+      fieldType === 'supplier'
+        ? supplierFieldForStorage(fv.value, fv.price)
+        : { value: fv.value, price: fv.price }
+    return {
+      label: fv.label,
+      group_name: fv.group_name ?? 'Suppliers',
+      booking_group_id: fv.booking_group_id ?? null,
+      field_type: fieldType,
+      is_required: fv.is_required,
+      options: (fv.options ?? []).map((o) => ({
+        label: o.label,
+        price: o.price,
+        sort_order: o.sort_order,
+      })),
+      price: stored.price,
+      sort_order: fv.sort_order,
+      saved: true,
+      value: stored.value,
+    }
+  })
 }
 
 function fieldsToFieldValues(fields: BookingField[]) {
   return fields
     .filter((f) => f.saved)
-    .map((f, idx) => ({
-      label: f.label,
-      field_type: f.field_type,
-      is_required: f.is_required,
-      price: f.price,
-      value: f.value,
-      options: f.options.map((o, oi) => ({
-        label: o.label,
-        price: o.price,
-        sort_order: oi,
-      })),
-      sort_order: idx,
-    }))
+    .map((f, idx) => {
+      const stored =
+        f.field_type === 'supplier'
+          ? supplierFieldForStorage(f.value, f.price)
+          : { value: f.value, price: f.price }
+      return {
+        label: f.label,
+        group_name: f.group_name ?? 'Suppliers',
+        field_type: f.field_type,
+        is_required: f.is_required,
+        price: stored.price,
+        value: stored.value,
+        options: f.options.map((o, oi) => ({
+          label: o.label,
+          price: o.price,
+          sort_order: oi,
+        })),
+        sort_order: idx,
+      }
+    })
 }
 
 type DragState = {
@@ -741,7 +766,7 @@ const BookingsPage = () => {
     })
   }
 
-  const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!statusModal) {
       return
@@ -812,11 +837,28 @@ const BookingsPage = () => {
     clearEditParam()
   }
 
+  const handleDeleteBookingGroup = async (bookingId: number, groupId: number) => {
+    await deleteBookingGroup(bookingId, groupId)
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== bookingId) return it
+        return {
+          ...it,
+          groups: (it.groups ?? []).filter((g) => g.id !== groupId),
+          field_values: (it.field_values ?? []).filter(
+            (fv) => fv.booking_group_id !== groupId,
+          ),
+        }
+      }),
+    )
+  }
+
   const openCreateItem = (columnId: number) => {
     const defaultTpl = templates.find((t) => t.is_default)
     const fields: BookingField[] = defaultTpl
       ? defaultTpl.fields.map((f, idx) => ({
           label: f.label,
+          group_name: 'Suppliers',
           field_type: f.field_type as BookingField['field_type'],
           is_required: f.is_required,
           options: f.options.map((o) => ({
@@ -860,6 +902,10 @@ const BookingsPage = () => {
       timeOfEvent,
       templateId: item.form_template,
       fields: fieldValuesToFields(item),
+      extraGroupNames: emptyBookingGroupNamesFromItem(
+        item.field_values ?? [],
+        item.groups ?? [],
+      ),
       notes: item.notes,
     })
     setSearchParams(
@@ -872,7 +918,7 @@ const BookingsPage = () => {
     )
   }
 
-  const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
+  const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
       return
@@ -887,15 +933,42 @@ const BookingsPage = () => {
         : `${itemModal.dateOfEvent}T00:00`
     }
 
+    const unsavedFields = itemModal.fields.filter((f) => !f.saved)
+    if (unsavedFields.length > 0) {
+      showErrorToast('Save or remove unsaved custom fields before saving the booking.')
+      return
+    }
+
+    const missingRequired = itemModal.fields.filter((f) => {
+      if (!f.saved || !f.is_required) return false
+      if (f.field_type === 'supplier') {
+        const { tier_id, supplier_id } = parseSupplierFieldValue(f.value)
+        return tier_id == null || supplier_id == null
+      }
+      if (f.field_type === 'checkbox') return f.value !== 'true'
+      return !f.value.trim()
+    })
+    if (missingRequired.length > 0) {
+      showErrorToast(
+        `Fill required fields: ${missingRequired.map((f) => f.label || 'Untitled').join(', ')}.`,
+      )
+      return
+    }
+
     try {
       const form_template = itemModal.templateId
       const field_values = fieldsToFieldValues(itemModal.fields)
+      const groups = buildBookingGroupsPayload(
+        itemModal.fields,
+        itemModal.extraGroupNames ?? [],
+      )
       if (itemModal.mode === 'create') {
         const created = await createBookingItem({
           column: columnId,
           title,
           date_of_event,
           form_template,
+          groups,
           field_values,
           notes,
         })
@@ -905,6 +978,7 @@ const BookingsPage = () => {
           title,
           date_of_event,
           form_template,
+          groups,
           field_values,
           notes,
           column: columnId,
@@ -914,9 +988,14 @@ const BookingsPage = () => {
         )
       }
       clearBookingDraft(itemModal.templateId, itemModal.id)
+      showSuccessToast(
+        itemModal.mode === 'create' ? 'Booking created.' : 'Booking saved.',
+      )
       closeItemModal()
-    } catch {
-      // silently fail
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Could not save booking.'
+      showErrorToast(message)
     }
   }
 
@@ -1644,7 +1723,13 @@ const BookingsPage = () => {
           form={itemModal}
           statuses={columns}
           templates={templates}
+          bookingGroups={
+            itemModal.id != null
+              ? items.find((i) => i.id === itemModal.id)?.groups ?? []
+              : []
+          }
           onChange={setItemModal}
+          onDeleteGroup={handleDeleteBookingGroup}
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}
         />

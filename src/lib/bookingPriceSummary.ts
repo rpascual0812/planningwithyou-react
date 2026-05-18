@@ -1,9 +1,16 @@
 import type { BookingField } from '../components/BookingEditModal'
+import type { BookingFieldGroup } from './bookingFieldGroups'
 import { parseSupplierFieldValue } from './supplierFieldValue'
 
 export type BookingPriceLine = {
   label: string
   amount: number
+}
+
+export type BookingPriceGroup = {
+  groupName: string
+  lines: BookingPriceLine[]
+  subtotal: number
 }
 
 function parseAmount(raw: string | null | undefined): number | null {
@@ -12,42 +19,54 @@ function parseAmount(raw: string | null | undefined): number | null {
   return Number.isNaN(n) ? null : n
 }
 
-function fieldHasValue(field: BookingField): boolean {
-  switch (field.field_type) {
-    case 'checkbox':
-      return field.value === 'true'
-    default:
-      return field.value.trim().length > 0
-  }
+function configuredFieldPrice(field: BookingField): string | null {
+  if (field.price === null || field.price === '') return null
+  return field.price
 }
 
-/** Line items from saved booking fields that have a price contribution. */
+/** Raw price string for a saved field (before formatting). */
+export function resolveBookingFieldPriceRaw(
+  field: BookingField,
+): string | null {
+  if (!field.saved || !field.label.trim()) return null
+
+  if (field.field_type === 'select') {
+    if (field.value.trim()) {
+      const selected = field.options.find((o) => o.label === field.value)
+      const raw = selected?.price ?? field.price
+      return raw === null || raw === '' ? null : raw
+    }
+    return configuredFieldPrice(field)
+  }
+
+  if (field.field_type === 'supplier') {
+    const parsed = parseSupplierFieldValue(field.value)
+    if (parsed.tier_id == null || parsed.supplier_id == null) return null
+    const raw = field.price ?? parsed.price ?? null
+    return raw === null || raw === '' ? null : raw
+  }
+
+  if (field.field_type === 'checkbox') {
+    if (field.value !== 'true') return null
+    return configuredFieldPrice(field)
+  }
+
+  return configuredFieldPrice(field)
+}
+
+/** Numeric price for a saved field, or null if it does not contribute. */
+export function resolveBookingFieldPriceAmount(
+  field: BookingField,
+): number | null {
+  return parseAmount(resolveBookingFieldPriceRaw(field))
+}
+
+/** Line items from all saved booking fields that have a price contribution. */
 export function getBookingPriceLines(fields: BookingField[]): BookingPriceLine[] {
   const lines: BookingPriceLine[] = []
 
   for (const field of fields) {
-    if (!field.saved || !field.label.trim()) continue
-
-    if (field.field_type === 'select') {
-      if (!field.value.trim()) continue
-      const selected = field.options.find((o) => o.label === field.value)
-      const amount = parseAmount(selected?.price ?? field.price)
-      if (amount === null) continue
-      lines.push({ label: field.label.trim(), amount })
-      continue
-    }
-
-    if (field.field_type === 'supplier') {
-      const { tier_id, supplier_id, price } = parseSupplierFieldValue(field.value)
-      if (tier_id == null || supplier_id == null) continue
-      const amount = parseAmount(price)
-      if (amount === null) continue
-      lines.push({ label: field.label.trim(), amount })
-      continue
-    }
-
-    if (!fieldHasValue(field)) continue
-    const amount = parseAmount(field.price)
+    const amount = resolveBookingFieldPriceAmount(field)
     if (amount === null) continue
     lines.push({ label: field.label.trim(), amount })
   }
@@ -55,6 +74,34 @@ export function getBookingPriceLines(fields: BookingField[]): BookingPriceLine[]
   return lines
 }
 
+/** Price lines grouped by booking group (only groups with at least one priced field). */
+export function getBookingPriceGroups(
+  fieldGroups: BookingFieldGroup[],
+): BookingPriceGroup[] {
+  const groups: BookingPriceGroup[] = []
+
+  for (const { groupName, items } of fieldGroups) {
+    const lines: BookingPriceLine[] = []
+    for (const { field } of items) {
+      const amount = resolveBookingFieldPriceAmount(field)
+      if (amount === null) continue
+      lines.push({ label: field.label.trim(), amount })
+    }
+    if (lines.length === 0) continue
+    groups.push({
+      groupName,
+      lines,
+      subtotal: sumBookingPriceLines(lines),
+    })
+  }
+
+  return groups
+}
+
 export function sumBookingPriceLines(lines: BookingPriceLine[]): number {
   return lines.reduce((sum, line) => sum + line.amount, 0)
+}
+
+export function sumBookingPriceGroups(groups: BookingPriceGroup[]): number {
+  return groups.reduce((sum, group) => sum + group.subtotal, 0)
 }

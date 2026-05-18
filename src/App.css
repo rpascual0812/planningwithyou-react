@@ -1027,6 +1027,34 @@ body,
   min-height: 100%;
 }
 
+.booking-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.booking-field-header__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-field-header__end {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.booking-field-price {
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--bs-body-color);
+  white-space: nowrap;
+}
+
 .booking-price-summary {
   margin-top: 1.5rem;
   padding: 0.875rem 1rem;
@@ -1042,6 +1070,37 @@ body,
   letter-spacing: 0.04em;
   color: var(--bs-secondary-color);
   margin-bottom: 0.75rem;
+}
+
+.booking-price-summary__groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.booking-price-summary__group-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bs-secondary-color);
+  margin: 0 0 0.35rem;
+}
+
+.booking-price-summary__group-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--bs-border-color);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.booking-price-summary__group-total span:last-child {
+  font-variant-numeric: tabular-nums;
 }
 
 .booking-price-summary__row {
@@ -1064,6 +1123,7 @@ body,
   font-variant-numeric: tabular-nums;
 }
 
+.booking-price-summary__groups + .booking-price-summary__total,
 .booking-price-summary__list + .booking-price-summary__total {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
@@ -5412,6 +5472,55 @@ body,
 
 .bookings-view-save-btn:not(:disabled):hover {
   background: var(--brand-green-dark);
+}
+
+.bookings-group-name-settings .form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--brand-ink);
+  margin-bottom: 0.5rem;
+}
+
+.bookings-group-name-input-group .btn {
+  min-width: 5.5rem;
+}
+
+.booking-fields-group-list {
+  margin-bottom: 0;
+}
+
+.booking-fields-group-list .faq-answer--form {
+  padding-top: 0.75rem;
+}
+
+.booking-fields-group-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  gap: 0.5rem;
+}
+
+.booking-fields-groups-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.booking-group-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1310;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.booking-group-modal.modal {
+  z-index: 1320;
+}
+
+/* SweetAlert2 confirm dialogs opened from booking modals */
+.swal2-container {
+  z-index: 1400 !important;
 }
 
 .faq-card-head {
