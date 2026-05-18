@@ -5,6 +5,7 @@ import type { EmailRecord, EmailPayload } from '../services/emails'
 import { fetchMe } from '../services/users'
 import DocumentsModal from './DocumentsModal'
 import type { DocumentRecord } from '../services/documents'
+import { hasMeaningfulEmailBody } from '../lib/emailBody'
 import {
   registerEmailMergeVariablesToolbar,
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
@@ -121,7 +122,6 @@ const EMPTY_FORM: EmailPayload = {
   to: [],
   cc: [],
   bcc: [],
-  email_from: '',
   reply_to: '',
   subject: '',
   body: '',
@@ -165,7 +165,6 @@ function buildInitialForm(
       to: email.to,
       cc: email.cc,
       bcc: email.bcc,
-      email_from: email.email_from,
       reply_to: email.reply_to ?? '',
       subject: email.subject,
       body: email.body,
@@ -204,6 +203,7 @@ const EmailSenderModal = ({
   const initialSubjectRef = useRef(form.subject ?? '')
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
   const [defaultReplyTo, setDefaultReplyTo] = useState('')
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -287,9 +287,18 @@ const EmailSenderModal = ({
     setEditorKey((k) => k + 1)
   }
 
-  const handleSend = (data: EmailPayload) => {
+  const bodyForSend = (): string =>
+    editorRef.current?.getContent() ?? form.body ?? ''
+
+  const handleSendClick = () => {
+    const body = bodyForSend()
+    if (!hasMeaningfulEmailBody(body)) {
+      setValidationError('Please enter a message body.')
+      return
+    }
+    setValidationError(null)
     clearDraft(storageKey)
-    onSend(data)
+    onSend({ ...form, body })
   }
 
   // Escape to close
@@ -342,9 +351,9 @@ const EmailSenderModal = ({
               />
             </div>
             <div className="modal-body">
-              {error && (
+              {(validationError || error) && (
                 <div className="alert alert-danger py-2" role="alert">
-                  {error}
+                  {validationError || error}
                 </div>
               )}
               {!isCompose && email.error && (
@@ -557,12 +566,13 @@ const EmailSenderModal = ({
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => handleSend(form)}
+                onClick={handleSendClick}
                 disabled={
                   sending ||
                   (!(form.to ?? []).length &&
                     !(form.cc ?? []).length &&
-                    !(form.bcc ?? []).length)
+                    !(form.bcc ?? []).length) ||
+                  !hasMeaningfulEmailBody(bodyForSend())
                 }
               >
                 <i className="bi bi-send me-1" />

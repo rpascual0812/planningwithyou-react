@@ -32,7 +32,6 @@ import {
   buildBookingGroupsPayload,
   emptyBookingGroupNamesFromItem,
 } from '../lib/bookingFieldGroups'
-import { bookingPdfToMediaUrl } from '../lib/bookingPdfUrl'
 import { normalizeContactId } from '../lib/contactDisplay'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
@@ -891,7 +890,7 @@ const BookingsPage = () => {
         item.groups ?? [],
       ),
       notes: item.notes,
-      pdfUrl: bookingPdfToMediaUrl(item.pdf ?? ''),
+      pdfUrl: item.pdf_url ?? '',
     })
     setSearchParams(
       (prev) => {
@@ -1046,6 +1045,7 @@ const BookingsPage = () => {
           item.groups ?? [],
         ),
         notes: item.notes,
+        pdfUrl: item.pdf_url ?? '',
       })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

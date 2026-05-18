@@ -36,7 +36,6 @@ import {
 } from '../lib/contactDisplay'
 import EmailSenderModal from './EmailSenderModal'
 import { sendEmail, type EmailPayload } from '../services/emails'
-import { bookingPdfToMediaUrl } from '../lib/bookingPdfUrl'
 import { fetchBookingItem } from '../services/bookings'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
@@ -310,7 +309,7 @@ const BookingEditModal = ({
     if (form.id) {
       try {
         const item = await fetchBookingItem(form.id)
-        const pdfUrl = bookingPdfToMediaUrl(item.pdf ?? '')
+        const pdfUrl = item.pdf_url ?? ''
         if (pdfUrl !== (form.pdfUrl ?? '')) {
           onChange({ ...form, pdfUrl })
         }

@@ -6937,13 +6937,13 @@ body,
   }
 }
 
-/* Documents modal */
+/* Documents modal (above email modal at 1320) */
 .docs-modal-backdrop {
-  z-index: 1060;
+  z-index: 1330;
 }
 
 .docs-modal {
-  z-index: 1070;
+  z-index: 1340;
 }
 
 .docs-grid-area {

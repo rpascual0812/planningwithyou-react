@@ -21,7 +21,6 @@ export type EmailPayload = {
   to?: string[]
   cc?: string[]
   bcc?: string[]
-  email_from?: string
   reply_to?: string
   subject?: string
   body?: string
@@ -52,13 +51,18 @@ export async function fetchEmail(id: number): Promise<EmailRecord> {
   return res.json()
 }
 
+function apiEmailBody(data: EmailPayload): EmailPayload {
+  const { email_from: _, ...body } = data as EmailPayload & { email_from?: string }
+  return body
+}
+
 export async function sendEmail(
   data: EmailPayload,
 ): Promise<EmailRecord> {
   const res = await apiFetch(buildApiUrl('/api/emails/'), {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify(data),
+    body: JSON.stringify(apiEmailBody(data)),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)
@@ -74,7 +78,7 @@ export async function resendEmail(
   const res = await apiFetch(buildApiUrl(`/api/emails/${id}/resend/`), {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify(data),
+    body: JSON.stringify(apiEmailBody(data)),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)

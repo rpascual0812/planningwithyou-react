@@ -73,7 +73,7 @@ export type BookingItemRecord = {
   field_values: BookingFieldValueRecord[]
   notes: string
   sort_order: number
-  pdf: string
+  pdf_url: string
   created_at: string
   updated_at: string
 }
