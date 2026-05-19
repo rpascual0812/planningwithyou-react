@@ -584,21 +584,29 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
   }
 
   return (
-    <div className="app-content">
+    <div className="app-content calendar-page">
       <div className="container-fluid">
-        <div className="d-flex justify-content-end mb-3">
+        <div className="calendar-page-toolbar">
+          <div className="calendar-page-intro">
+            
+          </div>
           <button
             type="button"
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary calendar-page-add-btn"
             onClick={handleAddAppointmentClick}
           >
-            <i className="bi bi-plus-lg me-1" />
+            <i className="bi bi-plus-lg me-1" aria-hidden="true" />
             Add appointment
           </button>
         </div>
-        <div className="calendar-surface">
+        <div className={`calendar-surface${loadingEvents ? ' calendar-surface--loading' : ''}`}>
           {loadingEvents && (
-            <p className="text-muted small mb-2">Loading appointments…</p>
+            <div className="calendar-surface__loading" aria-live="polite" aria-busy="true">
+              <div className="spinner-border spinner-border-sm text-primary" role="status">
+                <span className="visually-hidden">Loading appointments</span>
+              </div>
+              <span>Loading appointments…</span>
+            </div>
           )}
           <FullCalendar
             ref={calendarRef}
@@ -609,6 +617,28 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
               center: 'title',
               right: 'dayGridMonth,timeGridWeek,timeGridDay',
             }}
+            buttonText={{
+              today: 'Today',
+              month: 'Month',
+              week: 'Week',
+              day: 'Day',
+            }}
+            titleFormat={{ year: 'numeric', month: 'long' }}
+            dayHeaderFormat={{ weekday: 'short' }}
+            slotLabelFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              meridiem: 'short',
+            }}
+            eventTimeFormat={{
+              hour: 'numeric',
+              minute: '2-digit',
+              meridiem: 'short',
+            }}
+            nowIndicator
+            expandRows
+            dayMaxEvents={4}
+            moreLinkClick="popover"
             allDaySlot={false}
             height="auto"
             events={fcEvents}
@@ -616,6 +646,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
             eventStartEditable
             eventDurationEditable
             eventResizableFromStart
+            eventClassNames="calendar-fc-event"
             dayHeaderContent={handleDayHeaderContent}
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}
