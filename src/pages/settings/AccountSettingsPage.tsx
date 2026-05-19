@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import AccountInfoForm from './account/AccountInfoForm'
+import SubscriptionSettingsPage from './SubscriptionSettingsPage'
 
-const AccountSettingsPage = () => {
+type AccountSettingsPageProps = {
+  /** Open a section on load (e.g. legacy `?tab=subscription`). */
+  initialAccordion?: 'subscription'
+}
+
+const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => {
   const [infoOpen, setInfoOpen] = useState(false)
+  const [subscriptionOpen, setSubscriptionOpen] = useState(
+    initialAccordion === 'subscription',
+  )
 
   return (
     <div className="account-settings">
@@ -25,6 +34,28 @@ const AccountSettingsPage = () => {
           {infoOpen && (
             <div className="faq-answer faq-answer--form">
               <AccountInfoForm />
+            </div>
+          )}
+        </li>
+
+        <li className={`faq-item${subscriptionOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={subscriptionOpen}
+            onClick={() => setSubscriptionOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-credit-card" />
+            </span>
+            <span className="faq-question">Subscription</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {subscriptionOpen && (
+            <div className="faq-answer faq-answer--form">
+              <SubscriptionSettingsPage />
             </div>
           )}
         </li>

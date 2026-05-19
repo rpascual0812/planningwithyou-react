@@ -10,6 +10,7 @@ export type EmailRecord = {
   subject: string
   body: string
   attachments: string[]
+  created_by: number | null
   status: 'queued' | 'sent' | 'failed'
   error: string
   attempts: number

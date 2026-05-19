@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchSecuredFileBlobUrl } from '../../../lib/securedFileUrl'
 import {
   fetchCurrentAccount,
   updateAccount,
@@ -15,10 +14,6 @@ const AccountInfoForm = () => {
   const [contactEmail, setContactEmail] = useState('')
   const [contactMobile, setContactMobile] = useState('')
   const [timezone, setTimezone] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [logoDisplayUrl, setLogoDisplayUrl] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -32,9 +27,6 @@ const AccountInfoForm = () => {
     setContactEmail(account.contact_email ?? '')
     setContactMobile(account.contact_mobile_number ?? '')
     setTimezone(account.timezone ?? '')
-    setLogoUrl(account.logo_url ?? '')
-    setLogoFile(null)
-    setLogoPreview(null)
   }, [])
 
   useEffect(() => {
@@ -58,45 +50,6 @@ const AccountInfoForm = () => {
     }
   }, [applyAccount])
 
-  useEffect(() => {
-    if (!logoFile) {
-      setLogoPreview(null)
-      return
-    }
-    const url = URL.createObjectURL(logoFile)
-    setLogoPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [logoFile])
-
-  useEffect(() => {
-    if (logoPreview) {
-      setLogoDisplayUrl(logoPreview)
-      return
-    }
-    if (!logoUrl) {
-      setLogoDisplayUrl('')
-      return
-    }
-    let objectUrl = ''
-    let cancelled = false
-    fetchSecuredFileBlobUrl(logoUrl)
-      .then((url) => {
-        if (cancelled) {
-          URL.revokeObjectURL(url)
-          return
-        }
-        objectUrl = url
-        setLogoDisplayUrl(url)
-      })
-      .catch(() => {
-        if (!cancelled) setLogoDisplayUrl('')
-      })
-    return () => {
-      cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [logoUrl, logoPreview])
-
   const handleSubmit: NonNullable<React.ComponentProps<'form'>['onSubmit']> = async (
     e,
   ) => {
@@ -112,7 +65,6 @@ const AccountInfoForm = () => {
         contact_email: contactEmail.trim(),
         contact_mobile_number: contactMobile.trim(),
         timezone,
-        ...(logoFile ? { logo: logoFile } : {}),
       })
       applyAccount(updated)
       setSuccess('Account saved.')
@@ -131,27 +83,6 @@ const AccountInfoForm = () => {
     <form className="account-info-form" onSubmit={handleSubmit}>
       {error && <div className="alert alert-danger py-2">{error}</div>}
       {success && <div className="alert alert-success py-2">{success}</div>}
-
-      <label className="account-info-field">
-        <span className="account-info-label">Logo</span>
-        <span className="account-info-control account-info-control--logo">
-          {logoDisplayUrl ? (
-            <img
-              src={logoDisplayUrl}
-              alt=""
-              className="account-info-logo-preview"
-            />
-          ) : (
-            <span className="text-muted small">No logo uploaded</span>
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            className="form-control form-control-sm mt-2"
-            onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
-          />
-        </span>
-      </label>
 
       <label className="account-info-field">
         <span className="account-info-label">Account Name</span>

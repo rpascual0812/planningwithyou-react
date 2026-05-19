@@ -1,5 +1,4 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
-import { getAccessToken } from './auth'
 
 export type AccountSupplierTierSummary = {
   tier_id: number
@@ -14,10 +13,6 @@ export type AccountRecord = {
   name: string
   status: string
   is_active: boolean
-  /** Secured API URL stored after upload, e.g. /api/files/a/12/logo/ */
-  logo: string
-  /** Absolute URL for display (same route, with auth via fetchSecuredFileBlobUrl) */
-  logo_url: string
   contact_person: string
   contact_email: string
   contact_mobile_number: string
@@ -42,7 +37,6 @@ export type AccountPayload = {
   name?: string
   status?: string
   is_active?: boolean
-  logo?: File | null
   contact_person?: string
   contact_email?: string
   contact_mobile_number?: string
@@ -50,31 +44,6 @@ export type AccountPayload = {
   price?: string | null
   tier_id?: number | null
   supplier_type?: number
-}
-
-function patchHeaders(multipart: boolean): Record<string, string> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
-  const token = getAccessToken()
-  if (token) headers.Authorization = `Bearer ${token}`
-  if (!multipart) headers['Content-Type'] = 'application/json'
-  return headers
-}
-
-function toFormData(data: AccountPayload): FormData {
-  const fd = new FormData()
-  for (const [key, value] of Object.entries(data)) {
-    if (value === undefined) continue
-    if (key === 'logo') {
-      if (value instanceof File) fd.append('logo', value)
-      continue
-    }
-    if (value === null) {
-      fd.append(key, '')
-      continue
-    }
-    fd.append(key, String(value))
-  }
-  return fd
 }
 
 export async function fetchCurrentAccount(): Promise<AccountRecord> {
@@ -103,11 +72,10 @@ export async function updateAccount(
   id: number,
   data: AccountPayload,
 ): Promise<AccountRecord> {
-  const hasFile = data.logo instanceof File
   const res = await apiFetch(buildApiUrl(`/api/accounts/${id}/`), {
     method: 'PATCH',
-    headers: patchHeaders(hasFile),
-    body: hasFile ? toFormData(data) : JSON.stringify(data),
+    headers: authHeaders(),
+    body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error('Failed to update account')
   return res.json()

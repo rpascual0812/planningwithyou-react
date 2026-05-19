@@ -7,14 +7,13 @@ import CompaniesSettingsPage from './CompaniesSettingsPage'
 import EmailTemplatesSettingsPage from './EmailTemplatesSettingsPage'
 import IntegrationsSettingsPage from './IntegrationsSettingsPage'
 import RolesPermissionsSettingsPage from './RolesPermissionsSettingsPage'
-import SubscriptionSettingsPage from './SubscriptionSettingsPage'
 import SupplierSettingsPage from './SupplierSettingsPage'
 import type { SettingsNavItem, SettingsSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<SettingsSection>([
   'account', 'companies', 'suppliers', 'calendar', 'bookings',
-  'email-templates', 'permissions', 'connection', 'subscription',
+  'email-templates', 'permissions', 'connection',
 ])
 
 const NAV_ITEMS: SettingsNavItem[] = [
@@ -26,16 +25,19 @@ const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock' },
   { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
-  { id: 'subscription', label: 'Subscription', icon: 'bi-credit-card' },
 ]
 
 const SettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get(TAB_PARAM)
   const activeNav: SettingsSection =
-    rawTab && VALID_TABS.has(rawTab as SettingsSection)
-      ? (rawTab as SettingsSection)
-      : 'account'
+    rawTab === 'subscription'
+      ? 'account'
+      : rawTab && VALID_TABS.has(rawTab as SettingsSection)
+        ? (rawTab as SettingsSection)
+        : 'account'
+  const accountAccordionOpen =
+    rawTab === 'subscription' ? 'subscription' : undefined
 
   const setActiveNav = useCallback(
     (id: SettingsSection) => {
@@ -79,7 +81,10 @@ const SettingsPage = () => {
 
           <section className="settings-main-card">
             <h5 className="settings-card-title">{activeLabel}</h5>
-            <ActiveSettingsPage activeNav={activeNav} />
+            <ActiveSettingsPage
+              activeNav={activeNav}
+              accountAccordionOpen={accountAccordionOpen}
+            />
           </section>
         </div>
       </div>
@@ -89,12 +94,16 @@ const SettingsPage = () => {
 
 type ActiveSettingsPageProps = {
   activeNav: SettingsSection
+  accountAccordionOpen?: 'subscription'
 }
 
-const ActiveSettingsPage = ({ activeNav }: ActiveSettingsPageProps) => {
+const ActiveSettingsPage = ({
+  activeNav,
+  accountAccordionOpen,
+}: ActiveSettingsPageProps) => {
   switch (activeNav) {
     case 'account':
-      return <AccountSettingsPage />
+      return <AccountSettingsPage initialAccordion={accountAccordionOpen} />
     case 'companies':
       return <CompaniesSettingsPage />
     case 'suppliers':
@@ -109,8 +118,6 @@ const ActiveSettingsPage = ({ activeNav }: ActiveSettingsPageProps) => {
       return <RolesPermissionsSettingsPage />
     case 'connection':
       return <IntegrationsSettingsPage />
-    case 'subscription':
-      return <SubscriptionSettingsPage />
     default:
       return null
   }

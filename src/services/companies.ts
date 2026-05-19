@@ -1,0 +1,112 @@
+import { apiFetch, authHeaders, buildApiUrl } from './api'
+import { getAccessToken } from './auth'
+import { parseApiList } from './parseApiList'
+
+export type CompanyRecord = {
+  id: number
+  name: string
+  timezone: string
+  website: string
+  is_active: boolean
+  is_main: boolean
+  logo: string
+  logo_url: string
+  sort_order: number
+  created_at: string
+}
+
+export type CompanyPayload = {
+  name: string
+  timezone?: string
+  website?: string
+  is_active?: boolean
+  is_main?: boolean
+  sort_order?: number
+  logo?: File | null
+}
+
+function extractError(body: unknown): string {
+  if (!body || typeof body !== 'object') return ''
+  const obj = body as Record<string, unknown>
+  for (const val of Object.values(obj)) {
+    if (typeof val === 'string') return val
+    if (Array.isArray(val) && typeof val[0] === 'string') return val[0]
+  }
+  return ''
+}
+
+async function companyApiError(res: Response, fallback: string): Promise<Error> {
+  try {
+    const body = await res.json()
+    return new Error(extractError(body) || fallback)
+  } catch {
+    return new Error(fallback)
+  }
+}
+
+function patchHeaders(multipart: boolean): Record<string, string> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  const token = getAccessToken()
+  if (token) headers.Authorization = `Bearer ${token}`
+  if (!multipart) headers['Content-Type'] = 'application/json'
+  return headers
+}
+
+function toFormData(data: CompanyPayload): FormData {
+  const fd = new FormData()
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue
+    if (key === 'logo') {
+      if (value instanceof File) fd.append('logo', value)
+      continue
+    }
+    if (value === null) {
+      fd.append(key, '')
+      continue
+    }
+    fd.append(key, String(value))
+  }
+  return fd
+}
+
+export async function fetchCompanies(): Promise<CompanyRecord[]> {
+  const res = await apiFetch(buildApiUrl('/api/companies/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load companies')
+  const data: unknown = await res.json()
+  return parseApiList<CompanyRecord>(data)
+}
+
+export async function createCompany(data: CompanyPayload): Promise<CompanyRecord> {
+  const hasFile = data.logo instanceof File
+  const res = await apiFetch(buildApiUrl('/api/companies/'), {
+    method: 'POST',
+    headers: patchHeaders(hasFile),
+    body: hasFile ? toFormData(data) : JSON.stringify(data),
+  })
+  if (!res.ok) throw await companyApiError(res, 'Failed to create company')
+  return res.json()
+}
+
+export async function updateCompany(
+  id: number,
+  data: Partial<CompanyPayload>,
+): Promise<CompanyRecord> {
+  const hasFile = data.logo instanceof File
+  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/`), {
+    method: 'PATCH',
+    headers: patchHeaders(hasFile),
+    body: hasFile ? toFormData(data as CompanyPayload) : JSON.stringify(data),
+  })
+  if (!res.ok) throw await companyApiError(res, 'Failed to update company')
+  return res.json()
+}
+
+export async function deleteCompany(id: number): Promise<void> {
+  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/`), {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw await companyApiError(res, 'Failed to delete company')
+}

@@ -7,7 +7,6 @@ export type SettingsSection =
   | 'bookings'
   | 'permissions'
   | 'connection'
-  | 'subscription'
 
 export type SettingsNavItem = {
   id: SettingsSection

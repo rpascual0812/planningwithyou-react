@@ -3,6 +3,7 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 export type UserRecord = {
   id: number
   account: number | null
+  company: number | null
   username: string
   email: string
   first_name: string
