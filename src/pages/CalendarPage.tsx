@@ -53,6 +53,9 @@ type AppointmentDetails = {
   title: string
   start: string
   end: string
+  contactFirstName?: string
+  contactLastName?: string
+  bookingTitle?: string
   textColor?: string
   backgroundColor?: string
 }
@@ -69,7 +72,7 @@ type AnchorRect = {
 const GAP = 8
 const VIEW_PADDING = 8
 const POPOVER_ESTIMATE_W = 300
-const POPOVER_ESTIMATE_H = 200
+const POPOVER_ESTIMATE_H = 280
 const HOVER_HIDE_DELAY_MS = 150
 
 function formFromCalendarRecord(ev: CalendarEventRecord): AppointmentFormState {
@@ -176,9 +179,22 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     [statuses],
   )
 
+  const contactById = useMemo(
+    () => new Map(contacts.map((c) => [c.id, c])),
+    [contacts],
+  )
+
+  const bookingById = useMemo(
+    () => new Map(bookings.map((b) => [b.id, b])),
+    [bookings],
+  )
+
   const fcEvents = useMemo(
-    () => calendarEvents.map((ev) => calendarRecordToEventInput(ev, statusById)),
-    [calendarEvents, statusById],
+    () =>
+      calendarEvents.map((ev) =>
+        calendarRecordToEventInput(ev, statusById, contactById, bookingById),
+      ),
+    [calendarEvents, statusById, contactById, bookingById],
   )
 
   const loadStatuses = useCallback(async () => {
@@ -226,9 +242,24 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     }
   }, [])
 
+  const loadReferenceData = useCallback(async () => {
+    try {
+      const [contactRows, bookingRows] = await Promise.all([
+        fetchContacts(),
+        fetchBookingItems(),
+      ])
+      setContacts(contactRows)
+      setBookings(bookingRows)
+    } catch {
+      setContacts([])
+      setBookings([])
+    }
+  }, [])
+
   useEffect(() => {
     void loadStatuses()
-  }, [loadStatuses])
+    void loadReferenceData()
+  }, [loadStatuses, loadReferenceData])
 
   const clearEditParam = () => {
     setSearchParams(
@@ -379,9 +410,12 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     const end = event.end
       ? event.end.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
       : 'N/A'
-    const statusProps = event.extendedProps as {
+    const props = event.extendedProps as {
       statusTextColor?: string
       statusBackgroundColor?: string
+      contactFirstName?: string
+      contactLastName?: string
+      bookingTitle?: string
     }
     const anchor = toAnchorRect(el.getBoundingClientRect())
     setPopover({
@@ -389,8 +423,11 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
         title: event.title,
         start,
         end,
-        textColor: statusProps.statusTextColor,
-        backgroundColor: statusProps.statusBackgroundColor,
+        contactFirstName: props.contactFirstName,
+        contactLastName: props.contactLastName,
+        bookingTitle: props.bookingTitle,
+        textColor: props.statusTextColor,
+        backgroundColor: props.statusBackgroundColor,
       },
       anchor,
       position: computePopoverPosition(
@@ -618,6 +655,19 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
               <p className="mb-2">
                 <strong>Title:</strong> {popover.details.title}
               </p>
+              {(popover.details.contactFirstName || popover.details.contactLastName) && (
+                <p className="mb-2">
+                  <strong>Contact:</strong>{' '}
+                  {[popover.details.contactFirstName, popover.details.contactLastName]
+                    .filter(Boolean)
+                    .join(' ')}
+                </p>
+              )}
+              {popover.details.bookingTitle && (
+                <p className="mb-2">
+                  <strong>Booking:</strong> {popover.details.bookingTitle}
+                </p>
+              )}
               <p className="mb-2">
                 <strong>Start:</strong> {popover.details.start}
               </p>
