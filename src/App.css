@@ -904,28 +904,9 @@ body,
    ============================================================ */
 .calendar-page-toolbar {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   margin-bottom: 1rem;
-}
-
-.calendar-page-title {
-  margin: 0;
-  color: var(--brand-ink);
-  font-weight: 700;
-  font-size: 1.55rem;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.calendar-page-subtitle {
-  margin: 0.35rem 0 0;
-  color: var(--brand-mute);
-  font-size: 0.9rem;
-  line-height: 1.45;
-  max-width: 36rem;
 }
 
 .calendar-page-add-btn {
@@ -1014,11 +995,30 @@ body,
 }
 
 /* Navigation + today */
+.calendar-surface .fc .fc-toolbar-chunk:first-child .fc-button-group {
+  margin-left: 0.15rem;
+}
+
 .calendar-surface .fc .fc-prev-button,
 .calendar-surface .fc .fc-next-button {
-  width: 2.25rem;
-  padding-inline: 0;
+  min-width: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--r-sm) !important;
+}
+
+.calendar-surface .fc .fc-prev-button {
+  padding: 0.38rem 0.55rem 0.38rem 0.5rem;
+}
+
+.calendar-surface .fc .fc-next-button {
+  padding: 0.38rem 0.5rem 0.38rem 0.55rem;
+}
+
+.calendar-surface .fc .fc-toolbar-chunk:first-child .fc-button-group > .fc-prev-button {
+  border-top-left-radius: var(--r-sm) !important;
+  border-bottom-left-radius: var(--r-sm) !important;
 }
 
 .calendar-surface .fc .fc-today-button {
@@ -1076,6 +1076,11 @@ body,
   margin-left: -1px;
 }
 
+/* Day/week labels and day numbers are <a> tags — drop Bootstrap underline */
+.calendar-surface .fc a:not(.fc-event):not(.fc-more-link) {
+  text-decoration: none;
+}
+
 /* Grid headers */
 .calendar-surface .fc .fc-col-header-cell {
   padding: 0.65rem 0.35rem;
@@ -1093,6 +1098,13 @@ body,
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  text-decoration: none;
+}
+
+.calendar-surface .fc .fc-col-header-cell-cushion:hover,
+.calendar-surface .fc .fc-col-header-cell-cushion:focus {
+  color: var(--brand-navy);
+  text-decoration: none;
 }
 
 /* Day cells */
@@ -1109,6 +1121,13 @@ body,
   font-size: 0.8125rem;
   font-weight: 600;
   padding: 0.45rem 0.55rem;
+  text-decoration: none;
+}
+
+.calendar-surface .fc .fc-daygrid-day-number:hover,
+.calendar-surface .fc .fc-daygrid-day-number:focus {
+  color: var(--brand-navy);
+  text-decoration: none;
 }
 
 .calendar-surface .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
@@ -7373,4 +7392,24 @@ body,
 .docs-thumb-size {
   font-size: 0.68rem;
   color: var(--bs-secondary);
+}
+
+.packages-modal-items-box .packages-modal-item-list {
+  margin-bottom: 0;
+}
+
+.packages-modal-item-list .list-group-item {
+  border-left: 0;
+  border-right: 0;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  background: transparent;
+}
+
+.packages-modal-item-list .list-group-item:first-child {
+  border-top-width: 0;
+}
+
+.packages-modal-item-list .list-group-item:last-child {
+  border-bottom-width: 0;
 }

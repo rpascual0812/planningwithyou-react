@@ -587,9 +587,6 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     <div className="app-content calendar-page">
       <div className="container-fluid">
         <div className="calendar-page-toolbar">
-          <div className="calendar-page-intro">
-            
-          </div>
           <button
             type="button"
             className="btn btn-primary calendar-page-add-btn"
@@ -623,7 +620,22 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
               week: 'Week',
               day: 'Day',
             }}
-            titleFormat={{ year: 'numeric', month: 'long' }}
+            views={{
+              dayGridMonth: {
+                titleFormat: { year: 'numeric', month: 'long' },
+              },
+              timeGridWeek: {
+                titleFormat: { year: 'numeric', month: 'short', day: 'numeric' },
+              },
+              timeGridDay: {
+                titleFormat: {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                },
+              },
+            }}
             dayHeaderFormat={{ weekday: 'short' }}
             slotLabelFormat={{
               hour: 'numeric',
