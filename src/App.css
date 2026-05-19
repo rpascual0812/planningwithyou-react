@@ -7394,6 +7394,18 @@ body,
   color: var(--bs-secondary);
 }
 
+.packages-modal-items-section {
+  margin-top: 1.5rem;
+}
+
+.packages-modal-items-heading {
+  color: var(--brand-navy);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.65rem;
+}
+
 .packages-modal-items-box .packages-modal-item-list {
   margin-bottom: 0;
 }
@@ -7412,4 +7424,67 @@ body,
 
 .packages-modal-item-list .list-group-item:last-child {
   border-bottom-width: 0;
+}
+
+.packages-modal-item-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.packages-modal-item-tree-icon {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  color: var(--bs-secondary-color);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.packages-modal-item-depth-badge {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--bs-tertiary-bg);
+  border: 1px solid var(--bs-border-color);
+  color: var(--bs-secondary-color);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.packages-modal-item-row--depth-1 {
+  margin-left: 0.5rem;
+  padding-left: 0.75rem !important;
+  border-left: 3px solid rgba(var(--bs-primary-rgb), 0.5);
+  background: rgba(var(--bs-primary-rgb), 0.05);
+  border-radius: 0.25rem;
+}
+
+.packages-modal-item-row--depth-2 {
+  margin-left: 1.25rem;
+  padding-left: 0.75rem !important;
+  border-left: 3px solid rgba(var(--bs-primary-rgb), 0.35);
+  background: rgba(var(--bs-primary-rgb), 0.08);
+  border-radius: 0.25rem;
+}
+
+.packages-modal-item-row--depth-3 {
+  margin-left: 2rem;
+  padding-left: 0.75rem !important;
+  border-left: 3px solid rgba(var(--bs-primary-rgb), 0.22);
+  background: rgba(var(--bs-primary-rgb), 0.1);
+  border-radius: 0.25rem;
+}
+
+.packages-modal-item-row--depth-1 .packages-modal-item-tree-icon {
+  color: rgba(var(--bs-primary-rgb), 0.75);
+}
+
+.packages-modal-item-row--depth-2 .packages-modal-item-tree-icon {
+  color: rgba(var(--bs-primary-rgb), 0.55);
+}
+
+.packages-modal-item-row--depth-3 .packages-modal-item-tree-icon {
+  color: rgba(var(--bs-primary-rgb), 0.4);
 }

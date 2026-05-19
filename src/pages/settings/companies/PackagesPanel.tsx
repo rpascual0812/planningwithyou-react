@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { fetchActiveCompanies, type CompanyRecord } from '../../../services/companies'
 import {
   createPackageVersion,
@@ -13,6 +13,7 @@ import {
   formatPackagePrice,
   updatePackage,
   type PackageItemPayload,
+  type PackageItemRecord,
   type PackagePayload,
   type PackageRecord,
 } from '../../../services/packages'
@@ -60,6 +61,7 @@ type PackageItemDraft = {
   key: string
   title: string
   price: string
+  children: PackageItemDraft[]
 }
 
 let packageItemKeyCounter = 0
@@ -77,6 +79,15 @@ function formatItemPriceLine(price: string): string {
   return formatPackagePrice(n)
 }
 
+function recordsToDrafts(items: PackageItemRecord[]): PackageItemDraft[] {
+  return items.map((item) => ({
+    key: `item-${item.id}`,
+    title: item.title,
+    price: item.price,
+    children: recordsToDrafts(item.children ?? []),
+  }))
+}
+
 function itemsToPayload(items: PackageItemDraft[]): PackageItemPayload[] {
   return items.map((item) => {
     const payload: PackageItemPayload = { title: item.title }
@@ -85,8 +96,51 @@ function itemsToPayload(items: PackageItemDraft[]): PackageItemPayload[] {
       const n = Number.parseFloat(priceStr)
       if (!Number.isNaN(n)) payload.price = n.toFixed(2)
     }
+    const children = itemsToPayload(item.children)
+    if (children.length > 0) payload.children = children
     return payload
   })
+}
+
+function addItemToTree(
+  items: PackageItemDraft[],
+  parentKey: string | null,
+  newItem: PackageItemDraft,
+): PackageItemDraft[] {
+  if (parentKey == null) return [...items, newItem]
+  return items.map((item) => {
+    if (item.key === parentKey) {
+      return { ...item, children: [...item.children, newItem] }
+    }
+    return { ...item, children: addItemToTree(item.children, parentKey, newItem) }
+  })
+}
+
+function removeItemFromTree(items: PackageItemDraft[], key: string): PackageItemDraft[] {
+  return items
+    .filter((item) => item.key !== key)
+    .map((item) => ({ ...item, children: removeItemFromTree(item.children, key) }))
+}
+
+function findItemByKey(items: PackageItemDraft[], key: string): PackageItemDraft | null {
+  for (const item of items) {
+    if (item.key === key) return item
+    const found = findItemByKey(item.children, key)
+    if (found) return found
+  }
+  return null
+}
+
+
+function packageItemDepthLabel(depth: number): string | null {
+  if (depth <= 0) return null
+  if (depth === 1) return 'Sub-item'
+  if (depth === 2) return 'Sub-sub-item'
+  return `Level ${depth + 1}`
+}
+
+function countPackageItems(items: PackageItemDraft[]): number {
+  return items.reduce((total, item) => total + 1 + countPackageItems(item.children), 0)
 }
 
 const PackagesPanel = () => {
@@ -119,6 +173,7 @@ const PackagesPanel = () => {
   const [formError, setFormError] = useState<string | null>(null)
   const [itemFormError, setItemFormError] = useState<string | null>(null)
   const [showItemModal, setShowItemModal] = useState(false)
+  const [itemParentKey, setItemParentKey] = useState<string | null>(null)
 
   const [showVersionModal, setShowVersionModal] = useState(false)
   const [versionTitle, setVersionTitle] = useState('')
@@ -233,6 +288,7 @@ const PackagesPanel = () => {
     setItemName('')
     setItemPrice('')
     setItemFormError(null)
+    setItemParentKey(null)
   }
 
   const resetPackageItemFields = () => {
@@ -262,14 +318,8 @@ const PackagesPanel = () => {
     setFormError(null)
     setShowPackageModal(true)
     try {
-      const full = pkg.items?.length ? pkg : await fetchPackage(pkg.id)
-      setSavedItems(
-        (full.items ?? []).map((item) => ({
-          key: `item-${item.id}`,
-          title: item.title,
-          price: item.price,
-        })),
-      )
+      const full = await fetchPackage(pkg.id)
+      setSavedItems(recordsToDrafts(full.items ?? []))
     } catch (e) {
       showErrorToast(e instanceof Error ? e.message : 'Failed to load package items')
     }
@@ -282,8 +332,11 @@ const PackagesPanel = () => {
     resetPackageItemFields()
   }
 
-  const openItemModal = () => {
-    resetItemDraft()
+  const openItemModal = (parentKey: string | null = null) => {
+    setItemParentKey(parentKey)
+    setItemName('')
+    setItemPrice('')
+    setItemFormError(null)
     setShowItemModal(true)
   }
 
@@ -306,15 +359,18 @@ const PackagesPanel = () => {
         return
       }
     }
-    setSavedItems((prev) => [
-      ...prev,
-      { key: nextPackageItemKey(), title: trimmedName, price: priceStr },
-    ])
+    const newItem: PackageItemDraft = {
+      key: nextPackageItemKey(),
+      title: trimmedName,
+      price: priceStr,
+      children: [],
+    }
+    setSavedItems((prev) => addItemToTree(prev, itemParentKey, newItem))
     closeItemModal()
   }
 
   const removeSavedItem = (key: string) => {
-    setSavedItems((prev) => prev.filter((item) => item.key !== key))
+    setSavedItems((prev) => removeItemFromTree(prev, key))
   }
 
   const openVersionModal = () => {
@@ -446,6 +502,56 @@ const PackagesPanel = () => {
       setDeleting(false)
     }
   }
+
+  const itemParent = itemParentKey ? findItemByKey(savedItems, itemParentKey) : null
+  const packageItemCount = countPackageItems(savedItems)
+
+  const renderItemRows = (items: PackageItemDraft[], depth = 0): ReactElement[] =>
+    items.flatMap((item) => {
+      const priceLine = formatItemPriceLine(item.price)
+      const depthLabel = packageItemDepthLabel(depth)
+      const depthClass = `packages-modal-item-row--depth-${Math.min(depth, 3)}`
+      const row = (
+        <li
+          key={item.key}
+          className={`list-group-item packages-modal-item-row ${depthClass} d-flex align-items-start gap-2`}
+          role="treeitem"
+          aria-level={depth + 1}
+        >
+          {depth > 0 ? (
+            <span className="packages-modal-item-tree-icon" aria-hidden="true">
+              <i className="bi bi-arrow-return-right" />
+            </span>
+          ) : null}
+          <div className="flex-grow-1 min-w-0">
+            {depthLabel ? (
+              <span className="packages-modal-item-depth-badge">{depthLabel}</span>
+            ) : null}
+            <div className="fw-semibold packages-modal-item-title">{item.title}</div>
+            {priceLine ? <div className="text-muted small">{priceLine}</div> : null}
+          </div>
+          <div className="d-flex flex-shrink-0 gap-1">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary"
+              title="Add sub-item"
+              onClick={() => openItemModal(item.key)}
+            >
+              <i className="bi bi-plus-lg" />
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-danger"
+              title="Remove item"
+              onClick={() => removeSavedItem(item.key)}
+            >
+              <i className="bi bi-trash3" />
+            </button>
+          </div>
+        </li>
+      )
+      return [row, ...renderItemRows(item.children, depth + 1)]
+    })
 
   const selectedCompany = companies.find((c) => c.id === selectedCompanyId)
   const selectedVersion = packageVersions.find((v) => v.id === selectedPackageVersionId)
@@ -720,45 +826,22 @@ const PackagesPanel = () => {
                     </label>
                   </div>
 
-                  <div className="mb-3">
-                    <label className="form-label">Items</label>
+                  <div className="packages-modal-items-section mb-3">
+                    <h3 className="packages-modal-items-heading">Items</h3>
                     <div className="border rounded p-3 bg-body-tertiary packages-modal-items-box">
-                      {savedItems.length === 0 ? (
+                      {packageItemCount === 0 ? (
                         <p className="text-muted small mb-3">
                           No items yet. Click &quot;Add item&quot; to add line items to this package.
                         </p>
                       ) : (
-                        <ul className="list-group list-group-flush packages-modal-item-list mb-3">
-                          {savedItems.map((item) => {
-                            const priceLine = formatItemPriceLine(item.price)
-                            return (
-                              <li
-                                key={item.key}
-                                className="list-group-item d-flex align-items-start gap-2 px-0"
-                              >
-                                <div className="flex-grow-1 min-w-0">
-                                  <div className="fw-semibold">{item.title}</div>
-                                  {priceLine ? (
-                                    <div className="text-muted small">{priceLine}</div>
-                                  ) : null}
-                                </div>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-danger flex-shrink-0"
-                                  title="Remove item"
-                                  onClick={() => removeSavedItem(item.key)}
-                                >
-                                  <i className="bi bi-trash3" />
-                                </button>
-                              </li>
-                            )
-                          })}
+                        <ul className="list-group list-group-flush packages-modal-item-list mb-3" role="tree">
+                          {renderItemRows(savedItems)}
                         </ul>
                       )}
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-primary"
-                        onClick={openItemModal}
+                        onClick={() => openItemModal(null)}
                       >
                         <i className="bi bi-plus-lg me-1" />
                         Add item
@@ -810,7 +893,9 @@ const PackagesPanel = () => {
                 <div className="modal-dialog modal-dialog-centered">
                   <div className="modal-content">
                     <div className="modal-header">
-                      <h2 className="modal-title fs-5">Add item</h2>
+                      <h2 className="modal-title fs-5">
+                        {itemParent ? 'Add sub-item' : 'Add item'}
+                      </h2>
                       <button
                         type="button"
                         className="btn-close"
@@ -819,6 +904,11 @@ const PackagesPanel = () => {
                       />
                     </div>
                     <div className="modal-body">
+                      {itemParent ? (
+                        <p className="text-muted small mb-3">
+                          Under: <strong>{itemParent.title}</strong>
+                        </p>
+                      ) : null}
                       <div className="border rounded p-3 bg-body-tertiary">
                         <div className="mb-3">
                           <label className="form-label" htmlFor="package-item-name">

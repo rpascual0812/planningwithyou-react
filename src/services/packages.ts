@@ -6,12 +6,14 @@ export type PackageItemRecord = {
   title: string
   price: string
   is_active: boolean
+  children?: PackageItemRecord[]
 }
 
 export type PackageItemPayload = {
   title: string
   price?: string | number
   is_active?: boolean
+  children?: PackageItemPayload[]
 }
 
 export type PackageRecord = {
