@@ -26,7 +26,7 @@ export type SupplierTierOptionRecord = {
   price: string | null
 }
 
-/** All suppliers linked to the current account (no tier filter). */
+/** Active companies for the current account (supplier dropdown). */
 export async function fetchSupplierOptions(): Promise<SupplierOptionRecord[]> {
   const res = await apiFetch(buildApiUrl('/api/supplier-options/'), {
     headers: authHeaders(),

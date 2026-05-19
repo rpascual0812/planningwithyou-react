@@ -24,6 +24,8 @@ export type ContactRecord = {
   last_name: string
   email: string
   company: string
+  company_id: number
+  company_name: string
   notes: string
   phone_numbers: PhoneNumber[]
   addresses: Address[]
@@ -36,6 +38,7 @@ export type ContactPayload = {
   last_name: string
   email: string
   company: string
+  company_id: number | null
   notes: string
   phone_numbers: PhoneNumber[]
   addresses: Address[]

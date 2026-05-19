@@ -50,7 +50,7 @@ export default function SupplierFieldInput({
           setSuppliers(data)
           if (data.length === 0) {
             setLoadError(
-              'No suppliers are linked to your account. Configure suppliers in Supplier Settings.',
+              'No active companies available. Add a company in Company Settings.',
             )
           }
         }

@@ -2,9 +2,20 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 import { getAccessToken } from './auth'
 import { parseApiList } from './parseApiList'
 
+export type CompanySupplierTierSummary = {
+  tier_id: number
+  tier_name: string
+  discount: string | null
+  mark_up: string | null
+  price: string | null
+}
+
 export type CompanyRecord = {
   id: number
   name: string
+  supplier_type: number
+  supplier_type_name: string
+  supplier_tiers?: CompanySupplierTierSummary[]
   timezone: string
   website: string
   is_active: boolean
@@ -17,6 +28,7 @@ export type CompanyRecord = {
 
 export type CompanyPayload = {
   name: string
+  supplier_type?: number
   timezone?: string
   website?: string
   is_active?: boolean
@@ -78,6 +90,36 @@ export async function fetchCompanies(): Promise<CompanyRecord[]> {
   return parseApiList<CompanyRecord>(data)
 }
 
+/** Active, non-deleted companies for the current account. */
+export async function fetchActiveCompanies(): Promise<CompanyRecord[]> {
+  const res = await apiFetch(buildApiUrl('/api/companies/?active_only=true'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load companies')
+  const data: unknown = await res.json()
+  return parseApiList<CompanyRecord>(data)
+}
+
+function supplierDirectoryQuery(): string {
+  return 'supplier_directory=1'
+}
+
+export async function fetchCompaniesBySupplierType(
+  supplierTypeId: number,
+  search = '',
+): Promise<CompanyRecord[]> {
+  const params = new URLSearchParams()
+  params.set('supplier_type', String(supplierTypeId))
+  params.set('supplier_directory', '1')
+  if (search) params.set('search', search)
+  const res = await apiFetch(buildApiUrl(`/api/companies/?${params.toString()}`), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load companies')
+  const data: unknown = await res.json()
+  return parseApiList<CompanyRecord>(data)
+}
+
 export async function createCompany(data: CompanyPayload): Promise<CompanyRecord> {
   const hasFile = data.logo instanceof File
   const res = await apiFetch(buildApiUrl('/api/companies/'), {
@@ -92,9 +134,11 @@ export async function createCompany(data: CompanyPayload): Promise<CompanyRecord
 export async function updateCompany(
   id: number,
   data: Partial<CompanyPayload>,
+  options?: { supplierDirectory?: boolean },
 ): Promise<CompanyRecord> {
   const hasFile = data.logo instanceof File
-  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/`), {
+  const suffix = options?.supplierDirectory ? `?${supplierDirectoryQuery()}` : ''
+  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/${suffix}`), {
     method: 'PATCH',
     headers: patchHeaders(hasFile),
     body: hasFile ? toFormData(data as CompanyPayload) : JSON.stringify(data),
@@ -103,8 +147,12 @@ export async function updateCompany(
   return res.json()
 }
 
-export async function deleteCompany(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/`), {
+export async function deleteCompany(
+  id: number,
+  options?: { supplierDirectory?: boolean },
+): Promise<void> {
+  const suffix = options?.supplierDirectory ? `?${supplierDirectoryQuery()}` : ''
+  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/${suffix}`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

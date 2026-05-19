@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  fetchAccountTierPricing,
-  updateAccountTierPricing,
-  type AccountTierPricingRow,
-} from '../../services/accountTierPricing'
+  fetchCompanyTierPricing,
+  updateCompanyTierPricing,
+  type CompanyTierPricingRow,
+} from '../../services/companyTierPricing'
 import {
-  deleteAccount,
-  fetchAccountsBySupplierType,
-  updateAccount,
-  type AccountRecord,
-  type AccountSupplierTierSummary,
-} from '../../services/accounts'
+  deleteCompany,
+  fetchCompaniesBySupplierType,
+  updateCompany,
+  type CompanyRecord,
+  type CompanySupplierTierSummary,
+} from '../../services/companies'
 import {
   fetchActiveSupplierTypes,
   type SupplierTypeRecord,
@@ -38,7 +38,7 @@ function formatMoney(value: string | null | undefined): string {
 }
 
 function formatTierColumn(
-  tiers: AccountSupplierTierSummary[] | undefined,
+  tiers: CompanySupplierTierSummary[] | undefined,
   field: 'discount' | 'mark_up' | 'price',
 ) {
   if (!tiers || tiers.length === 0) return <span>—</span>
@@ -56,7 +56,7 @@ function formatTierColumn(
   )
 }
 
-function tierRowToForm(row: AccountTierPricingRow): TierPricingFormRow {
+function tierRowToForm(row: CompanyTierPricingRow): TierPricingFormRow {
   return {
     tier_id: row.tier_id,
     tier_name: row.tier_name,
@@ -72,16 +72,16 @@ const SupplierSettingsPage = () => {
   const [typesError, setTypesError] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState('')
 
-  const [accounts, setAccounts] = useState<AccountRecord[]>([])
-  const [accountsLoading, setAccountsLoading] = useState(false)
-  const [accountsError, setAccountsError] = useState<string | null>(null)
+  const [companies, setCompanies] = useState<CompanyRecord[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
+  const [companiesError, setCompaniesError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [pageSize, setPageSize] = useState<number>(10)
   const [page, setPage] = useState(0)
   const [togglingId, setTogglingId] = useState<number | null>(null)
 
-  const [editTarget, setEditTarget] = useState<AccountRecord | null>(null)
+  const [editTarget, setEditTarget] = useState<CompanyRecord | null>(null)
   const [editName, setEditName] = useState('')
   const [tierPricing, setTierPricing] = useState<TierPricingFormRow[]>([])
   const [tierPricingLoading, setTierPricingLoading] = useState(false)
@@ -115,76 +115,76 @@ const SupplierSettingsPage = () => {
     return () => window.clearTimeout(t)
   }, [search])
 
-  const loadAccounts = useCallback(async () => {
+  const loadCompanies = useCallback(async () => {
     if (!selectedId) {
-      setAccounts([])
+      setCompanies([])
       return
     }
-    setAccountsLoading(true)
-    setAccountsError(null)
+    setCompaniesLoading(true)
+    setCompaniesError(null)
     try {
-      const data = await fetchAccountsBySupplierType(
+      const data = await fetchCompaniesBySupplierType(
         Number(selectedId),
         debouncedSearch,
       )
-      setAccounts(data)
+      setCompanies(data)
       setPage(0)
     } catch (e) {
-      setAccountsError(e instanceof Error ? e.message : 'Failed to load accounts')
-      setAccounts([])
+      setCompaniesError(e instanceof Error ? e.message : 'Failed to load companies')
+      setCompanies([])
     } finally {
-      setAccountsLoading(false)
+      setCompaniesLoading(false)
     }
   }, [selectedId, debouncedSearch])
 
   useEffect(() => {
-    loadAccounts()
-  }, [loadAccounts])
+    loadCompanies()
+  }, [loadCompanies])
 
-  const total = accounts.length
+  const total = companies.length
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
   const safePage = Math.min(page, pageCount - 1)
   const pageRows = useMemo(() => {
     const start = safePage * pageSize
-    return accounts.slice(start, start + pageSize)
-  }, [accounts, safePage, pageSize])
+    return companies.slice(start, start + pageSize)
+  }, [companies, safePage, pageSize])
 
   const rangeStart = total === 0 ? 0 : safePage * pageSize + 1
   const rangeEnd = total === 0 ? 0 : Math.min(total, (safePage + 1) * pageSize)
 
-  const handleToggleActive = async (row: AccountRecord) => {
+  const handleToggleActive = async (row: CompanyRecord) => {
     if (togglingId === row.id) return
     const nextActive = !row.is_active
     setTogglingId(row.id)
-    setAccounts((prev) =>
-      prev.map((a) => (a.id === row.id ? { ...a, is_active: nextActive } : a)),
+    setCompanies((prev) =>
+      prev.map((c) => (c.id === row.id ? { ...c, is_active: nextActive } : c)),
     )
     try {
-      await updateAccount(row.id, { is_active: nextActive })
+      await updateCompany(row.id, { is_active: nextActive }, { supplierDirectory: true })
     } catch (e) {
-      setAccounts((prev) =>
-        prev.map((a) => (a.id === row.id ? { ...a, is_active: row.is_active } : a)),
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === row.id ? { ...c, is_active: row.is_active } : c)),
       )
-      setAccountsError(
-        e instanceof Error ? e.message : 'Failed to update account status',
+      setCompaniesError(
+        e instanceof Error ? e.message : 'Failed to update company status',
       )
     } finally {
       setTogglingId(null)
     }
   }
 
-  const openEdit = async (row: AccountRecord) => {
+  const openEdit = async (row: CompanyRecord) => {
     setEditTarget(row)
     setEditName(row.name)
     setTierPricing([])
     setTierPricingLoading(true)
-    setAccountsError(null)
+    setCompaniesError(null)
     try {
-      const data = await fetchAccountTierPricing(row.id)
+      const data = await fetchCompanyTierPricing(row.id, { supplierDirectory: true })
       setEditName(data.name)
       setTierPricing(data.tiers.map(tierRowToForm))
     } catch (e) {
-      setAccountsError(
+      setCompaniesError(
         e instanceof Error ? e.message : 'Failed to load tier pricing',
       )
       setEditTarget(null)
@@ -213,33 +213,37 @@ const SupplierSettingsPage = () => {
   const handleSaveEdit = async () => {
     if (!editTarget) return
     setSaving(true)
-    setAccountsError(null)
+    setCompaniesError(null)
     try {
-      await updateAccountTierPricing(editTarget.id, {
-        name: editName.trim() || editTarget.name,
-        tiers: tierPricing.map((row) => ({
-          tier_id: row.tier_id,
-          discount: row.discount.trim() === '' ? null : row.discount.trim(),
-          mark_up: row.mark_up.trim() === '' ? null : row.mark_up.trim(),
-          price: row.price.trim() === '' ? null : row.price.trim(),
-        })),
-      })
+      await updateCompanyTierPricing(
+        editTarget.id,
+        {
+          name: editName.trim() || editTarget.name,
+          tiers: tierPricing.map((row) => ({
+            tier_id: row.tier_id,
+            discount: row.discount.trim() === '' ? null : row.discount.trim(),
+            mark_up: row.mark_up.trim() === '' ? null : row.mark_up.trim(),
+            price: row.price.trim() === '' ? null : row.price.trim(),
+          })),
+        },
+        { supplierDirectory: true },
+      )
       closeEdit()
-      await loadAccounts()
+      await loadCompanies()
     } catch (e) {
-      setAccountsError(e instanceof Error ? e.message : 'Failed to update account')
+      setCompaniesError(e instanceof Error ? e.message : 'Failed to update company')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDelete = async (row: AccountRecord) => {
-    if (!window.confirm(`Delete account "${row.name}"?`)) return
+  const handleDelete = async (row: CompanyRecord) => {
+    if (!window.confirm(`Delete company "${row.name}"?`)) return
     try {
-      await deleteAccount(row.id)
-      await loadAccounts()
+      await deleteCompany(row.id, { supplierDirectory: true })
+      await loadCompanies()
     } catch (e) {
-      setAccountsError(e instanceof Error ? e.message : 'Failed to delete account')
+      setCompaniesError(e instanceof Error ? e.message : 'Failed to delete company')
     }
   }
 
@@ -306,7 +310,7 @@ const SupplierSettingsPage = () => {
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search accounts"
+              aria-label="Search companies"
               disabled={!selectedId}
             />
             {search && (
@@ -323,13 +327,13 @@ const SupplierSettingsPage = () => {
         </div>
 
         <div className="users-table-scroll">
-          {accountsLoading && accounts.length === 0 ? (
+          {companiesLoading && companies.length === 0 ? (
             <div className="users-table-empty-wrap">
-              <span className="users-table-empty">Loading accounts…</span>
+              <span className="users-table-empty">Loading companies…</span>
             </div>
-          ) : accountsError && !editTarget ? (
+          ) : companiesError && !editTarget ? (
             <div className="users-table-empty-wrap">
-              <span className="users-table-empty users-table-error">{accountsError}</span>
+              <span className="users-table-empty users-table-error">{companiesError}</span>
             </div>
           ) : (
             <table className="users-table suppliers-accounts-table">
@@ -368,7 +372,7 @@ const SupplierSettingsPage = () => {
                         <button
                           type="button"
                           className="users-action-btn users-action-edit"
-                          title="Edit account"
+                          title="Edit company"
                           onClick={() => void openEdit(row)}
                         >
                           <i className="bi bi-pencil-square" />
@@ -376,7 +380,7 @@ const SupplierSettingsPage = () => {
                         <button
                           type="button"
                           className="users-action-btn users-action-delete"
-                          title="Delete account"
+                          title="Delete company"
                           onClick={() => handleDelete(row)}
                         >
                           <i className="bi bi-trash3" />
@@ -385,14 +389,14 @@ const SupplierSettingsPage = () => {
                     </td>
                   </tr>
                 ))}
-                {pageRows.length === 0 && !accountsLoading && (
+                {pageRows.length === 0 && !companiesLoading && (
                   <tr>
                     <td colSpan={6} className="users-table-empty">
                       {!selectedId
                         ? 'Select a supplier type.'
                         : debouncedSearch
-                          ? 'No accounts match your search.'
-                          : 'No accounts for this supplier type.'}
+                          ? 'No companies match your search.'
+                          : 'No companies for this supplier type.'}
                     </td>
                   </tr>
                 )}
@@ -437,7 +441,7 @@ const SupplierSettingsPage = () => {
             <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2 className="modal-title fs-5">Edit account</h2>
+                  <h2 className="modal-title fs-5">Edit company</h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -447,11 +451,11 @@ const SupplierSettingsPage = () => {
                 </div>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label" htmlFor="edit-account-name">
+                    <label className="form-label" htmlFor="edit-company-name">
                       Name
                     </label>
                     <input
-                      id="edit-account-name"
+                      id="edit-company-name"
                       className="form-control"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -550,9 +554,9 @@ const SupplierSettingsPage = () => {
                     </div>
                   )}
 
-                  {accountsError && editTarget && (
+                  {companiesError && editTarget && (
                     <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">
-                      {accountsError}
+                      {companiesError}
                     </div>
                   )}
                 </div>

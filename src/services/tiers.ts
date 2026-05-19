@@ -4,12 +4,14 @@ import { parseApiList } from './parseApiList'
 export type TierRecord = {
   id: number
   name: string
+  company: number
   is_active: boolean
   created_at: string
 }
 
 export type TierPayload = {
   name: string
+  company?: number
   is_active?: boolean
 }
 
@@ -42,9 +44,10 @@ export async function fetchTiers(): Promise<TierRecord[]> {
   return parseApiList<TierRecord>(data)
 }
 
-/** All non-deleted tiers for settings management. */
-export async function fetchAllTiers(): Promise<TierRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/tiers/'), {
+/** All non-deleted tiers for settings management, optionally scoped to a company. */
+export async function fetchAllTiers(companyId: number): Promise<TierRecord[]> {
+  const params = new URLSearchParams({ company_id: String(companyId) })
+  const res = await apiFetch(buildApiUrl(`/api/tiers/?${params.toString()}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load tiers')

@@ -11,6 +11,8 @@ import {
   type PhoneNumber,
   type Address,
 } from '../services/contacts'
+import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
+import { fetchMe } from '../services/users'
 
 const EDIT_PARAM = 'edit'
 
@@ -92,6 +94,7 @@ const EMPTY_FORM: ContactPayload = {
   last_name: '',
   email: '',
   company: '',
+  company_id: null,
   notes: '',
   phone_numbers: DEFAULT_PHONE_NUMBERS.map((p) => ({ ...p })),
   addresses: DEFAULT_ADDRESSES.map((a) => ({ ...a })),
@@ -103,6 +106,7 @@ function formFromContact(c: ContactRecord): ContactPayload {
     last_name: c.last_name,
     email: c.email,
     company: c.company,
+    company_id: c.company_id,
     notes: c.notes,
     phone_numbers: ensureSingleDefault(
       c.phone_numbers.length > 0
@@ -149,7 +153,22 @@ const ContactsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState<ContactRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    fetchMe()
+      .then((user) => setUserCompanyId(user.company))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (!modalOpen || editingContact != null || userCompanyId == null) return
+    setForm((prev) =>
+      prev.company_id == null ? { ...prev, company_id: userCompanyId } : prev,
+    )
+  }, [modalOpen, editingContact, userCompanyId])
 
   const writeEditParam = (id: number) => {
     setSearchParams((prev) => {
@@ -211,7 +230,10 @@ const ContactsPage = () => {
   const openAdd = () => {
     clearEditParam()
     setEditingContact(null)
-    setForm({ ...EMPTY_FORM })
+    setForm({
+      ...EMPTY_FORM,
+      company_id: userCompanyId,
+    })
     setFormError(null)
     setModalOpen(true)
   }
@@ -244,8 +266,14 @@ const ContactsPage = () => {
       return
     }
 
+    if (form.company_id == null) {
+      setFormError('Company is required.')
+      return
+    }
+
     const payload = {
       ...form,
+      company_id: form.company_id,
       phone_numbers: buildPhoneNumbersForSave(form.phone_numbers),
       addresses: ensureSingleDefault(form.addresses.map((a) => ({ ...a }))),
     }
@@ -378,7 +406,7 @@ const ContactsPage = () => {
                         </div>
                       </td>
                       <td className="users-table-contact">{c.email || '—'}</td>
-                      <td className="users-table-position">{c.company || '—'}</td>
+                      <td className="users-table-position">{c.company_name || '—'}</td>
                       <td className="users-table-contact">
                         {c.phone_numbers.length
                           ? c.phone_numbers[0].number
@@ -435,7 +463,6 @@ const ContactsPage = () => {
           editing={editingContact}
           form={form}
           setField={setField}
-          setForm={setForm}
           error={formError}
           saving={saving}
           onSave={handleSave}
@@ -469,7 +496,6 @@ type ContactFormModalProps = {
   editing: ContactRecord | null
   form: ContactPayload
   setField: <K extends keyof ContactPayload>(key: K, val: ContactPayload[K]) => void
-  setForm: React.Dispatch<React.SetStateAction<ContactPayload>>
   error: string | null
   saving: boolean
   onSave: () => void
@@ -480,7 +506,6 @@ const ContactFormModal = ({
   editing,
   form,
   setField,
-  setForm,
   error,
   saving,
   onSave,
@@ -488,6 +513,26 @@ const ContactFormModal = ({
 }: ContactFormModalProps) => {
   const title = editing ? 'Edit Contact' : 'Add Contact'
   const [phoneErrors, setPhoneErrors] = useState<Record<number, boolean>>({})
+  const [companies, setCompanies] = useState<CompanyRecord[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setCompaniesLoading(true)
+    void fetchActiveCompanies()
+      .then((data) => {
+        if (!cancelled) setCompanies(data)
+      })
+      .catch(() => {
+        if (!cancelled) setCompanies([])
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const markPhoneValidity = (idx: number, value: string) => {
     const valid = validatePhone(value)
@@ -581,6 +626,37 @@ const ContactFormModal = ({
                   <div className="alert alert-danger py-2" role="alert">{error}</div>
                 )}
 
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="contact-company-id">
+                    Company *
+                  </label>
+                  <select
+                    id="contact-company-id"
+                    className="form-select"
+                    value={form.company_id ?? ''}
+                    required
+                    disabled={companiesLoading || companies.length === 0}
+                    onChange={(e) => {
+                      const id = Number(e.target.value)
+                      setField(
+                        'company_id',
+                        Number.isFinite(id) && id > 0 ? id : null,
+                      )
+                    }}
+                  >
+                    {companies.length === 0 ? (
+                      <option value="">No active companies</option>
+                    ) : (
+                      companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                          {company.is_main ? ' (main)' : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+
                 <div className="row g-3">
                   <div className="col-sm-6">
                     <label className="form-label">First Name *</label>
@@ -609,7 +685,7 @@ const ContactFormModal = ({
                     />
                   </div>
                   <div className="col-sm-6">
-                    <label className="form-label">Company</label>
+                    <label className="form-label">Organization</label>
                     <input
                       className="form-control"
                       value={form.company}
