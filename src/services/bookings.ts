@@ -82,7 +82,7 @@ export type BookingItemRecord = {
 /* ── Statuses ── */
 
 export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/statuses/'), {
+  const res = await apiFetch(buildApiUrl('/api/booking-statuses/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking statuses')
@@ -92,7 +92,7 @@ export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
 export async function createBookingStatus(
   data: Pick<BookingStatusRecord, 'title' | 'description' | 'color'>,
 ): Promise<BookingStatusRecord> {
-  const res = await apiFetch(buildApiUrl('/api/statuses/'), {
+  const res = await apiFetch(buildApiUrl('/api/booking-statuses/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -105,7 +105,7 @@ export async function updateBookingStatus(
   id: number,
   data: Partial<Pick<BookingStatusRecord, 'title' | 'description' | 'color' | 'sort_order'>>,
 ): Promise<BookingStatusRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/api/booking-statuses/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -115,7 +115,7 @@ export async function updateBookingStatus(
 }
 
 export async function deleteBookingStatus(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/api/booking-statuses/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -123,7 +123,7 @@ export async function deleteBookingStatus(id: number): Promise<void> {
 }
 
 export async function reorderBookingStatuses(order: number[]): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/api/statuses/reorder/'), {
+  const res = await apiFetch(buildApiUrl('/api/booking-statuses/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ order }),

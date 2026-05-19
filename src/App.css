@@ -964,18 +964,11 @@ body,
 
 .appointment-popover .card {
   border: 1px solid var(--brand-border);
-  border-top: 3px solid var(--brand-green);
   box-shadow: 0 8px 24px rgba(31, 58, 95, 0.12);
 }
 
-.appointment-popover .card-header {
-  background: rgba(82, 181, 133, 0.08);
-  color: var(--brand-navy);
-  border-bottom: 1px solid var(--brand-border);
-}
-
-.appointment-popover .card-header h5 {
-  color: var(--brand-navy);
+.appointment-popover .card-body {
+  border-radius: inherit;
 }
 
 /* FullCalendar resize handles – make them easier to grab in week/day views. */
@@ -1013,14 +1006,20 @@ body,
   pointer-events: none;
 }
 
-.appointment-edit-modal-backdrop,
 .booking-edit-modal-backdrop {
   z-index: 1290;
 }
 
-.appointment-edit-modal.modal,
 .booking-edit-modal.modal {
   z-index: 1300;
+}
+
+.appointment-edit-modal-backdrop {
+  z-index: 1390;
+}
+
+.appointment-edit-modal.modal {
+  z-index: 1400;
 }
 
 .booking-contact-summary {
@@ -5376,6 +5375,27 @@ body,
 
 .bookings-view-option:not(.is-active):hover {
   background: rgba(31, 58, 95, 0.18);
+}
+
+.bookings-statuses-table__order {
+  width: 3.5rem;
+}
+
+.bookings-statuses-table__color {
+  width: 3rem;
+}
+
+.bookings-statuses-table__count {
+  width: 5.5rem;
+}
+
+.bookings-status-color-swatch {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  vertical-align: middle;
 }
 
 .bookings-view-settings {

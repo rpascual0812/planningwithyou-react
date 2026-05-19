@@ -109,6 +109,7 @@ type BookingEditModalProps = {
   onDeleteGroup?: (bookingId: number, groupId: number) => Promise<void>
   onClose: () => void
   onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onSendToCalendar?: () => void
 }
 
 const EMPTY_FIELD: BookingField = {
@@ -177,6 +178,7 @@ const BookingEditModal = ({
   onDeleteGroup,
   onClose,
   onSubmit,
+  onSendToCalendar,
 }: BookingEditModalProps) => {
   const [fieldDragOver, setFieldDragOver] = useState<number | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -1448,7 +1450,12 @@ const BookingEditModal = ({
                 {form.mode === 'edit' && (
                   <>
                     <div className="booking-edit-modal-footer__send">
-                      <button type="button" className="btn btn-outline-secondary">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => onSendToCalendar?.()}
+                        disabled={!onSendToCalendar}
+                      >
                         <i className="bi bi-calendar-event me-1" aria-hidden="true" />
                         Send to Calendar
                       </button>

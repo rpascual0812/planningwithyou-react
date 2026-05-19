@@ -16,6 +16,17 @@ import {
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
+import AppointmentEditModal, {
+  type AppointmentFormState,
+} from '../components/AppointmentEditModal'
+import { appointmentFormFromBooking } from '../lib/appointmentFromBooking'
+import { appointmentPayloadFromForm } from '../lib/calendarEventFormat'
+import { fetchContacts, type ContactRecord } from '../services/contacts'
+import {
+  createCalendarEvent,
+  fetchCalendarStatuses,
+  type CalendarStatusRecord,
+} from '../services/calendar'
 import {
   parseSupplierFieldValue,
   supplierFieldForStorage,
@@ -263,6 +274,12 @@ const BookingsPage = () => {
   const [drag, setDrag] = useState<DragState | null>(null)
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
   const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
+  const [appointmentModal, setAppointmentModal] = useState<AppointmentFormState | null>(null)
+  const [appointmentContacts, setAppointmentContacts] = useState<ContactRecord[]>([])
+  const [appointmentStatuses, setAppointmentStatuses] = useState<CalendarStatusRecord[]>([])
+  const [appointmentLoadingOptions, setAppointmentLoadingOptions] = useState(false)
+  const [appointmentSaving, setAppointmentSaving] = useState(false)
+  const [appointmentModalError, setAppointmentModalError] = useState<string | null>(null)
   const suppressEditFromUrl = useRef(false)
   const [search, setSearch] = useState('')
   const isSearching = search.trim().length > 0
@@ -900,6 +917,69 @@ const BookingsPage = () => {
       },
       { replace: true },
     )
+  }
+
+  const handleSendToCalendar = async () => {
+    if (!itemModal?.id) return
+    if (!itemModal.dateOfEvent.trim()) {
+      showErrorToast('Set a date of event before sending to calendar.')
+      return
+    }
+    setAppointmentModalError(null)
+    setAppointmentLoadingOptions(true)
+    try {
+      const [contactRows, statusRows] = await Promise.all([
+        fetchContacts(),
+        fetchCalendarStatuses(),
+      ])
+      const sortedStatuses = [...statusRows].sort(
+        (a, b) => a.sort_order - b.sort_order || a.id - b.id,
+      )
+      const defaultStatusId = sortedStatuses[0]?.id ?? null
+      const apptForm = appointmentFormFromBooking(itemModal, defaultStatusId)
+      if (!apptForm) {
+        showErrorToast('Could not build appointment from booking.')
+        return
+      }
+      setAppointmentContacts(contactRows)
+      setAppointmentStatuses(sortedStatuses)
+      setAppointmentModal(apptForm)
+    } catch {
+      showErrorToast('Could not load calendar options.')
+    } finally {
+      setAppointmentLoadingOptions(false)
+    }
+  }
+
+  const handleAppointmentModalClose = () => {
+    setAppointmentModal(null)
+    setAppointmentModalError(null)
+  }
+
+  const handleAppointmentSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!appointmentModal) return
+
+    const startMs = new Date(appointmentModal.startValue).getTime()
+    const endMs = new Date(appointmentModal.endValue).getTime()
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+      setAppointmentModalError('End must be on or after start.')
+      return
+    }
+
+    setAppointmentSaving(true)
+    setAppointmentModalError(null)
+    try {
+      await createCalendarEvent(appointmentPayloadFromForm(appointmentModal))
+      showSuccessToast('Appointment created on calendar.')
+      handleAppointmentModalClose()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Save failed'
+      setAppointmentModalError(message)
+      showErrorToast(message)
+    } finally {
+      setAppointmentSaving(false)
+    }
   }
 
   const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -1721,6 +1801,26 @@ const BookingsPage = () => {
           onDeleteGroup={handleDeleteBookingGroup}
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}
+          onSendToCalendar={
+            itemModal.mode === 'edit' && itemModal.id != null
+              ? () => void handleSendToCalendar()
+              : undefined
+          }
+        />
+      )}
+
+      {appointmentModal && (
+        <AppointmentEditModal
+          form={appointmentModal}
+          contacts={appointmentContacts}
+          statuses={appointmentStatuses}
+          bookings={items}
+          loadingOptions={appointmentLoadingOptions}
+          saving={appointmentSaving}
+          error={appointmentModalError}
+          onChange={setAppointmentModal}
+          onClose={handleAppointmentModalClose}
+          onSubmit={(e) => void handleAppointmentSubmit(e)}
         />
       )}
     </div>

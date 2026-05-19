@@ -13,6 +13,7 @@ import {
   type FieldType,
 } from '../../services/formTemplates'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
+import BookingStatusesPanel from './bookings/BookingStatusesPanel'
 import {
   fetchBookingViewConfig,
   fetchBookingsGroupNameConfig,
@@ -626,6 +627,7 @@ const BookingsTiersPanel = () => {
 const BookingsSettingsPage = () => {
   const [viewOpen, setViewOpen] = useState(false)
   const [groupNameOpen, setGroupNameOpen] = useState(false)
+  const [statusesOpen, setStatusesOpen] = useState(false)
   const [tiersOpen, setTiersOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
 
@@ -672,6 +674,28 @@ const BookingsSettingsPage = () => {
           {groupNameOpen && (
             <div className="faq-answer faq-answer--view">
               <BookingsGroupNamePanel />
+            </div>
+          )}
+        </li>
+
+        <li className={`faq-item${statusesOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={statusesOpen}
+            onClick={() => setStatusesOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-kanban" />
+            </span>
+            <span className="faq-question">Statuses</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {statusesOpen && (
+            <div className="faq-answer faq-answer--view">
+              <BookingStatusesPanel />
             </div>
           )}
         </li>

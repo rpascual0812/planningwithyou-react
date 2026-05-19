@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { MouseEvent } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -6,64 +6,44 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { DateClickArg } from '@fullcalendar/interaction'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import type {
+  DatesSetArg,
   DayHeaderContentArg,
   EventApi,
   EventClickArg,
   EventDropArg,
   EventHoveringArg,
-  EventInput,
 } from '@fullcalendar/core'
 import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import { useSearchParams } from 'react-router-dom'
 
-/** URL query param key used to deep-link / restore the appointment edit modal. */
+import AppointmentEditModal, {
+  EMPTY_APPOINTMENT_FORM,
+  type AppointmentFormState,
+} from '../components/AppointmentEditModal'
+import {
+  appointmentPayloadFromForm,
+  calendarRecordToEventInput,
+  formatLocalDateTime,
+  isoToDateLocalValue,
+  isoToDatetimeLocalValue,
+} from '../lib/calendarEventFormat'
+import {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  fetchCalendarEvents,
+  fetchCalendarStatuses,
+  updateCalendarEvent,
+  type CalendarEventRecord,
+  type CalendarStatusRecord,
+  type RepeatTypeValue,
+} from '../services/calendar'
+import { fetchBookingItems } from '../services/bookings'
+import { fetchContacts } from '../services/contacts'
+import type { BookingItemRecord } from '../services/bookings'
+import type { ContactRecord } from '../services/contacts'
+import { showErrorToast, showSuccessToast } from '../utils/toast'
+
 const EDIT_PARAM = 'edit'
-
-/**
- * Reverse of `eventInputFromModalForm` – converts a stored event back into the
- * form fields used by the appointment edit modal. Used when hydrating the
- * modal from a `?edit=<eventId>` query param on page load.
- */
-function formFromEventInput(ev: EventInput): AppointmentModalForm {
-  const title = String(ev.title ?? '')
-  const rawDate = (ev as { date?: string }).date
-  const rawStart = typeof ev.start === 'string' ? ev.start : undefined
-  const rawEnd = typeof ev.end === 'string' ? ev.end : undefined
-
-  const allDay =
-    ev.allDay === true ||
-    typeof rawDate === 'string' ||
-    (rawStart !== undefined && !rawStart.includes('T'))
-
-  if (allDay) {
-    const startYmd = rawDate ?? rawStart ?? formatLocalDate(new Date())
-    let endYmd = rawDate ?? startYmd
-    if (!rawDate && rawEnd) {
-      // FC stores all-day end as exclusive; convert back to inclusive for the form.
-      const [y, m, d] = rawEnd.split('-').map(Number)
-      const inclusive = new Date(y, m - 1, d - 1)
-      endYmd = formatLocalDate(inclusive)
-    }
-    return { title, startValue: startYmd, endValue: endYmd, allDay: true }
-  }
-
-  let endValue = rawEnd ?? rawStart ?? ''
-  if (rawStart && !rawEnd) {
-    const startDate = new Date(rawStart)
-    if (!Number.isNaN(startDate.getTime())) {
-      const endGuess = new Date(startDate)
-      endGuess.setHours(endGuess.getHours() + 1)
-      endValue = formatLocalDateTime(endGuess)
-    }
-  }
-
-  return {
-    title,
-    startValue: rawStart ?? '',
-    endValue,
-    allDay: false,
-  }
-}
 
 type CalendarPageProps = {
   isSidebarCollapsed: boolean
@@ -73,6 +53,8 @@ type AppointmentDetails = {
   title: string
   start: string
   end: string
+  textColor?: string
+  backgroundColor?: string
 }
 
 type AnchorRect = {
@@ -86,131 +68,29 @@ type AnchorRect = {
 
 const GAP = 8
 const VIEW_PADDING = 8
-/** Used before first layout measure; refined in useLayoutEffect. */
 const POPOVER_ESTIMATE_W = 300
 const POPOVER_ESTIMATE_H = 200
-/** Delay before hiding so the pointer can move from the event into the popover. */
 const HOVER_HIDE_DELAY_MS = 150
 
-const INITIAL_EVENTS: EventInput[] = [
-  {
-    id: '1',
-    title: 'Alice - Client Call',
-    start: '2026-05-12T09:00:00',
-    end: '2026-05-12T10:00:00',
-  },
-  {
-    id: '2',
-    title: 'Bob - Design Review',
-    start: '2026-05-13T10:30:00',
-    end: '2026-05-13T12:00:00',
-  },
-  {
-    id: '3',
-    title: 'Carla - Sprint Planning',
-    start: '2026-05-14T13:00:00',
-    end: '2026-05-14T14:30:00',
-  },
-  {
-    id: '4',
-    title: 'Team Sync',
-    date: '2026-05-14',
-  },
-  {
-    id: '5',
-    title: 'Release Window',
-    date: '2026-05-18',
-  },
-]
-
-function formatLocalDate(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-function formatLocalDateTime(d: Date): string {
-  const h = String(d.getHours()).padStart(2, '0')
-  const min = String(d.getMinutes()).padStart(2, '0')
-  return `${formatLocalDate(d)}T${h}:${min}`
-}
-
-/** Inclusive calendar end date → FullCalendar exclusive end (day after last included day). */
-function addOneDayYmd(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number)
-  const dt = new Date(y, m - 1, d + 1)
-  return formatLocalDate(dt)
-}
-
-type AppointmentModalForm = {
-  title: string
-  startValue: string
-  endValue: string
-  allDay: boolean
-}
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000
-
-/**
- * Build an EventInput patch from a live FullCalendar event after a drag or resize.
- * Normalises all-day events to YMD strings (with FC's exclusive end) and timed
- * events to local datetime strings so the stored shape stays consistent.
- */
-function eventInputFromEventApi(ev: EventApi): EventInput {
-  const id = String(ev.id)
-  const title = ev.title
-
-  if (ev.allDay) {
-    if (!ev.start) {
-      return { id, title, allDay: true }
-    }
-    const startYmd = formatLocalDate(ev.start)
-    if (!ev.end) {
-      return { id, title, allDay: true, start: startYmd, end: undefined }
-    }
-    const spansMultipleDays = ev.end.getTime() - ev.start.getTime() > MS_PER_DAY
-    if (!spansMultipleDays) {
-      return { id, title, allDay: true, start: startYmd, end: undefined }
-    }
-    return {
-      id,
-      title,
-      allDay: true,
-      start: startYmd,
-      end: formatLocalDate(ev.end),
-    }
-  }
-
+function formFromCalendarRecord(ev: CalendarEventRecord): AppointmentFormState {
   return {
-    id,
-    title,
-    allDay: false,
-    start: ev.start ? formatLocalDateTime(ev.start) : undefined,
-    end: ev.end ? formatLocalDateTime(ev.end) : undefined,
+    eventId: ev.id,
+    title: ev.title,
+    startValue: isoToDatetimeLocalValue(ev.start),
+    endValue: isoToDatetimeLocalValue(ev.end),
+    repeatType: (ev.repeat_type ?? '') as RepeatTypeValue,
+    repeatEndValue: ev.repeat_end ? isoToDateLocalValue(ev.repeat_end) : '',
+    contactId: ev.contact,
+    statusId: ev.status,
+    bookingId: ev.booking,
   }
 }
 
-function eventInputFromModalForm(id: string, form: AppointmentModalForm): EventInput {
-  const title = form.title.trim() || 'Untitled'
-  if (form.allDay) {
-    const startYmd = form.startValue
-    const inclusiveEnd = form.endValue || form.startValue
-    if (!startYmd) {
-      return { id, title, allDay: true, start: formatLocalDate(new Date()) }
-    }
-    if (inclusiveEnd === startYmd) {
-      return { id, title, allDay: true, start: startYmd, end: undefined }
-    }
-    return { id, title, allDay: true, start: startYmd, end: addOneDayYmd(inclusiveEnd) }
-  }
-  return {
-    id,
-    title,
-    allDay: false,
-    start: form.startValue,
-    end: form.endValue || form.startValue,
-  }
+function eventPatchFromApi(ev: EventApi): { start: string; end: string } | null {
+  if (!ev.start) return null
+  const start = ev.start.toISOString()
+  const end = (ev.end ?? ev.start).toISOString()
+  return { start, end }
 }
 
 function toAnchorRect(rect: DOMRectReadOnly): AnchorRect {
@@ -259,14 +139,8 @@ function computePopoverPosition(
     left = anchor.left + anchor.width / 2 - popoverW / 2
   }
 
-  left = Math.max(
-    VIEW_PADDING,
-    Math.min(left, viewportW - popoverW - VIEW_PADDING),
-  )
-  top = Math.max(
-    VIEW_PADDING,
-    Math.min(top, viewportH - popoverH - VIEW_PADDING),
-  )
+  left = Math.max(VIEW_PADDING, Math.min(left, viewportW - popoverW - VIEW_PADDING))
+  top = Math.max(VIEW_PADDING, Math.min(top, viewportH - popoverH - VIEW_PADDING))
 
   return { top, left }
 }
@@ -276,34 +150,91 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const hidePopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const employees = useMemo(() => ['Alice', 'Bob', 'Carla'], [])
+
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEventRecord[]>([])
+  const [statuses, setStatuses] = useState<CalendarStatusRecord[]>([])
+  const [contacts, setContacts] = useState<ContactRecord[]>([])
+  const [bookings, setBookings] = useState<BookingItemRecord[]>([])
+  const [loadingEvents, setLoadingEvents] = useState(true)
+  const [loadingOptions, setLoadingOptions] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
+
   const [popover, setPopover] = useState<{
     details: AppointmentDetails
     anchor: AnchorRect
     position: { top: number; left: number }
   } | null>(null)
 
-  const [events, setEvents] = useState<EventInput[]>(INITIAL_EVENTS)
-
-  const [editModal, setEditModal] = useState<
-    | ({
-        eventId: string | null
-      } & AppointmentModalForm)
-    | null
-  >(null)
+  const [editModal, setEditModal] = useState<AppointmentFormState | null>(null)
 
   const [searchParams, setSearchParams] = useSearchParams()
 
-  /**
-   * Remove the deep-link query param without affecting any other params
-   * that might exist on the route.
-   */
+  const statusById = useMemo(
+    () => new Map(statuses.map((s) => [s.id, s])),
+    [statuses],
+  )
+
+  const fcEvents = useMemo(
+    () => calendarEvents.map((ev) => calendarRecordToEventInput(ev, statusById)),
+    [calendarEvents, statusById],
+  )
+
+  const loadStatuses = useCallback(async () => {
+    try {
+      const rows = await fetchCalendarStatuses()
+      setStatuses([...rows].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id))
+    } catch {
+      setStatuses([])
+    }
+  }, [])
+
+  const loadEvents = useCallback(async (start?: string, end?: string) => {
+    setLoadingEvents(true)
+    try {
+      const rows = await fetchCalendarEvents(start, end)
+      setCalendarEvents(rows)
+    } catch {
+      showErrorToast('Could not load calendar appointments.')
+      setCalendarEvents([])
+    } finally {
+      setLoadingEvents(false)
+    }
+  }, [])
+
+  const loadModalOptions = useCallback(async () => {
+    setLoadingOptions(true)
+    try {
+      const [contactRows, statusRows, bookingRows] = await Promise.all([
+        fetchContacts(),
+        fetchCalendarStatuses(),
+        fetchBookingItems(),
+      ])
+      setContacts(contactRows)
+      const sortedStatuses = [...statusRows].sort(
+        (a, b) => a.sort_order - b.sort_order || a.id - b.id,
+      )
+      setStatuses(sortedStatuses)
+      setBookings(bookingRows)
+      return sortedStatuses
+    } catch {
+      showErrorToast('Could not load appointment options.')
+      return statuses
+    } finally {
+      setLoadingOptions(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadStatuses()
+  }, [loadStatuses])
+
   const clearEditParam = () => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        if (!next.has(EDIT_PARAM)) {
-          return prev
-        }
+        if (!next.has(EDIT_PARAM)) return prev
         next.delete(EDIT_PARAM)
         return next
       },
@@ -311,12 +242,11 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     )
   }
 
-  /** Write the event id into `?edit=<id>` so the modal survives a refresh. */
-  const writeEditParam = (eventId: string) => {
+  const writeEditParam = (eventId: number) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        next.set(EDIT_PARAM, eventId)
+        next.set(EDIT_PARAM, String(eventId))
         return next
       },
       { replace: true },
@@ -342,11 +272,9 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     const updateCalendarSize = () => {
       calendarRef.current?.getApi()?.updateSize()
     }
-
     updateCalendarSize()
     const timer = window.setTimeout(updateCalendarSize, 320)
     window.addEventListener('resize', updateCalendarSize)
-
     return () => {
       window.clearTimeout(timer)
       window.removeEventListener('resize', updateCalendarSize)
@@ -356,54 +284,30 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
   useEffect(() => {
     clearHidePopoverTimer()
     setPopover(null)
-    setEditModal(null)
   }, [isSidebarCollapsed])
 
-  useEffect(() => {
-    return () => clearHidePopoverTimer()
-  }, [])
+  useEffect(() => () => clearHidePopoverTimer(), [])
 
-  /**
-   * Reopen the appointment edit modal if the URL carries a matching
-   * `?edit=<eventId>`. Lets the edit state survive a hard refresh and
-   * makes the URL shareable as a deep-link into an event.
-   */
   useEffect(() => {
     const targetId = searchParams.get(EDIT_PARAM)
-    if (!targetId) {
-      return
-    }
-    const ev = events.find((it) => String(it.id) === targetId)
+    if (!targetId || editModal) return
+    const ev = calendarEvents.find((it) => String(it.id) === targetId)
     if (!ev) {
       clearEditParam()
       return
     }
-    const form = formFromEventInput(ev)
-    if (
-      editModal &&
-      editModal.eventId === targetId &&
-      editModal.title === form.title &&
-      editModal.startValue === form.startValue &&
-      editModal.endValue === form.endValue &&
-      editModal.allDay === form.allDay
-    ) {
-      return
-    }
-    setEditModal({ eventId: targetId, ...form })
+    void (async () => {
+      await loadModalOptions()
+      setEditModal(formFromCalendarRecord(ev))
+    })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, events])
+  }, [searchParams, calendarEvents])
 
   useLayoutEffect(() => {
-    if (!popover || !popoverRef.current) {
-      return
-    }
-
+    if (!popover || !popoverRef.current) return
     const el = popoverRef.current
     const rect = el.getBoundingClientRect()
-    if (rect.width < 8 || rect.height < 8) {
-      return
-    }
-
+    if (rect.width < 8 || rect.height < 8) return
     const next = computePopoverPosition(
       popover.anchor,
       rect.width,
@@ -411,39 +315,28 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
       window.innerWidth,
       window.innerHeight,
     )
-
     setPopover((prev) => {
-      if (!prev) {
-        return prev
-      }
-      if (prev.position.top === next.top && prev.position.left === next.left) {
-        return prev
-      }
+      if (!prev) return prev
+      if (prev.position.top === next.top && prev.position.left === next.left) return prev
       return { ...prev, position: next }
     })
   }, [popover])
 
   useEffect(() => {
-    if (!popover) {
-      return
-    }
-
+    if (!popover) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         clearHidePopoverTimer()
         setPopover(null)
       }
     }
-
     const dismissPopover = () => {
       clearHidePopoverTimer()
       setPopover(null)
     }
-
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('scroll', dismissPopover, true)
     window.addEventListener('resize', dismissPopover)
-
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('scroll', dismissPopover, true)
@@ -451,262 +344,225 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     }
   }, [popover])
 
-  const handleDayHeaderContent = (arg: DayHeaderContentArg) => {
-    if (arg.view.type !== 'employeeTimeGrid') {
-      return arg.text
-    }
-
-    const rangeStart = arg.view.currentStart
-
-    const msInDay = 1000 * 60 * 60 * 24
-    const dayOffset = Math.floor((arg.date.getTime() - rangeStart.getTime()) / msInDay)
-    const employeeName = employees[dayOffset] ?? `Employee ${dayOffset + 1}`
-    return employeeName
-  }
-
-  const openPopoverForEvent = (arg: EventHoveringArg) => {
-    clearHidePopoverTimer()
-    const { event, el } = arg
-    const start = event.start
-      ? event.start.toLocaleString(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        })
-      : 'N/A'
-    const end = event.end
-      ? event.end.toLocaleString(undefined, {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        })
-      : 'N/A'
-
-    const anchorRect = el.getBoundingClientRect()
-    const anchor = toAnchorRect(anchorRect)
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    const position = computePopoverPosition(
-      anchor,
-      POPOVER_ESTIMATE_W,
-      POPOVER_ESTIMATE_H,
-      vw,
-      vh,
-    )
-
-    setPopover({
-      details: {
-        title: event.title,
-        start,
-        end,
-      },
-      anchor,
-      position,
-    })
-  }
-
-  const handleEventMouseEnter = (arg: EventHoveringArg) => {
-    openPopoverForEvent(arg)
-  }
-
-  const handleEventMouseLeave = (arg: EventHoveringArg) => {
-    const related = arg.jsEvent.relatedTarget as Node | null
-    if (related && popoverRef.current?.contains(related)) {
-      return
-    }
-    scheduleHidePopover()
-  }
-
-  const handlePopoverMouseEnter = () => {
-    clearHidePopoverTimer()
-  }
-
-  const handlePopoverMouseLeave = (e: MouseEvent<HTMLDivElement>) => {
-    const related = e.relatedTarget as Node | null
-    if (related && (related as Element).closest?.('.fc-event')) {
-      return
-    }
-    scheduleHidePopover()
-  }
-
   useEffect(() => {
-    if (!editModal) {
-      return
-    }
+    if (!editModal) return
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setEditModal(null)
-      }
+      if (e.key === 'Escape') handleEditModalClose()
     }
     window.addEventListener('keydown', onKeyDown)
-
     return () => {
       document.body.style.overflow = prevOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [editModal])
 
-  const handleEventClick = (info: EventClickArg) => {
-    info.jsEvent.preventDefault()
-    clearHidePopoverTimer()
-    setPopover(null)
-
-    const ev = info.event
-    const eventId = ev.id
-    if (!eventId) {
-      return
-    }
-
-    const allDay = ev.allDay
-    let startValue = ''
-    let endValue = ''
-
-    if (allDay) {
-      if (ev.start) {
-        startValue = formatLocalDate(ev.start)
-      }
-      if (ev.end) {
-        const inclusiveEnd = new Date(ev.end.getTime() - 24 * 60 * 60 * 1000)
-        endValue = formatLocalDate(inclusiveEnd)
-      } else if (ev.start) {
-        endValue = formatLocalDate(ev.start)
-      }
-    } else {
-      if (ev.start) {
-        startValue = formatLocalDateTime(ev.start)
-      }
-      if (ev.end) {
-        endValue = formatLocalDateTime(ev.end)
-      } else if (ev.start) {
-        const endGuess = new Date(ev.start)
-        endGuess.setHours(endGuess.getHours() + 1)
-        endValue = formatLocalDateTime(endGuess)
-      }
-    }
-
-    setEditModal({
-      eventId,
-      title: ev.title,
-      startValue,
-      endValue,
-      allDay,
-    })
-    // Persist the open modal in the URL so a refresh restores it.
-    writeEditParam(eventId)
+  const handleDatesSet = (arg: DatesSetArg) => {
+    void loadEvents(arg.start.toISOString(), arg.end.toISOString())
   }
 
-  const handleDateClick = (arg: DateClickArg) => {
+  const handleDayHeaderContent = (arg: DayHeaderContentArg) => {
+    if (arg.view.type !== 'employeeTimeGrid') return arg.text
+    const rangeStart = arg.view.currentStart
+    const msInDay = 1000 * 60 * 60 * 24
+    const dayOffset = Math.floor((arg.date.getTime() - rangeStart.getTime()) / msInDay)
+    return employees[dayOffset] ?? `Employee ${dayOffset + 1}`
+  }
+
+  const openPopoverForEvent = (arg: EventHoveringArg) => {
     clearHidePopoverTimer()
-    setPopover(null)
-
-    const d = arg.date
-    const allDay = arg.allDay
-
-    if (allDay) {
-      const day = formatLocalDate(d)
-      setEditModal({
-        eventId: null,
-        title: '',
-        startValue: day,
-        endValue: day,
-        allDay: true,
-      })
-      return
+    const { event, el } = arg
+    const start = event.start
+      ? event.start.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+      : 'N/A'
+    const end = event.end
+      ? event.end.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+      : 'N/A'
+    const statusProps = event.extendedProps as {
+      statusTextColor?: string
+      statusBackgroundColor?: string
     }
-
-    const endGuess = new Date(d)
-    endGuess.setHours(endGuess.getHours() + 1)
-    setEditModal({
-      eventId: null,
-      title: '',
-      startValue: formatLocalDateTime(d),
-      endValue: formatLocalDateTime(endGuess),
-      allDay: false,
+    const anchor = toAnchorRect(el.getBoundingClientRect())
+    setPopover({
+      details: {
+        title: event.title,
+        start,
+        end,
+        textColor: statusProps.statusTextColor,
+        backgroundColor: statusProps.statusBackgroundColor,
+      },
+      anchor,
+      position: computePopoverPosition(
+        anchor,
+        POPOVER_ESTIMATE_W,
+        POPOVER_ESTIMATE_H,
+        window.innerWidth,
+        window.innerHeight,
+      ),
     })
   }
 
-  const applyEventChangeFromApi = (ev: EventApi) => {
-    const updated = eventInputFromEventApi(ev)
-    setEvents((prev) =>
-      prev.map((item) => {
-        if (String(item.id) !== String(ev.id)) {
-          return item
-        }
-        // Drop any pre-existing `date` shorthand so the new start/end win cleanly.
-        const { date: _ignoredDate, ...rest } = item as EventInput & { date?: string }
-        return { ...rest, ...updated }
-      }),
-    )
+  const handleEventMouseEnter = (arg: EventHoveringArg) => openPopoverForEvent(arg)
+
+  const handleEventMouseLeave = (arg: EventHoveringArg) => {
+    const related = arg.jsEvent.relatedTarget as Node | null
+    if (related && popoverRef.current?.contains(related)) return
+    scheduleHidePopover()
   }
 
-  /**
-   * Pop-up and popover state must vanish the moment the user begins a drag or
-   * resize – otherwise the popover (or its pending hide timer) can sit on top
-   * of the bottom resize handle and swallow the next pointerdown.
-   */
+  const handlePopoverMouseEnter = () => clearHidePopoverTimer()
+
+  const handlePopoverMouseLeave = (e: MouseEvent<HTMLDivElement>) => {
+    const related = e.relatedTarget as Node | null
+    if (related && (related as Element).closest?.('.fc-event')) return
+    scheduleHidePopover()
+  }
+
   const dismissPopoverImmediately = () => {
     clearHidePopoverTimer()
     setPopover(null)
   }
 
+  const openCreateModal = async (start: Date, end?: Date) => {
+    dismissPopoverImmediately()
+    setModalError(null)
+    const statusRows = await loadModalOptions()
+    const defaultStatusId = statusRows[0]?.id ?? null
+    const endDate = end ?? new Date(start.getTime() + 60 * 60 * 1000)
+    setEditModal({
+      ...EMPTY_APPOINTMENT_FORM,
+      startValue: formatLocalDateTime(start),
+      endValue: formatLocalDateTime(endDate),
+      statusId: defaultStatusId,
+    })
+  }
+
+  const handleDateClick = (arg: DateClickArg) => {
+    void openCreateModal(arg.date)
+  }
+
+  const handleAddAppointmentClick = () => {
+    void openCreateModal(new Date())
+  }
+
+  const handleEventClick = async (info: EventClickArg) => {
+    info.jsEvent.preventDefault()
+    dismissPopoverImmediately()
+    const eventId = Number(info.event.id)
+    if (!eventId) return
+    const record = calendarEvents.find((e) => e.id === eventId)
+    if (!record) return
+    setModalError(null)
+    await loadModalOptions()
+    setEditModal(formFromCalendarRecord(record))
+    writeEditParam(eventId)
+  }
+
+  const persistEventTimes = async (
+    ev: EventApi,
+    revert: () => void,
+  ) => {
+    const id = Number(ev.id)
+    const patch = eventPatchFromApi(ev)
+    if (!id || !patch) return
+    try {
+      const updated = await updateCalendarEvent(id, patch)
+      setCalendarEvents((prev) => prev.map((item) => (item.id === id ? updated : item)))
+    } catch {
+      showErrorToast('Could not update appointment time.')
+      revert()
+    }
+  }
+
   const handleEventDrop = (info: EventDropArg) => {
     dismissPopoverImmediately()
-    applyEventChangeFromApi(info.event)
+    void persistEventTimes(info.event, () => info.revert())
   }
 
   const handleEventResize = (info: EventResizeDoneArg) => {
     dismissPopoverImmediately()
-    applyEventChangeFromApi(info.event)
+    void persistEventTimes(info.event, () => info.revert())
   }
 
   const handleEditModalClose = () => {
     setEditModal(null)
+    setModalError(null)
     clearEditParam()
   }
 
-  const handleEditSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleEditSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!editModal) {
+    if (!editModal) return
+
+    const startMs = new Date(editModal.startValue).getTime()
+    const endMs = new Date(editModal.endValue).getTime()
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+      setModalError('End must be on or after start.')
       return
     }
 
-    const form: AppointmentModalForm = {
-      title: editModal.title,
-      startValue: editModal.startValue,
-      endValue: editModal.endValue,
-      allDay: editModal.allDay,
+    setSaving(true)
+    setModalError(null)
+    try {
+      const payload = appointmentPayloadFromForm(editModal)
+      if (editModal.eventId === null) {
+        const created = await createCalendarEvent(payload)
+        setCalendarEvents((prev) => [...prev, created])
+        showSuccessToast('Appointment created.')
+      } else {
+        const updated = await updateCalendarEvent(editModal.eventId, payload)
+        setCalendarEvents((prev) =>
+          prev.map((item) => (item.id === updated.id ? updated : item)),
+        )
+        showSuccessToast('Appointment updated.')
+      }
+      handleEditModalClose()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Save failed'
+      setModalError(message)
+      showErrorToast(message)
+    } finally {
+      setSaving(false)
     }
+  }
 
-    if (editModal.eventId === null) {
-      const newId =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `evt-${Date.now()}`
-      setEvents((prev) => [...prev, eventInputFromModalForm(newId, form)])
-      setEditModal(null)
-      clearEditParam()
-      return
+  const handleDelete = async () => {
+    if (!editModal?.eventId) return
+    if (!window.confirm(`Delete "${editModal.title || 'this appointment'}"?`)) return
+    setDeleting(true)
+    setModalError(null)
+    try {
+      await deleteCalendarEvent(editModal.eventId)
+      setCalendarEvents((prev) => prev.filter((e) => e.id !== editModal.eventId))
+      showSuccessToast('Appointment deleted.')
+      handleEditModalClose()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Delete failed'
+      setModalError(message)
+      showErrorToast(message)
+    } finally {
+      setDeleting(false)
     }
-
-    setEvents((prev) =>
-      prev.map((item) => {
-        if (String(item.id) !== editModal.eventId) {
-          return item
-        }
-        const updated = eventInputFromModalForm(String(item.id), form)
-        return { ...item, ...updated }
-      }),
-    )
-
-    setEditModal(null)
-    clearEditParam()
   }
 
   return (
     <div className="app-content">
       <div className="container-fluid">
+        <div className="d-flex justify-content-end mb-3">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleAddAppointmentClick}
+          >
+            <i className="bi bi-plus-lg me-1" />
+            Add appointment
+          </button>
+        </div>
         <div className="calendar-surface">
+          {loadingEvents && (
+            <p className="text-muted small mb-2">Loading appointments…</p>
+          )}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -718,11 +574,11 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
             }}
             allDaySlot={false}
             height="auto"
-            events={events}
-            editable={true}
-            eventStartEditable={true}
-            eventDurationEditable={true}
-            eventResizableFromStart={true}
+            events={fcEvents}
+            editable
+            eventStartEditable
+            eventDurationEditable
+            eventResizableFromStart
             dayHeaderContent={handleDayHeaderContent}
             eventMouseEnter={handleEventMouseEnter}
             eventMouseLeave={handleEventMouseLeave}
@@ -732,6 +588,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
             eventDrop={handleEventDrop}
             eventResize={handleEventResize}
             dateClick={handleDateClick}
+            datesSet={handleDatesSet}
           />
         </div>
       </div>
@@ -744,11 +601,20 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
           onMouseEnter={handlePopoverMouseEnter}
           onMouseLeave={handlePopoverMouseLeave}
         >
-          <div className="card shadow-sm" role="status" aria-label="Appointment details">
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Appointment Details</h5>
-            </div>
-            <div className="card-body">
+          <div
+            className="card shadow-sm"
+            role="status"
+            aria-label="Appointment details"
+          >
+            <div
+              className="card-body"
+              style={{
+                ...(popover.details.backgroundColor
+                  ? { backgroundColor: popover.details.backgroundColor }
+                  : {}),
+                ...(popover.details.textColor ? { color: popover.details.textColor } : {}),
+              }}
+            >
               <p className="mb-2">
                 <strong>Title:</strong> {popover.details.title}
               </p>
@@ -764,139 +630,20 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
       )}
 
       {editModal && (
-        <>
-          <div
-            className="appointment-edit-modal-backdrop modal-backdrop fade show"
-            aria-hidden="true"
-            onClick={handleEditModalClose}
-          />
-          <div
-            className="appointment-edit-modal modal fade show d-block"
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="appointmentEditModalTitle"
-          >
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <form onSubmit={handleEditSubmit}>
-                  <div className="modal-header">
-                    <h1 id="appointmentEditModalTitle" className="modal-title fs-5">
-                      Edit appointment
-                    </h1>
-                    <button
-                      type="button"
-                      className="btn-close"
-                      aria-label="Close"
-                      onClick={handleEditModalClose}
-                    />
-                  </div>
-                  <div className="modal-body">
-                    <div className="mb-3">
-                      <label htmlFor="appointment-title" className="form-label">
-                        Title
-                      </label>
-                      <input
-                        id="appointment-title"
-                        type="text"
-                        className="form-control"
-                        value={editModal.title}
-                        onChange={(e) => setEditModal({ ...editModal, title: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="form-check mb-3">
-                      <input
-                        id="appointment-allday"
-                        type="checkbox"
-                        className="form-check-input"
-                        checked={editModal.allDay}
-                        onChange={(e) => setEditModal({ ...editModal, allDay: e.target.checked })}
-                      />
-                      <label className="form-check-label" htmlFor="appointment-allday">
-                        All day
-                      </label>
-                    </div>
-                    {editModal.allDay ? (
-                      <>
-                        <div className="mb-3">
-                          <label htmlFor="appointment-start-date" className="form-label">
-                            Start date
-                          </label>
-                          <input
-                            id="appointment-start-date"
-                            type="date"
-                            className="form-control"
-                            value={editModal.startValue}
-                            onChange={(e) =>
-                              setEditModal({ ...editModal, startValue: e.target.value })
-                            }
-                            required
-                          />
-                        </div>
-                        <div className="mb-0">
-                          <label htmlFor="appointment-end-date" className="form-label">
-                            End date (inclusive)
-                          </label>
-                          <input
-                            id="appointment-end-date"
-                            type="date"
-                            className="form-control"
-                            value={editModal.endValue}
-                            onChange={(e) =>
-                              setEditModal({ ...editModal, endValue: e.target.value })
-                            }
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="mb-3">
-                          <label htmlFor="appointment-start" className="form-label">
-                            Start
-                          </label>
-                          <input
-                            id="appointment-start"
-                            type="datetime-local"
-                            className="form-control"
-                            value={editModal.startValue}
-                            onChange={(e) =>
-                              setEditModal({ ...editModal, startValue: e.target.value })
-                            }
-                            required
-                          />
-                        </div>
-                        <div className="mb-0">
-                          <label htmlFor="appointment-end" className="form-label">
-                            End
-                          </label>
-                          <input
-                            id="appointment-end"
-                            type="datetime-local"
-                            className="form-control"
-                            value={editModal.endValue}
-                            onChange={(e) =>
-                              setEditModal({ ...editModal, endValue: e.target.value })
-                            }
-                            required
-                          />
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  <div className="modal-footer">
-                    <button type="button" className="btn btn-secondary" onClick={handleEditModalClose}>
-                      Cancel
-                    </button>
-                    <button type="submit" className="btn btn-primary">
-                      Save
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </>
+        <AppointmentEditModal
+          form={editModal}
+          contacts={contacts}
+          statuses={statuses}
+          bookings={bookings}
+          loadingOptions={loadingOptions}
+          saving={saving}
+          deleting={deleting}
+          error={modalError}
+          onChange={setEditModal}
+          onClose={handleEditModalClose}
+          onSubmit={(e) => void handleEditSubmit(e)}
+          onDelete={() => void handleDelete()}
+        />
       )}
     </div>
   )
