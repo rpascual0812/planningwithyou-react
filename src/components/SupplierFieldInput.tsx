@@ -10,6 +10,10 @@ import {
   type SupplierOptionRecord,
   type SupplierTierOptionRecord,
 } from '../services/supplierField'
+import {
+  fetchActiveSupplierTypes,
+  type SupplierTypeRecord,
+} from '../services/supplierTypes'
 
 type SupplierFieldInputProps = {
   value: string
@@ -18,6 +22,7 @@ type SupplierFieldInputProps = {
   required?: boolean
   tierLabel?: string
   supplierLabel?: string
+  supplierTypeLabel?: string
   size?: 'sm' | 'default'
 }
 
@@ -27,6 +32,7 @@ export default function SupplierFieldInput({
   required = false,
   tierLabel = 'Tier',
   supplierLabel = 'Supplier',
+  supplierTypeLabel = 'Supplier type',
   size = 'default',
 }: SupplierFieldInputProps) {
   const selectClass =
@@ -34,23 +40,68 @@ export default function SupplierFieldInput({
   const labelClass = size === 'sm' ? 'form-label small mb-1' : 'form-label'
 
   const parsed = parseSupplierFieldValue(value)
+  const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
+  const [supplierTypeId, setSupplierTypeId] = useState<number | ''>('')
   const [suppliers, setSuppliers] = useState<SupplierOptionRecord[]>([])
   const [tiers, setTiers] = useState<SupplierTierOptionRecord[]>([])
-  const [loadingSuppliers, setLoadingSuppliers] = useState(true)
+  const [loadingTypes, setLoadingTypes] = useState(true)
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false)
   const [loadingTiers, setLoadingTiers] = useState(false)
   const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     let cancelled = false
+    setLoadingTypes(true)
+    fetchActiveSupplierTypes()
+      .then((data) => {
+        if (!cancelled) setSupplierTypes(data)
+      })
+      .catch(() => {
+        if (!cancelled) setSupplierTypes([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTypes(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (parsed.supplier_id == null || supplierTypeId !== '') return
+    let cancelled = false
+    fetchSupplierOptions({ supplierId: parsed.supplier_id })
+      .then((data) => {
+        if (cancelled) return
+        const match = data.find((row) => row.id === parsed.supplier_id)
+        if (match?.supplier_type_id != null) {
+          setSupplierTypeId(match.supplier_type_id)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [parsed.supplier_id, supplierTypeId])
+
+  useEffect(() => {
+    if (supplierTypeId === '') {
+      setSuppliers([])
+      return
+    }
+    let cancelled = false
     setLoadingSuppliers(true)
     setLoadError('')
-    fetchSupplierOptions()
+    fetchSupplierOptions({
+      supplierTypeId: supplierTypeId,
+      supplierId: parsed.supplier_id ?? undefined,
+    })
       .then((data) => {
         if (!cancelled) {
           setSuppliers(data)
           if (data.length === 0) {
             setLoadError(
-              'No active companies available. Add a company in Company Settings.',
+              'No active suppliers for this type. Enable them in Supplier Settings.',
             )
           }
         }
@@ -64,7 +115,7 @@ export default function SupplierFieldInput({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [supplierTypeId, parsed.supplier_id])
 
   useEffect(() => {
     if (parsed.supplier_id == null) {
@@ -79,7 +130,9 @@ export default function SupplierFieldInput({
         if (!cancelled) {
           setTiers(data)
           if (data.length === 0) {
-            setLoadError('No tiers are configured for this supplier.')
+            setLoadError(
+              'No tiers configured for this supplier in Supplier Settings.',
+            )
           }
         }
       })
@@ -105,6 +158,12 @@ export default function SupplierFieldInput({
       }),
       next.price ?? null,
     )
+  }
+
+  const handleSupplierTypeChange = (typeId: string) => {
+    const nextTypeId = typeId === '' ? '' : Number(typeId)
+    setSupplierTypeId(nextTypeId)
+    emit({ supplier_id: null, tier_id: null, price: null })
   }
 
   const handleSupplierChange = (supplierId: string) => {
@@ -143,6 +202,29 @@ export default function SupplierFieldInput({
 
   return (
     <div className="row g-2">
+      <div className="col-12">
+        <label className={labelClass}>{supplierTypeLabel}</label>
+        <select
+          className={selectClass}
+          value={supplierTypeId}
+          onChange={(e) => handleSupplierTypeChange(e.target.value)}
+          required={required}
+          disabled={loadingTypes}
+        >
+          <option value="">
+            {loadingTypes
+              ? 'Loading supplier types...'
+              : supplierTypes.length === 0
+                ? 'No supplier types available'
+                : 'Select supplier type...'}
+          </option>
+          {supplierTypes.map((type) => (
+            <option key={type.id} value={type.id}>
+              {type.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="col-sm-6">
         <label className={labelClass}>{supplierLabel}</label>
         <select
@@ -153,15 +235,17 @@ export default function SupplierFieldInput({
               : ''
           }
           onChange={(e) => handleSupplierChange(e.target.value)}
-          required={required}
-          disabled={loadingSuppliers}
+          required={required && supplierTypeId !== ''}
+          disabled={supplierTypeId === '' || loadingSuppliers}
         >
           <option value="">
-            {loadingSuppliers
-              ? 'Loading suppliers...'
-              : suppliers.length === 0
-                ? 'No suppliers available'
-                : 'Select supplier...'}
+            {supplierTypeId === ''
+              ? 'Select a supplier type first'
+              : loadingSuppliers
+                ? 'Loading suppliers...'
+                : suppliers.length === 0
+                  ? 'No suppliers available'
+                  : 'Select supplier...'}
           </option>
           {suppliers.map((supplier) => (
             <option key={supplier.id} value={supplier.id}>

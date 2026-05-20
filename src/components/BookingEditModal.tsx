@@ -37,6 +37,7 @@ import {
 import EmailSenderModal from './EmailSenderModal'
 import { sendEmail, type EmailPayload } from '../services/emails'
 import { fetchBookingItem } from '../services/bookings'
+import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
 export type BookingFieldOption = {
@@ -193,6 +194,7 @@ const BookingEditModal = ({
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailSending, setEmailSending] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [pdfDownloading, setPdfDownloading] = useState(false)
   const [defaultGroupName, setDefaultGroupName] = useState(DEFAULT_BOOKING_GROUP_NAME)
   const [extraGroupNames, setExtraGroupNames] = useState<string[]>(
     form.extraGroupNames ?? [],
@@ -320,6 +322,46 @@ const BookingEditModal = ({
       }
     }
     setEmailModalOpen(true)
+  }
+
+  const handleDownloadBookingPdf = async () => {
+    setPdfDownloading(true)
+    try {
+      let pdfUrl = (form.pdfUrl ?? '').trim()
+      if (form.id) {
+        try {
+          const item = await fetchBookingItem(form.id)
+          pdfUrl = (item.pdf_url ?? '').trim()
+          if (pdfUrl !== (form.pdfUrl ?? '').trim()) {
+            onChange({ ...form, pdfUrl })
+          }
+        } catch {
+          /* keep form.pdfUrl */
+        }
+      }
+      if (!pdfUrl) {
+        showErrorToast(
+          'PDF is not available yet. Save the booking and wait a moment, then try again.',
+        )
+        return
+      }
+      const objectUrl = await fetchSecuredFileBlobUrl(pdfUrl)
+      try {
+        const a = document.createElement('a')
+        a.href = objectUrl
+        a.download = 'bookings.pdf'
+        a.rel = 'noopener'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+      } finally {
+        URL.revokeObjectURL(objectUrl)
+      }
+    } catch {
+      showErrorToast('Could not download the booking PDF.')
+    } finally {
+      setPdfDownloading(false)
+    }
   }
 
   const handleBookingEmailSend = async (data: EmailPayload) => {
@@ -1466,6 +1508,24 @@ const BookingEditModal = ({
                       >
                         <i className="bi bi-envelope me-1" aria-hidden="true" />
                         Send Email to Client
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        title="Download Quotation"
+                        aria-label="Download Quotation"
+                        disabled={pdfDownloading || form.id == null}
+                        onClick={() => void handleDownloadBookingPdf()}
+                      >
+                        {pdfDownloading ? (
+                          <span
+                            className="spinner-border spinner-border-sm"
+                            role="status"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <i className="bi bi-file-earmark-arrow-down" aria-hidden="true" />
+                        )}
                       </button>
                     </div>
                     <div

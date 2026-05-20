@@ -4,13 +4,7 @@ import { parseApiList } from './parseApiList'
 export type SupplierOptionRecord = {
   id: number
   name: string
-  discount?: string | null
-  discount_type?: string
-  mark_up?: string | null
-  mark_up_type?: string
-  price_override?: string | null
-  tax?: string | null
-  price?: string | null
+  supplier_type_id: number
 }
 
 export type SupplierTierOptionRecord = {
@@ -26,9 +20,25 @@ export type SupplierTierOptionRecord = {
   price: string | null
 }
 
-/** Active companies for the current account (supplier dropdown). */
-export async function fetchSupplierOptions(): Promise<SupplierOptionRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/supplier-options/'), {
+export type FetchSupplierOptionsParams = {
+  supplierTypeId?: number
+  /** Include this supplier when resolving edit state (even if type filter differs). */
+  supplierId?: number
+}
+
+/** Companies with active supplier settings for the booking supplier field. */
+export async function fetchSupplierOptions(
+  params: FetchSupplierOptionsParams = {},
+): Promise<SupplierOptionRecord[]> {
+  const search = new URLSearchParams()
+  if (params.supplierTypeId != null) {
+    search.set('supplier_type', String(params.supplierTypeId))
+  }
+  if (params.supplierId != null) {
+    search.set('supplier_id', String(params.supplierId))
+  }
+  const qs = search.toString() ? `?${search.toString()}` : ''
+  const res = await apiFetch(buildApiUrl(`/api/supplier-options/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load suppliers')

@@ -1113,8 +1113,8 @@ const TemplateFormModal = ({
 
                   {field.field_type === 'supplier' && (
                     <p className="text-muted small mt-2 mb-0">
-                      On the booking form, users pick a supplier first, then a tier
-                      configured for that supplier via supplier settings.
+                      On the booking form, users pick a supplier type, then a supplier
+                      and tier from Supplier Settings (active suppliers only).
                     </p>
                   )}
 
