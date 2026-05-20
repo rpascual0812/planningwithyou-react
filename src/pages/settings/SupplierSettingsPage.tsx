@@ -3,6 +3,7 @@ import {
   fetchCompanyTierPricing,
   updateCompanyTierPricing,
   type CompanyTierPricingRow,
+  type TierAdjustmentType,
 } from '../../services/companyTierPricing'
 import {
   deleteCompany,
@@ -21,25 +22,77 @@ const PAGE_SIZES = [10, 25, 50, 100] as const
 type TierPricingFormRow = {
   tier_id: number
   tier_name: string
+  original_price: string | null
   discount: string
+  discount_type: TierAdjustmentType
   mark_up: string
-  price: string
+  mark_up_type: TierAdjustmentType
 }
 
-function formatMoney(value: string | null | undefined): string {
+function parseAdjustmentValue(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  return Number.isFinite(n) ? n : null
+}
+
+function adjustmentAmount(
+  base: number,
+  value: number | null,
+  type: TierAdjustmentType,
+): number {
+  if (value === null) return 0
+  if (type === 'fixed') return value
+  return (base * value) / 100
+}
+
+function computeFinalPrice(row: TierPricingFormRow): string | null {
+  if (row.original_price === null || row.original_price === '') return null
+  const base = Number(row.original_price)
+  if (!Number.isFinite(base)) return null
+  const discount = parseAdjustmentValue(row.discount)
+  const markUp = parseAdjustmentValue(row.mark_up)
+  if (discount === null && markUp === null) {
+    return String(base)
+  }
+  let total = base
+  if (discount !== null) {
+    total -= adjustmentAmount(base, discount, row.discount_type)
+  }
+  if (markUp !== null) {
+    total += adjustmentAmount(base, markUp, row.mark_up_type)
+  }
+  if (total < 0) total = 0
+  return String(Math.round(total * 100) / 100)
+}
+
+function formatMoney(
+  value: string | null | undefined,
+  currencyCode = 'USD',
+): string {
   if (value === null || value === undefined || value === '') return '—'
   const n = Number(value)
   if (Number.isNaN(n)) return value
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(n)
+  const code = currencyCode.trim() || 'USD'
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+    }).format(n)
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(n)
+  }
 }
 
 function formatTierColumn(
   tiers: CompanySupplierTierSummary[] | undefined,
-  field: 'discount' | 'mark_up' | 'price',
+  field: 'discount' | 'mark_up' | 'original_price' | 'price',
+  currencyCode = 'USD',
 ) {
   if (!tiers || tiers.length === 0) return <span>—</span>
   return (
@@ -48,7 +101,7 @@ function formatTierColumn(
         <li key={tier.tier_id} className="suppliers-tier-value-list__row">
           <span className="suppliers-tier-value-list__name">{tier.tier_name}</span>
           <span className="suppliers-tier-value-list__value">
-            {formatMoney(tier[field])}
+            {formatMoney(tier[field], currencyCode)}
           </span>
         </li>
       ))}
@@ -60,9 +113,11 @@ function tierRowToForm(row: CompanyTierPricingRow): TierPricingFormRow {
   return {
     tier_id: row.tier_id,
     tier_name: row.tier_name,
+    original_price: row.original_price,
     discount: row.discount ?? '',
+    discount_type: row.discount_type ?? 'percent',
     mark_up: row.mark_up ?? '',
-    price: row.price ?? '',
+    mark_up_type: row.mark_up_type ?? 'percent',
   }
 }
 
@@ -160,13 +215,20 @@ const SupplierSettingsPage = () => {
       prev.map((c) => (c.id === row.id ? { ...c, is_active: nextActive } : c)),
     )
     try {
-      await updateCompany(row.id, { is_active: nextActive }, { supplierDirectory: true })
+      const updated = await updateCompany(
+        row.id,
+        { is_active: nextActive },
+        { supplierDirectory: true },
+      )
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === row.id ? { ...c, is_active: updated.is_active } : c)),
+      )
     } catch (e) {
       setCompanies((prev) =>
         prev.map((c) => (c.id === row.id ? { ...c, is_active: row.is_active } : c)),
       )
       setCompaniesError(
-        e instanceof Error ? e.message : 'Failed to update company status',
+        e instanceof Error ? e.message : 'Failed to update supplier status',
       )
     } finally {
       setTogglingId(null)
@@ -200,7 +262,7 @@ const SupplierSettingsPage = () => {
 
   const updateTierField = (
     tierId: number,
-    field: 'discount' | 'mark_up' | 'price',
+    field: 'discount' | 'mark_up' | 'discount_type' | 'mark_up_type',
     value: string,
   ) => {
     setTierPricing((prev) =>
@@ -222,8 +284,9 @@ const SupplierSettingsPage = () => {
           tiers: tierPricing.map((row) => ({
             tier_id: row.tier_id,
             discount: row.discount.trim() === '' ? null : row.discount.trim(),
+            discount_type: row.discount_type,
             mark_up: row.mark_up.trim() === '' ? null : row.mark_up.trim(),
-            price: row.price.trim() === '' ? null : row.price.trim(),
+            mark_up_type: row.mark_up_type,
           })),
         },
         { supplierDirectory: true },
@@ -341,6 +404,7 @@ const SupplierSettingsPage = () => {
                 <tr>
                   <th className="suppliers-th-active">Active</th>
                   <th>Name</th>
+                  <th>Original price</th>
                   <th>Discount</th>
                   <th>Mark-up</th>
                   <th>Price</th>
@@ -364,15 +428,28 @@ const SupplierSettingsPage = () => {
                       </button>
                     </td>
                     <td className="users-table-name">{row.name}</td>
-                    <td>{formatTierColumn(row.supplier_tiers, 'discount')}</td>
-                    <td>{formatTierColumn(row.supplier_tiers, 'mark_up')}</td>
-                    <td>{formatTierColumn(row.supplier_tiers, 'price')}</td>
+                    <td>
+                      {formatTierColumn(
+                        row.supplier_tiers,
+                        'original_price',
+                        row.currency_code,
+                      )}
+                    </td>
+                    <td>
+                      {formatTierColumn(row.supplier_tiers, 'discount', row.currency_code)}
+                    </td>
+                    <td>
+                      {formatTierColumn(row.supplier_tiers, 'mark_up', row.currency_code)}
+                    </td>
+                    <td>
+                      {formatTierColumn(row.supplier_tiers, 'price', row.currency_code)}
+                    </td>
                     <td>
                       <div className="users-actions">
                         <button
                           type="button"
                           className="users-action-btn users-action-edit"
-                          title="Edit company"
+                          title="Edit supplier"
                           onClick={() => void openEdit(row)}
                         >
                           <i className="bi bi-pencil-square" />
@@ -391,7 +468,7 @@ const SupplierSettingsPage = () => {
                 ))}
                 {pageRows.length === 0 && !companiesLoading && (
                   <tr>
-                    <td colSpan={6} className="users-table-empty">
+                    <td colSpan={7} className="users-table-empty">
                       {!selectedId
                         ? 'Select a supplier type.'
                         : debouncedSearch
@@ -441,7 +518,7 @@ const SupplierSettingsPage = () => {
             <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2 className="modal-title fs-5">Edit company</h2>
+                  <h2 className="modal-title fs-5">Edit supplier</h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -467,7 +544,7 @@ const SupplierSettingsPage = () => {
                     <p className="text-muted small mb-0">Loading tiers…</p>
                   ) : tierPricing.length === 0 ? (
                     <p className="text-muted small mb-0">
-                      No tiers configured for your account.
+                      No tiers configured for this company.
                     </p>
                   ) : (
                     <div className="supplier-tier-pricing-cards">
@@ -479,6 +556,10 @@ const SupplierSettingsPage = () => {
                           <h3 className="supplier-tier-pricing-card__title">
                             {tier.tier_name}
                           </h3>
+                          <p className="text-muted small mb-2">
+                            Original price:{' '}
+                            {formatMoney(tier.original_price, editTarget.currency_code)}
+                          </p>
                           <div className="row g-2">
                             <div className="col-sm-4">
                               <label
@@ -487,21 +568,38 @@ const SupplierSettingsPage = () => {
                               >
                                 Discount
                               </label>
-                              <input
-                                id={`tier-discount-${tier.tier_id}`}
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                className="form-control form-control-sm"
-                                value={tier.discount}
-                                onChange={(e) =>
-                                  updateTierField(
-                                    tier.tier_id,
-                                    'discount',
-                                    e.target.value,
-                                  )
-                                }
-                              />
+                              <div className="input-group input-group-sm">
+                                <input
+                                  id={`tier-discount-${tier.tier_id}`}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  className="form-control"
+                                  value={tier.discount}
+                                  onChange={(e) =>
+                                    updateTierField(
+                                      tier.tier_id,
+                                      'discount',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <select
+                                  className="form-select"
+                                  aria-label="Discount type"
+                                  value={tier.discount_type}
+                                  onChange={(e) =>
+                                    updateTierField(
+                                      tier.tier_id,
+                                      'discount_type',
+                                      e.target.value,
+                                    )
+                                  }
+                                >
+                                  <option value="percent">Percent</option>
+                                  <option value="fixed">Amount</option>
+                                </select>
+                              </div>
                             </div>
                             <div className="col-sm-4">
                               <label
@@ -510,43 +608,47 @@ const SupplierSettingsPage = () => {
                               >
                                 Mark-up
                               </label>
-                              <input
-                                id={`tier-markup-${tier.tier_id}`}
-                                type="number"
-                                step="0.01"
-                                className="form-control form-control-sm"
-                                value={tier.mark_up}
-                                onChange={(e) =>
-                                  updateTierField(
-                                    tier.tier_id,
-                                    'mark_up',
-                                    e.target.value,
-                                  )
-                                }
-                              />
+                              <div className="input-group input-group-sm">
+                                <input
+                                  id={`tier-markup-${tier.tier_id}`}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  className="form-control"
+                                  value={tier.mark_up}
+                                  onChange={(e) =>
+                                    updateTierField(
+                                      tier.tier_id,
+                                      'mark_up',
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <select
+                                  className="form-select"
+                                  aria-label="Mark-up type"
+                                  value={tier.mark_up_type}
+                                  onChange={(e) =>
+                                    updateTierField(
+                                      tier.tier_id,
+                                      'mark_up_type',
+                                      e.target.value,
+                                    )
+                                  }
+                                >
+                                  <option value="percent">Percent</option>
+                                  <option value="fixed">Amount</option>
+                                </select>
+                              </div>
                             </div>
                             <div className="col-sm-4">
-                              <label
-                                className="form-label"
-                                htmlFor={`tier-price-${tier.tier_id}`}
-                              >
-                                Price
-                              </label>
-                              <input
-                                id={`tier-price-${tier.tier_id}`}
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                className="form-control form-control-sm"
-                                value={tier.price}
-                                onChange={(e) =>
-                                  updateTierField(
-                                    tier.tier_id,
-                                    'price',
-                                    e.target.value,
-                                  )
-                                }
-                              />
+                              <span className="form-label d-block">Final price</span>
+                              <p className="supplier-tier-final-price mb-0">
+                                {formatMoney(
+                                  computeFinalPrice(tier),
+                                  editTarget.currency_code,
+                                )}
+                              </p>
                             </div>
                           </div>
                         </div>

@@ -1,11 +1,16 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 
+export type TierAdjustmentType = 'percent' | 'fixed'
+
 export type CompanyTierPricingRow = {
   tier_id: number
   tier_name: string
   discount: string | null
+  discount_type: TierAdjustmentType
   mark_up: string | null
+  mark_up_type: TierAdjustmentType
   price: string | null
+  original_price: string | null
 }
 
 export type CompanyTierPricingRecord = {
@@ -18,8 +23,9 @@ export type CompanyTierPricingPayload = {
   tiers: {
     tier_id: number
     discount?: string | null
+    discount_type?: TierAdjustmentType
     mark_up?: string | null
-    price?: string | null
+    mark_up_type?: TierAdjustmentType
   }[]
 }
 

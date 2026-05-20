@@ -8,6 +8,10 @@ import {
   type CompanyPayload,
   type CompanyRecord,
 } from '../../../services/companies'
+import {
+  fetchActiveSupplierTypes,
+  type SupplierTypeRecord,
+} from '../../../services/supplierTypes'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
 const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
@@ -18,6 +22,7 @@ const EMPTY_FORM = {
   website: '',
   is_active: true,
   is_main: false,
+  supplier_type: null as number | null,
 }
 
 function formatWebsite(url: string): string {
@@ -50,6 +55,9 @@ const CompaniesPanel = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoDisplayUrl, setLogoDisplayUrl] = useState('')
 
+  const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
+  const [supplierTypesLoading, setSupplierTypesLoading] = useState(true)
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -65,6 +73,33 @@ const CompaniesPanel = () => {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    let cancelled = false
+    setSupplierTypesLoading(true)
+    fetchActiveSupplierTypes()
+      .then((data) => {
+        if (!cancelled) setSupplierTypes(data)
+      })
+      .catch(() => {
+        if (!cancelled) setSupplierTypes([])
+      })
+      .finally(() => {
+        if (!cancelled) setSupplierTypesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!showModal || editing || supplierTypes.length === 0) return
+    setForm((prev) =>
+      prev.supplier_type == null
+        ? { ...prev, supplier_type: supplierTypes[0].id }
+        : prev,
+    )
+  }, [showModal, editing, supplierTypes])
 
   useEffect(() => {
     if (!logoFile) {
@@ -132,6 +167,7 @@ const CompaniesPanel = () => {
       website: row.website ?? '',
       is_active: row.is_active,
       is_main: row.is_main,
+      supplier_type: row.supplier_type,
     })
     setLogoUrl(row.logo_url ?? '')
     setLogoFile(null)
@@ -153,10 +189,15 @@ const CompaniesPanel = () => {
       setFormError('Name is required.')
       return
     }
+    if (form.supplier_type == null) {
+      setFormError('Supplier type is required.')
+      return
+    }
     setSaving(true)
     setFormError(null)
     const payload: CompanyPayload = {
       name: trimmed,
+      supplier_type: form.supplier_type,
       timezone: form.timezone.trim(),
       website: form.website.trim(),
       is_active: form.is_active,
@@ -380,6 +421,42 @@ const CompaniesPanel = () => {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="mb-3">
+                    <span className="form-label d-block">Supplier type</span>
+                    {supplierTypesLoading ? (
+                      <p className="text-muted small mb-0">Loading supplier types…</p>
+                    ) : supplierTypes.length === 0 ? (
+                      <p className="text-muted small mb-0">No supplier types available.</p>
+                    ) : (
+                      <div className="company-supplier-types-scroll">
+                        <ul
+                          className="settings-radio-list"
+                          role="radiogroup"
+                          aria-label="Supplier type"
+                        >
+                          {supplierTypes.map((type) => (
+                            <li key={type.id}>
+                              <label className="settings-radio">
+                                <input
+                                  type="radio"
+                                  name="company-supplier-type"
+                                  value={type.id}
+                                  checked={form.supplier_type === type.id}
+                                  onChange={() =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      supplier_type: type.id,
+                                    }))
+                                  }
+                                />
+                                <span>{type.name}</span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                   <div className="form-check mb-2">
                     <input

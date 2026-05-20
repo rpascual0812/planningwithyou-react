@@ -8,6 +8,7 @@ export type CompanySupplierTierSummary = {
   discount: string | null
   mark_up: string | null
   price: string | null
+  original_price: string | null
 }
 
 export type CompanyRecord = {
@@ -16,6 +17,8 @@ export type CompanyRecord = {
   supplier_type: number
   supplier_type_name: string
   supplier_tiers?: CompanySupplierTierSummary[]
+  currency_symbol?: string
+  currency_code?: string
   timezone: string
   website: string
   is_active: boolean

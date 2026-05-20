@@ -19,7 +19,8 @@ export type PackageItemPayload = {
 export type PackageRecord = {
   id: number
   package_version: number
-  title: string
+  tier: number
+  tier_name: string
   description: string
   total_price: string
   company: number
@@ -29,7 +30,7 @@ export type PackageRecord = {
 }
 
 export type PackagePayload = {
-  title: string
+  tier: number
   description?: string
   total_price?: string | number
   company?: number
@@ -67,12 +68,14 @@ export async function fetchPackage(id: number): Promise<PackageRecord> {
 
 export async function fetchPackages(
   companyId: number,
-  packageVersionId?: number | null,
+  tierId: number,
+  packageVersionId: number,
 ): Promise<PackageRecord[]> {
-  const params = new URLSearchParams({ company_id: String(companyId) })
-  if (packageVersionId != null && packageVersionId > 0) {
-    params.set('package_version_id', String(packageVersionId))
-  }
+  const params = new URLSearchParams({
+    company_id: String(companyId),
+    tier_id: String(tierId),
+    package_version_id: String(packageVersionId),
+  })
   const res = await apiFetch(buildApiUrl(`/api/packages/?${params.toString()}`), {
     headers: authHeaders(),
   })
