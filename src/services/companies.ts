@@ -24,9 +24,14 @@ export type CompanyRecord = {
   currency_symbol?: string
   currency_code?: string
   timezone: string
+  contact_person: string
+  phone_number: string
+  mobile_number: string
+  address: string
   website: string
   is_active: boolean
   is_main: boolean
+  kyb_verified: boolean
   logo: string
   logo_url: string
   sort_order: number
@@ -37,6 +42,10 @@ export type CompanyPayload = {
   name: string
   supplier_type?: number
   timezone?: string
+  contact_person?: string
+  phone_number?: string
+  mobile_number?: string
+  address?: string
   website?: string
   is_active?: boolean
   is_main?: boolean

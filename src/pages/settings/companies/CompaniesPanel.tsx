@@ -13,12 +13,17 @@ import {
   type SupplierTypeRecord,
 } from '../../../services/supplierTypes'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
+import CompanyKybModal from './CompanyKybModal'
 
 const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
 
 const EMPTY_FORM = {
   name: '',
   timezone: '',
+  contact_person: '',
+  phone_number: '',
+  mobile_number: '',
+  address: '',
   website: '',
   is_active: true,
   is_main: false,
@@ -50,6 +55,8 @@ const CompaniesPanel = () => {
   const [deleteTarget, setDeleteTarget] = useState<CompanyRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [kybCompany, setKybCompany] = useState<CompanyRecord | null>(null)
+
   const [logoUrl, setLogoUrl] = useState('')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -62,9 +69,12 @@ const CompaniesPanel = () => {
     setLoading(true)
     setError(null)
     try {
-      setCompanies(await fetchCompanies())
+      const list = await fetchCompanies()
+      setCompanies(list)
+      return list
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load companies')
+      return null
     } finally {
       setLoading(false)
     }
@@ -164,6 +174,10 @@ const CompaniesPanel = () => {
     setForm({
       name: row.name,
       timezone: row.timezone ?? '',
+      contact_person: row.contact_person ?? '',
+      phone_number: row.phone_number ?? '',
+      mobile_number: row.mobile_number ?? '',
+      address: row.address ?? '',
       website: row.website ?? '',
       is_active: row.is_active,
       is_main: row.is_main,
@@ -199,6 +213,10 @@ const CompaniesPanel = () => {
       name: trimmed,
       supplier_type: form.supplier_type,
       timezone: form.timezone.trim(),
+      contact_person: form.contact_person.trim(),
+      phone_number: form.phone_number.trim(),
+      mobile_number: form.mobile_number.trim(),
+      address: form.address.trim(),
       website: form.website.trim(),
       is_active: form.is_active,
       is_main: form.is_main,
@@ -269,6 +287,7 @@ const CompaniesPanel = () => {
               <tr>
                 <th>Name</th>
                 <th>Website</th>
+                <th className="bookings-tiers-table__active">Verified</th>
                 <th className="bookings-tiers-table__active">Main</th>
                 <th className="bookings-tiers-table__active">Active</th>
                 <th className="text-end">Order</th>
@@ -290,6 +309,20 @@ const CompaniesPanel = () => {
                       </a>
                     ) : (
                       '—'
+                    )}
+                  </td>
+                  <td className="bookings-tiers-table__active">
+                    {row.kyb_verified ? (
+                      <span className="badge text-bg-success">Verified</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 border-0 text-decoration-none"
+                        title="Complete KYB verification"
+                        onClick={() => setKybCompany(row)}
+                      >
+                        <span className="badge text-bg-danger">Unverified</span>
+                      </button>
                     )}
                   </td>
                   <td className="bookings-tiers-table__active">
@@ -338,7 +371,7 @@ const CompaniesPanel = () => {
         <>
           <div className="modal-backdrop fade show" onClick={closeModal} />
           <div className="modal fade show d-block" role="dialog" aria-modal="true">
-            <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
               <div className="modal-content">
                 <div className="modal-header">
                   <h2 className="modal-title fs-5">
@@ -423,6 +456,71 @@ const CompaniesPanel = () => {
                     </select>
                   </div>
                   <div className="mb-3">
+                    <label className="form-label" htmlFor="company-contact-person">
+                      Contact person
+                    </label>
+                    <input
+                      id="company-contact-person"
+                      type="text"
+                      className="form-control"
+                      value={form.contact_person}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          contact_person: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="company-phone">
+                      Phone number
+                    </label>
+                    <input
+                      id="company-phone"
+                      type="tel"
+                      className="form-control"
+                      value={form.phone_number}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          phone_number: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="company-mobile">
+                      Mobile number
+                    </label>
+                    <input
+                      id="company-mobile"
+                      type="tel"
+                      className="form-control"
+                      value={form.mobile_number}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          mobile_number: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="company-address">
+                      Address
+                    </label>
+                    <textarea
+                      id="company-address"
+                      className="form-control"
+                      rows={3}
+                      value={form.address}
+                      onChange={(e) =>
+                        setForm((prev) => ({ ...prev, address: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="mb-3">
                     <span className="form-label d-block">Supplier type</span>
                     {supplierTypesLoading ? (
                       <p className="text-muted small mb-0">Loading supplier types…</p>
@@ -502,6 +600,17 @@ const CompaniesPanel = () => {
                   )}
                 </div>
                 <div className="modal-footer">
+                  {editing && !editing.kyb_verified && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-success me-auto"
+                      onClick={() => setKybCompany(editing)}
+                      disabled={saving}
+                    >
+                      <i className="bi bi-shield-check me-1" />
+                      Verify Your Business
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -523,6 +632,22 @@ const CompaniesPanel = () => {
             </div>
           </div>
         </>
+      )}
+
+      {kybCompany && (
+        <CompanyKybModal
+          companyId={kybCompany.id}
+          companyName={kybCompany.name}
+          onClose={() => setKybCompany(null)}
+          onSaved={async () => {
+            const list = await load()
+            if (!list) return
+            setEditing((prev) => {
+              if (!prev || prev.id !== kybCompany.id) return prev
+              return list.find((c) => c.id === prev.id) ?? prev
+            })
+          }}
+        />
       )}
 
       {deleteTarget && (
