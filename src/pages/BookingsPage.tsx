@@ -265,6 +265,32 @@ function computeDropIndex(
   return cards.length
 }
 
+function bookingItemToEditForm(item: BookingItem): BookingFormState {
+  let dateOfEvent = ''
+  let timeOfEvent = ''
+  if (item.date_of_event) {
+    const d = new Date(item.date_of_event)
+    dateOfEvent = formatYmd(d)
+    timeOfEvent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return {
+    mode: 'edit',
+    id: item.id,
+    statusId: item.status,
+    contactId: normalizeContactId(item.contact),
+    title: item.title,
+    dateOfEvent,
+    timeOfEvent,
+    fields: fieldValuesToFields(item),
+    extraGroupNames: emptyBookingGroupNamesFromItem(
+      item.field_values ?? [],
+      item.groups ?? [],
+    ),
+    notes: item.notes,
+    pdfUrl: item.pdf_url ?? '',
+  }
+}
+
 const BookingsPage = () => {
   const [columns, setColumns] = useState<BookingColumn[]>([])
   const [items, setItems] = useState<BookingItem[]>([])
@@ -886,29 +912,7 @@ const BookingsPage = () => {
   }
 
   const openEditItem = (item: BookingItem) => {
-    let dateOfEvent = ''
-    let timeOfEvent = ''
-    if (item.date_of_event) {
-      const d = new Date(item.date_of_event)
-      dateOfEvent = formatYmd(d)
-      timeOfEvent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-    }
-    setItemModal({
-      mode: 'edit',
-      id: item.id,
-      statusId: item.status,
-      contactId: normalizeContactId(item.contact),
-      title: item.title,
-      dateOfEvent,
-      timeOfEvent,
-      fields: fieldValuesToFields(item),
-      extraGroupNames: emptyBookingGroupNamesFromItem(
-        item.field_values ?? [],
-        item.groups ?? [],
-      ),
-      notes: item.notes,
-      pdfUrl: item.pdf_url ?? '',
-    })
+    setItemModal(bookingItemToEditForm(item))
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -987,6 +991,9 @@ const BookingsPage = () => {
     if (!itemModal) {
       return
     }
+    const submitEvent = e.nativeEvent as SubmitEvent
+    const submitter = submitEvent.submitter as HTMLElement | null
+    const closeAfterSave = submitter?.getAttribute('data-close-after') === 'true'
     const title = itemModal.title.trim() || 'Untitled'
     const notes = itemModal.notes
     const statusId = itemModal.statusId
@@ -1037,6 +1044,9 @@ const BookingsPage = () => {
           notes,
         })
         setItems((prev) => [...prev, created])
+        if (!closeAfterSave) {
+          openEditItem(created)
+        }
       } else if (itemModal.id) {
         const updated = await updateBookingItem(itemModal.id, {
           title,
@@ -1050,12 +1060,17 @@ const BookingsPage = () => {
         setItems((prev) =>
           prev.map((it) => (it.id === updated.id ? updated : it)),
         )
+        if (!closeAfterSave) {
+          setItemModal(bookingItemToEditForm(updated))
+        }
       }
       clearBookingDraft(itemModal.id)
       showSuccessToast(
         itemModal.mode === 'create' ? 'Booking created.' : 'Booking saved.',
       )
-      closeItemModal()
+      if (closeAfterSave) {
+        closeItemModal()
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Could not save booking.'

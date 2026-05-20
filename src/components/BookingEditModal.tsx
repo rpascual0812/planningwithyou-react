@@ -1546,6 +1546,13 @@ const BookingEditModal = ({
                   <button type="submit" className="btn btn-primary">
                     Save
                   </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    data-close-after="true"
+                  >
+                    Save and Close
+                  </button>
                 </div>
                 </div>
               </div>
