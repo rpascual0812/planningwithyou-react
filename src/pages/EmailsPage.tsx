@@ -8,6 +8,8 @@ import {
   type EmailRecord,
   type EmailPayload,
 } from '../services/emails'
+import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
+import { fetchMe } from '../services/users'
 
 const EDIT_PARAM = 'edit'
 
@@ -34,8 +36,24 @@ const formatRecipients = (addrs: string[]) => {
   return `${addrs[0]}, ${addrs[1]} (+${addrs.length - 2})`
 }
 
+function pickDefaultCompanyId(
+  companies: CompanyRecord[],
+  userCompanyId: number | null,
+): number | null {
+  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
+    return userCompanyId
+  }
+  if (companies.length === 0) return null
+  const main = companies.find((c) => c.is_main)
+  return main?.id ?? companies[0].id
+}
+
 const EmailsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
+  const [companies, setCompanies] = useState<CompanyRecord[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(true)
+  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -76,7 +94,34 @@ const EmailsPage = () => {
     }
   }, [search])
 
+  useEffect(() => {
+    let cancelled = false
+    setCompaniesLoading(true)
+    void Promise.all([fetchActiveCompanies(), fetchMe()])
+      .then(([companyRows, user]) => {
+        if (cancelled) return
+        setCompanies(companyRows)
+        setUserCompanyId(pickDefaultCompanyId(companyRows, user.company))
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load companies')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const loadEmails = useCallback(async (q = '', status = '') => {
+    if (userCompanyId == null) {
+      setEmails([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -87,11 +132,11 @@ const EmailsPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [userCompanyId])
 
   useEffect(() => {
     loadEmails(debouncedSearch, statusFilter)
-  }, [debouncedSearch, statusFilter, loadEmails])
+  }, [debouncedSearch, statusFilter, userCompanyId, loadEmails])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -162,6 +207,36 @@ const EmailsPage = () => {
     <div className="app-content">
       <div className="container-fluid">
         <div className="emails-table-card">
+          <div className="row g-2 align-items-end mb-3 px-2 pt-2">
+            <div className="col-sm-8 col-md-4">
+              <label className="form-label mb-1" htmlFor="emails-company">
+                Company
+              </label>
+              <select
+                id="emails-company"
+                className="form-select form-select-sm"
+                value={userCompanyId ?? ''}
+                disabled={companiesLoading || companies.length === 0 || userCompanyId == null}
+                aria-readonly="true"
+                onChange={() => {}}
+              >
+                {companies.length === 0 ? (
+                  <option value="">No active companies</option>
+                ) : (
+                  companies.map((company) => (
+                    <option
+                      key={company.id}
+                      value={company.id}
+                      disabled={userCompanyId != null && company.id !== userCompanyId}
+                    >
+                      {company.name}
+                      {company.is_main ? ' (main)' : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
           <div className="emails-table-toolbar">
             <div className="emails-search">
               <i className="bi bi-search" aria-hidden="true" />
@@ -204,6 +279,7 @@ const EmailsPage = () => {
                 type="button"
                 className="btn btn-sm btn-primary"
                 onClick={openCompose}
+                disabled={userCompanyId == null || companiesLoading}
               >
                 <i className="bi bi-pencil-square me-1" />
                 Compose

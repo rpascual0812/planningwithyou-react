@@ -11,6 +11,7 @@ export type EmailRecord = {
   body: string
   attachments: string[]
   created_by: number | null
+  company_id: number
   status: 'queued' | 'sent' | 'failed'
   error: string
   attempts: number

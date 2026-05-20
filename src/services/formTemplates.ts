@@ -48,6 +48,7 @@ export type FormTemplateRecord = {
   description: string
   is_active: boolean
   is_default: boolean
+  company_id: number | null
   fields: TemplateField[]
   created_at: string
   updated_at: string
@@ -58,11 +59,20 @@ export type FormTemplatePayload = {
   description: string
   is_active: boolean
   is_default: boolean
+  company_id?: number | null
   fields: Omit<TemplateField, 'id'>[]
 }
 
-export async function fetchFormTemplates(): Promise<FormTemplateRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/form-templates/'), {
+export async function fetchFormTemplates(
+  companyId?: number | null,
+): Promise<FormTemplateRecord[]> {
+  const params = new URLSearchParams()
+  if (companyId != null) params.set('company_id', String(companyId))
+  const query = params.toString()
+  const url = query
+    ? `/api/form-templates/?${query}`
+    : '/api/form-templates/'
+  const res = await apiFetch(buildApiUrl(url), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load form templates')

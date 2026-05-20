@@ -10,6 +10,7 @@ export type EmailUserTemplateRecord = {
   body: string
   type: 'users'
   is_active: boolean
+  company_id: number | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -21,6 +22,7 @@ export type EmailUserTemplatePayload = {
   subject: string
   body: string
   is_active: boolean
+  company_id?: number | null
 }
 
 function extractError(body: unknown): string {
@@ -35,9 +37,13 @@ function extractError(body: unknown): string {
 
 export async function fetchEmailUserTemplates(
   search = '',
+  companyId?: number | null,
 ): Promise<EmailUserTemplateRecord[]> {
-  const qs = search ? `?search=${encodeURIComponent(search)}` : ''
-  const res = await apiFetch(buildApiUrl(`${BASE}${qs}`), {
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  if (companyId != null) params.set('company_id', String(companyId))
+  const qs = params.toString()
+  const res = await apiFetch(buildApiUrl(`${BASE}${qs ? `?${qs}` : ''}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load email templates')
