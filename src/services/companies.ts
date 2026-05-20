@@ -2,11 +2,15 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 import { getAccessToken } from './auth'
 import { parseApiList } from './parseApiList'
 
+export type TierAdjustmentType = 'percent' | 'fixed'
+
 export type CompanySupplierTierSummary = {
   tier_id: number
   tier_name: string
   discount: string | null
+  discount_type?: TierAdjustmentType
   mark_up: string | null
+  mark_up_type?: TierAdjustmentType
   price: string | null
   original_price: string | null
 }

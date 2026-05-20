@@ -66,6 +66,24 @@ function computeFinalPrice(row: TierPricingFormRow): string | null {
   return String(Math.round(total * 100) / 100)
 }
 
+function formatPercentValue(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const n = Number(value)
+  if (Number.isNaN(n)) return value
+  const text = Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
+  return `${text}%`
+}
+
+function formatAdjustmentValue(
+  value: string | null | undefined,
+  type: TierAdjustmentType | undefined,
+  currencyCode: string,
+): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (type === 'percent') return formatPercentValue(value)
+  return formatMoney(value, currencyCode)
+}
+
 function formatMoney(
   value: string | null | undefined,
   currencyCode = 'USD',
@@ -97,14 +115,30 @@ function formatTierColumn(
   if (!tiers || tiers.length === 0) return <span>—</span>
   return (
     <ul className="suppliers-tier-value-list list-unstyled mb-0">
-      {tiers.map((tier) => (
-        <li key={tier.tier_id} className="suppliers-tier-value-list__row">
-          <span className="suppliers-tier-value-list__name">{tier.tier_name}</span>
-          <span className="suppliers-tier-value-list__value">
-            {formatMoney(tier[field], currencyCode)}
-          </span>
-        </li>
-      ))}
+      {tiers.map((tier) => {
+        let display: string
+        if (field === 'discount') {
+          display = formatAdjustmentValue(
+            tier.discount,
+            tier.discount_type ?? 'percent',
+            currencyCode,
+          )
+        } else if (field === 'mark_up') {
+          display = formatAdjustmentValue(
+            tier.mark_up,
+            tier.mark_up_type ?? 'percent',
+            currencyCode,
+          )
+        } else {
+          display = formatMoney(tier[field], currencyCode)
+        }
+        return (
+          <li key={tier.tier_id} className="suppliers-tier-value-list__row">
+            <span className="suppliers-tier-value-list__name">{tier.tier_name}</span>
+            <span className="suppliers-tier-value-list__value">{display}</span>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -407,7 +441,7 @@ const SupplierSettingsPage = () => {
                   <th>Original price</th>
                   <th>Discount</th>
                   <th>Mark-up</th>
-                  <th>Price</th>
+                  <th>Final price</th>
                   <th className="users-th-actions">Action</th>
                 </tr>
               </thead>
