@@ -20,8 +20,8 @@ import {
 import { fetchBookingsGroupNameConfig } from '../services/config'
 import { fetchCurrentAccount } from '../services/accounts'
 import {
+  currencyFormatFromAccount,
   formatCurrency,
-  localeFromIso2,
   type CurrencyFormatOptions,
 } from '../utils/currency'
 import ContactFormModal from './ContactFormModal'
@@ -74,6 +74,8 @@ export type BookingField = {
 export type BookingFormState = {
   mode: 'create' | 'edit'
   id: number | null
+  /** ``bookings.unique_id`` (edit only). */
+  uniqueId?: string
   statusId: number
   contactId: number | null
   title: string
@@ -238,10 +240,7 @@ const BookingEditModal = ({
     Promise.all([fetchCurrentAccount(), fetchBookingsGroupNameConfig()])
       .then(([account, groupConfig]) => {
         if (cancelled) return
-        setCurrencyOptions({
-          currencyCode: account.country_currency_code || 'USD',
-          locale: localeFromIso2(account.country_iso2_code),
-        })
+        setCurrencyOptions(currencyFormatFromAccount(account))
         const name = groupConfig.value?.trim()
         if (name) setDefaultGroupName(name)
       })
@@ -1267,9 +1266,19 @@ const BookingEditModal = ({
           <div className="modal-content">
             <form onSubmit={onSubmit} noValidate>
               <div className="modal-header">
-                <h1 id="bookingEditTitle" className="modal-title fs-5">
-                  {form.mode === 'create' ? 'New booking' : 'Edit booking'}
-                </h1>
+                <div className="me-auto">
+                  <h1 id="bookingEditTitle" className="modal-title fs-5 mb-0">
+                    {form.mode === 'create' ? 'New booking' : 'Edit booking'}
+                  </h1>
+                  {form.mode === 'edit' && form.id != null && (
+                    <p className="booking-edit-modal__booking-id text-muted small mb-0 mt-1">
+                      Booking ID:{' '}
+                      <span className="text-body">
+                        {(form.uniqueId ?? '').trim() || `#${form.id}`}
+                      </span>
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
                   className="btn-close"

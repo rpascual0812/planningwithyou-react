@@ -1,5 +1,7 @@
 export type CurrencyFormatOptions = {
   currencyCode: string
+  /** From ``countries.currency_symbol`` (via account country). */
+  currencySymbol?: string
   locale?: string
 }
 
@@ -20,19 +22,49 @@ export function formatCurrency(
   const currencyCode = options.currencyCode ?? DEFAULT_OPTIONS.currencyCode
   const locale = options.locale ?? DEFAULT_OPTIONS.locale
   const hasFraction = Math.abs(amount % 1) > 0.000001
+  const numberOptions: Intl.NumberFormatOptions = {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: 2,
+  }
+
+  const symbol = (options.currencySymbol ?? '').trim()
+  if (symbol) {
+    try {
+      const formatted = new Intl.NumberFormat(locale, numberOptions).format(amount)
+      return `${symbol} ${formatted}`
+    } catch {
+      const formatted = new Intl.NumberFormat(
+        DEFAULT_OPTIONS.locale,
+        numberOptions,
+      ).format(amount)
+      return `${symbol} ${formatted}`
+    }
+  }
+
   try {
     return new Intl.NumberFormat(locale, {
+      ...numberOptions,
       style: 'currency',
       currency: currencyCode,
-      minimumFractionDigits: hasFraction ? 2 : 0,
-      maximumFractionDigits: 2,
     }).format(amount)
   } catch {
     return new Intl.NumberFormat(DEFAULT_OPTIONS.locale, {
+      ...numberOptions,
       style: 'currency',
       currency: DEFAULT_OPTIONS.currencyCode,
-      minimumFractionDigits: hasFraction ? 2 : 0,
-      maximumFractionDigits: 2,
     }).format(amount)
+  }
+}
+
+/** Build format options from the current account (account country → countries row). */
+export function currencyFormatFromAccount(account: {
+  country_currency_code?: string
+  country_currency_symbol?: string
+  country_iso2_code?: string
+}): CurrencyFormatOptions {
+  return {
+    currencyCode: account.country_currency_code?.trim() || 'USD',
+    currencySymbol: account.country_currency_symbol?.trim() || '$',
+    locale: localeFromIso2(account.country_iso2_code),
   }
 }

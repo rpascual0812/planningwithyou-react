@@ -43,7 +43,15 @@ import {
   buildBookingGroupsPayload,
   emptyBookingGroupNamesFromItem,
 } from '../lib/bookingFieldGroups'
+import { bookingCardSuppliersFromFieldValues } from '../lib/bookingCardSuppliers'
+import { bookingPriceSummaryTotalAmount } from '../lib/bookingPriceSummary'
 import { normalizeContactId } from '../lib/contactDisplay'
+import {
+  currencyFormatFromAccount,
+  formatCurrency,
+  type CurrencyFormatOptions,
+} from '../utils/currency'
+import { fetchCurrentAccount } from '../services/accounts'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
 type BookingColumn = BookingStatusRecord
@@ -140,90 +148,60 @@ function formatYmd(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-function formatPrice(value: number): string {
-  if (value >= 1000) {
-    return `$${Math.round(value / 1000)}k`
-  }
-  return `$${value}`
+function formatBookingId(item: BookingItem): string {
+  const uniqueId = (item.unique_id ?? '').trim()
+  return uniqueId || `#${item.id}`
 }
 
-type BookingCardDetails = {
-  iconClass: string
-  subtitle: string
-  startDate: string
-  endDate: string
-  longDate: string
-  shortId: string
-  price: string
-  progress: number
-  members: number
-  status: 'completed' | 'progress' | 'new'
-  statusLabel: string
-}
-
-function deriveBookingCardDetails(
-  item: BookingItem,
-  column: BookingColumn | undefined,
-  columnIndex: number,
-  totalColumns: number,
-): BookingCardDetails {
-  const h = stableHash(String(item.id))
-  const iconClass = CARD_ICONS[h % CARD_ICONS.length]
-  const subtitle = (column?.title ?? 'Booking').trim()
-
-  const startOffsetDays = (h % 180) - 60
-  const durationDays = 30 + ((h >> 3) % 150)
-  const today = new Date()
-  const start = new Date(today)
-  start.setDate(today.getDate() + startOffsetDays)
-  const end = new Date(start)
-  end.setDate(start.getDate() + durationDays)
-
-  const priceBuckets = [280, 400, 1000, 2500, 10000, 25000, 100000, 200000, 400000]
-  const price = formatPrice(priceBuckets[h % priceBuckets.length])
-  const members = 3 + ((h >> 5) % 35)
-
-  const lowerTitle = (column?.title ?? '').toLowerCase()
-  let status: BookingCardDetails['status']
-  let statusLabel: string
-  let progress: number
-  if (lowerTitle.includes('complete') || lowerTitle.includes('done')) {
-    status = 'completed'
-    statusLabel = 'Completed'
-    progress = 100
-  } else if (lowerTitle.includes('new') || lowerTitle.includes('backlog')) {
-    status = 'new'
-    statusLabel = 'New'
-    progress = Math.max(10, Math.round(((columnIndex + 1) / Math.max(totalColumns, 1)) * 40))
-  } else {
-    status = 'progress'
-    statusLabel = 'Progress'
-    progress = Math.max(
-      20,
-      Math.round(((columnIndex + 1) / Math.max(totalColumns, 1)) * 100) - 10,
-    )
-  }
-
-  const longDate = start.toLocaleDateString('en-US', {
+function formatBookingEventDate(item: BookingItem): string {
+  if (!item.date_of_event) return '—'
+  const d = new Date(item.date_of_event)
+  const datePart = d.toLocaleDateString(undefined, {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   })
-  const shortId = `#${item.id}`
-
-  return {
-    iconClass,
-    subtitle,
-    startDate: formatYmd(start),
-    endDate: formatYmd(end),
-    longDate,
-    shortId,
-    price,
-    progress,
-    members,
-    status,
-    statusLabel,
+  if (d.getHours() === 0 && d.getMinutes() === 0) {
+    return datePart
   }
+  const timePart = `${String(d.getHours()).padStart(2, '0')}:${String(
+    d.getMinutes(),
+  ).padStart(2, '0')}`
+  return `${datePart} · ${timePart}`
+}
+
+function formatBookingCardDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const datePart = d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+  if (d.getHours() === 0 && d.getMinutes() === 0) {
+    return datePart
+  }
+  const timePart = `${String(d.getHours()).padStart(2, '0')}:${String(
+    d.getMinutes(),
+  ).padStart(2, '0')}`
+  return `${datePart} · ${timePart}`
+}
+
+function formatBookingCardTotalAmount(
+  item: BookingItem,
+  currencyFormat: CurrencyFormatOptions,
+): string {
+  const raw = (item.total_amount ?? '').trim()
+  if (!raw) return '—'
+  const amount = Number(raw)
+  if (Number.isNaN(amount)) return raw
+  return formatCurrency(amount, currencyFormat)
+}
+
+function bookingCardIconClass(item: BookingItem): string {
+  const h = stableHash(String(item.id))
+  return CARD_ICONS[h % CARD_ICONS.length]
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -239,15 +217,6 @@ function hexToRgba(hex: string, alpha: number): string {
   const b = parseInt(v.substring(4, 6), 16) || 0
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
-
-const MEMBER_AVATAR_COLORS = [
-  '#1f3a5f',
-  '#52b585',
-  '#f0a830',
-  '#5a8edb',
-  '#d65a5a',
-  '#9c6cd0',
-]
 
 function computeDropIndex(
   e: DragEvent<HTMLElement>,
@@ -276,6 +245,7 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
   return {
     mode: 'edit',
     id: item.id,
+    uniqueId: item.unique_id ?? '',
     statusId: item.status,
     contactId: normalizeContactId(item.contact),
     title: item.title,
@@ -310,6 +280,11 @@ const BookingsPage = () => {
   const [search, setSearch] = useState('')
   const isSearching = search.trim().length > 0
   const [searchParams, setSearchParams] = useSearchParams()
+  const [currencyFormat, setCurrencyFormat] = useState<CurrencyFormatOptions>({
+    currencyCode: 'USD',
+    currencySymbol: '$',
+    locale: 'en-US',
+  })
 
   // --- Data loading --------------------------------------------------------
 
@@ -330,14 +305,18 @@ const BookingsPage = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [cols, itms, tmpls] = await Promise.all([
+      const [cols, itms, tmpls, account] = await Promise.all([
         fetchBookingStatuses(),
         fetchBookingItems(),
         fetchFormTemplates(),
+        fetchCurrentAccount().catch(() => null),
       ])
       setColumns(cols)
       setItems(itms)
       setTemplates(tmpls)
+      if (account) {
+        setCurrencyFormat(currencyFormatFromAccount(account))
+      }
     } catch {
       // silently fail
     } finally {
@@ -1033,12 +1012,22 @@ const BookingsPage = () => {
         itemModal.fields,
         itemModal.extraGroupNames ?? [],
       )
+      const apiGroups =
+        itemModal.id != null
+          ? (items.find((i) => i.id === itemModal.id)?.groups ?? [])
+          : []
+      const total_amount = bookingPriceSummaryTotalAmount(
+        itemModal.fields,
+        itemModal.extraGroupNames ?? [],
+        apiGroups,
+      )
       if (itemModal.mode === 'create') {
         const created = await createBookingItem({
           status: statusId,
           contact,
           title,
           date_of_event,
+          total_amount,
           groups,
           field_values,
           notes,
@@ -1051,6 +1040,7 @@ const BookingsPage = () => {
         const updated = await updateBookingItem(itemModal.id, {
           title,
           date_of_event,
+          total_amount,
           groups,
           field_values,
           notes,
@@ -1118,31 +1108,7 @@ const BookingsPage = () => {
     if (itemModal?.mode === 'edit' && itemModal.id === item.id) {
       return
     }
-    {
-      let dateOfEvent = ''
-      let timeOfEvent = ''
-      if (item.date_of_event) {
-        const d = new Date(item.date_of_event)
-        dateOfEvent = formatYmd(d)
-        timeOfEvent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-      }
-      setItemModal({
-        mode: 'edit',
-        id: item.id,
-        statusId: item.status,
-        contactId: normalizeContactId(item.contact),
-        title: item.title,
-        dateOfEvent,
-        timeOfEvent,
-        fields: fieldValuesToFields(item),
-        extraGroupNames: emptyBookingGroupNamesFromItem(
-          item.field_values ?? [],
-          item.groups ?? [],
-        ),
-        notes: item.notes,
-        pdfUrl: item.pdf_url ?? '',
-      })
-    }
+    setItemModal(bookingItemToEditForm(item))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, searchParams, items, columns])
 
@@ -1282,7 +1248,12 @@ const BookingsPage = () => {
                   aria-hidden="true"
                 />
                 <div className="kanban-card-body">
+                  <p className="kanban-card-booking-id mb-1">{formatBookingId(it)}</p>
                   <p className="kanban-card-title mb-1">{it.title}</p>
+                  <p className="kanban-card-event-date mb-1">
+                    <i className="bi bi-calendar-event me-1" aria-hidden="true" />
+                    {formatBookingEventDate(it)}
+                  </p>
                   {it.notes && (
                     <p className="kanban-card-notes mb-0">{it.notes}</p>
                   )}
@@ -1505,20 +1476,15 @@ const BookingsPage = () => {
                   )
                 }
                 const item = entry.item
-                const columnIndex = columns.findIndex(
-                  (c) => c.id === item.status,
-                )
-                const column =
-                  columnIndex >= 0 ? columns[columnIndex] : undefined
-                const details = deriveBookingCardDetails(
-                  item,
-                  column,
-                  columnIndex,
-                  columns.length,
-                )
+                const column = columns.find((c) => c.id === item.status)
                 const accent = column?.color ?? '#1f3a5f'
-                const avatarCount = Math.min(details.members, 4)
-                const overflow = Math.max(details.members - avatarCount, 0)
+                const iconClass = bookingCardIconClass(item)
+                const subtitle = (column?.title ?? 'Booking').trim()
+                const suppliers = bookingCardSuppliersFromFieldValues(
+                  item.field_values,
+                )
+                const avatarSuppliers = suppliers.slice(0, 4)
+                const avatarOverflow = Math.max(suppliers.length - avatarSuppliers.length, 0)
                 const isDragging = cardsDrag?.itemId === item.id
                 return (
                 <article
@@ -1547,13 +1513,15 @@ const BookingsPage = () => {
                       }}
                       aria-hidden="true"
                     >
-                      <i className={`bi ${details.iconClass}`} />
+                      <i className={`bi ${iconClass}`} />
                     </div>
                     <div className="booking-card-titles">
-                      <p className="booking-card-title mb-0">{item.title}</p>
-                      <p className="booking-card-subtitle mb-0">
-                        {details.subtitle}
+                      <p className="booking-card-booking-id mb-1">
+                        <span className="booking-card-meta-label">Booking ID:</span>{' '}
+                        {formatBookingId(item)}
                       </p>
+                      <p className="booking-card-title mb-0">{item.title}</p>
+                      <p className="booking-card-subtitle mb-0">{subtitle}</p>
                     </div>
                     <button
                       type="button"
@@ -1574,19 +1542,21 @@ const BookingsPage = () => {
                       <p className="mb-1">
                         <span className="booking-card-meta-label">Start:</span>{' '}
                         <span className="booking-card-date booking-card-date--start">
-                          {details.startDate}
+                          {formatBookingCardDate(item.created_at)}
                         </span>
                       </p>
                       <p className="mb-0">
                         <span className="booking-card-meta-label">End:</span>{' '}
                         <span className="booking-card-date booking-card-date--end">
-                          {details.endDate}
+                          {formatBookingCardDate(item.date_of_event)}
                         </span>
                       </p>
                     </div>
                     <div className="booking-card-pricing">
                       <p className="booking-card-meta-label mb-1">Pricing</p>
-                      <p className="booking-card-price mb-0">{details.price}</p>
+                      <p className="booking-card-price mb-0">
+                        {formatBookingCardTotalAmount(item, currencyFormat)}
+                      </p>
                     </div>
                   </div>
 
@@ -1594,52 +1564,32 @@ const BookingsPage = () => {
                     <p className="booking-card-notes mb-0">{item.notes}</p>
                   )}
 
-                  <div className="booking-card-progress-row">
-                    <div
-                      className="booking-card-progress"
-                      role="progressbar"
-                      aria-valuenow={details.progress}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                    >
-                      <span
-                        className={`booking-card-progress-fill booking-card-progress-fill--${details.status}`}
-                        style={{ width: `${details.progress}%` }}
-                      >
-                        <span className="booking-card-progress-label">
-                          {details.progress}%
-                        </span>
-                      </span>
-                    </div>
-                    <span
-                      className={`booking-card-pill booking-card-pill--${details.status}`}
-                    >
-                      {details.statusLabel}
-                    </span>
-                  </div>
-
                   <div className="booking-card-footer">
                     <span className="booking-card-members-count">
-                      <i className="bi bi-people" />
-                      {details.members} Members
+                      <i className="bi bi-building" />
+                      {suppliers.length}{' '}
+                      {suppliers.length === 1 ? 'Supplier' : 'Suppliers'}
                     </span>
                     <span className="booking-card-avatars" aria-hidden="true">
-                      {Array.from({ length: avatarCount }).map((_, i) => {
-                        const color =
-                          MEMBER_AVATAR_COLORS[
-                            (stableHash(String(item.id)) + i) % MEMBER_AVATAR_COLORS.length
-                          ]
-                        return (
-                          <span
-                            key={i}
-                            className="booking-card-avatar"
-                            style={{ backgroundColor: color }}
-                          />
-                        )
-                      })}
-                      {overflow > 0 && (
+                      {avatarSuppliers.map((supplier) => (
+                        <span
+                          key={supplier.supplierId}
+                          className="booking-card-avatar"
+                        >
+                          {supplier.logoUrl ? (
+                            <img
+                              src={supplier.logoUrl}
+                              alt=""
+                              className="booking-card-avatar-img"
+                            />
+                          ) : (
+                            <i className="bi bi-building" />
+                          )}
+                        </span>
+                      ))}
+                      {avatarOverflow > 0 && (
                         <span className="booking-card-avatar booking-card-avatar--more">
-                          {overflow}+
+                          {avatarOverflow}+
                         </span>
                       )}
                     </span>
@@ -1659,11 +1609,11 @@ const BookingsPage = () => {
                 <thead>
                   <tr>
                     <th aria-label="Drag" />
+                    <th>Booking ID</th>
                     <th>Booking</th>
                     <th>Status</th>
                     <th>Status</th>
                     <th>Notes</th>
-                    <th>id</th>
                     <th>Price</th>
                     <th>Date</th>
                     <th className="text-end">Action</th>
@@ -1713,19 +1663,10 @@ const BookingsPage = () => {
                         )
                       }
                       const item = row.item
-                      const columnIndex = columns.findIndex(
-                        (c) => c.id === item.status,
-                      )
-                      const column =
-                        columnIndex >= 0 ? columns[columnIndex] : undefined
-                      const details = deriveBookingCardDetails(
-                        item,
-                        column,
-                        columnIndex,
-                        columns.length,
-                      )
+                      const column = columns.find((c) => c.id === item.status)
                       const isDragging = listDrag?.itemId === item.id
                       const pillColor = column?.color ?? '#1f3a5f'
+                      const statusLabel = (column?.title ?? '—').trim()
                       return (
                         <tr
                           key={item.id}
@@ -1738,6 +1679,7 @@ const BookingsPage = () => {
                           <td className="bookings-list-handle" aria-label="Drag to reorder">
                             <i className="bi bi-arrows-move" />
                           </td>
+                          <td className="bookings-list-id">{formatBookingId(item)}</td>
                           <td className="bookings-list-name">{item.title}</td>
                           <td className="bookings-list-position">
                             {column?.title ?? '—'}
@@ -1747,15 +1689,18 @@ const BookingsPage = () => {
                               className="bookings-list-pill"
                               style={{ color: pillColor, borderColor: pillColor }}
                             >
-                              {details.statusLabel}
+                              {statusLabel}
                             </span>
                           </td>
                           <td className="bookings-list-notes">
                             {item.notes || '—'}
                           </td>
-                          <td className="bookings-list-id">{details.shortId}</td>
-                          <td className="bookings-list-price">{details.price}</td>
-                          <td className="bookings-list-date">{details.longDate}</td>
+                          <td className="bookings-list-price">
+                            {formatBookingCardTotalAmount(item, currencyFormat)}
+                          </td>
+                          <td className="bookings-list-date">
+                            {formatBookingCardDate(item.date_of_event)}
+                          </td>
                           <td className="bookings-list-actions">
                             <button
                               type="button"

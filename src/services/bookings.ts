@@ -54,6 +54,8 @@ export type BookingFieldValueRecord = {
   label: string
   booking_group_id?: number | null
   group_name?: string
+  company?: number | null
+  company_logo_url?: string
   field_type: string
   is_required: boolean
   price: string | null
@@ -69,6 +71,8 @@ export type BookingItemRecord = {
   contact: number | null
   title: string
   date_of_event: string | null
+  total_amount: string
+  total_tax: string
   groups?: BookingGroupRecord[]
   field_values: BookingFieldValueRecord[]
   notes: string
@@ -155,7 +159,13 @@ export async function fetchBookingItem(id: number): Promise<BookingItemRecord> {
 export async function createBookingItem(
   data: Pick<
     BookingItemRecord,
-    'status' | 'title' | 'date_of_event' | 'field_values' | 'notes'
+    | 'status'
+    | 'title'
+    | 'date_of_event'
+    | 'total_amount'
+    | 'total_tax'
+    | 'field_values'
+    | 'notes'
   > & { contact?: number | null; groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl('/api/booking-items/'), {
@@ -176,6 +186,8 @@ export async function updateBookingItem(
       | 'contact'
       | 'title'
       | 'date_of_event'
+      | 'total_amount'
+      | 'total_tax'
       | 'field_values'
       | 'notes'
       | 'sort_order'

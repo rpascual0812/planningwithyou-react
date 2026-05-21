@@ -1,5 +1,6 @@
 import type { BookingField } from '../components/BookingEditModal'
 import type { BookingFieldGroup } from './bookingFieldGroups'
+import { mergeBookingFieldGroups } from './bookingFieldGroups'
 import { parseSupplierFieldValue } from './supplierFieldValue'
 
 export type BookingPriceLine = {
@@ -104,6 +105,25 @@ export function sumBookingPriceLines(lines: BookingPriceLine[]): number {
 
 export function sumBookingPriceGroups(groups: BookingPriceGroup[]): number {
   return groups.reduce((sum, group) => sum + group.subtotal, 0)
+}
+
+/** Grand total shown in the booking editor price summary (same logic as the modal). */
+export function bookingPriceSummaryTotal(
+  fields: BookingField[],
+  extraGroupNames: string[] = [],
+  apiGroups: { id: number; name: string }[] = [],
+): number {
+  const fieldGroups = mergeBookingFieldGroups(fields, extraGroupNames, apiGroups)
+  return sumBookingPriceGroups(getBookingPriceGroups(fieldGroups))
+}
+
+/** Decimal string for ``bookings.total_amount`` API field. */
+export function bookingPriceSummaryTotalAmount(
+  fields: BookingField[],
+  extraGroupNames: string[] = [],
+  apiGroups: { id: number; name: string }[] = [],
+): string {
+  return bookingPriceSummaryTotal(fields, extraGroupNames, apiGroups).toFixed(2)
 }
 
 /** Subtotal per group name (0 when the group has no priced fields). */
