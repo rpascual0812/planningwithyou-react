@@ -11,6 +11,7 @@ export type EmailMergeVariableKey =
   | 'email_address'
   | 'reset_url'
   | 'lifetime'
+  | 'payment_link'
 
 export type EmailMergeVariableDef = {
   key: EmailMergeVariableKey
@@ -31,6 +32,7 @@ export const EMAIL_MERGE_VARIABLES: readonly EmailMergeVariableDef[] = [
   { key: 'email_address', label: 'Email address' },
   { key: 'reset_url', label: 'Reset URL' },
   { key: 'lifetime', label: 'Link lifetime (hours)' },
+  { key: 'payment_link', label: 'Payment link' },
 ]
 
 /** Placeholder token inserted into HTML/text (e.g. for later replacement). */

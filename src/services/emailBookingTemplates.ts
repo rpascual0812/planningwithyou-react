@@ -10,6 +10,7 @@ export type EmailBookingTemplateRecord = {
   body: string
   type: 'bookings'
   is_active: boolean
+  is_default: boolean
   company_id: number | null
   created_at: string
   updated_at: string
@@ -33,6 +34,21 @@ function extractError(body: unknown): string {
     if (Array.isArray(val) && typeof val[0] === 'string') return val[0]
   }
   return ''
+}
+
+/** Default system template for a company (e.g. ``payment_link``). */
+export function findCompanyDefaultBookingTemplate(
+  templates: EmailBookingTemplateRecord[],
+  name: string,
+  companyId: number,
+): EmailBookingTemplateRecord | undefined {
+  return templates.find(
+    (t) =>
+      t.name === name &&
+      t.is_default &&
+      t.is_active &&
+      t.company_id === companyId,
+  )
 }
 
 export async function fetchEmailBookingTemplates(

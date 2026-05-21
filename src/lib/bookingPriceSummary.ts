@@ -117,6 +117,16 @@ export function bookingPriceSummaryTotal(
   return sumBookingPriceGroups(getBookingPriceGroups(fieldGroups))
 }
 
+/** Whether ``bookings.total_amount`` is set to a positive amount. */
+export function bookingStoredTotalAmountHasValue(
+  totalAmount: string | null | undefined,
+): boolean {
+  const raw = (totalAmount ?? '').trim()
+  if (!raw) return false
+  const n = Number(raw)
+  return !Number.isNaN(n) && n > 0
+}
+
 /** Decimal string for ``bookings.total_amount`` API field. */
 export function bookingPriceSummaryTotalAmount(
   fields: BookingField[],

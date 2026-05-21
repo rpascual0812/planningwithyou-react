@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
-import { registerEmailMergeVariablesToolbar, SUBJECT_VARIABLES_ONLY_EDITOR_INIT } from '../../lib/tinymceEmailMergeVariables'
+import type { Editor as TinyMCEEditor } from 'tinymce'
+import DocumentsModal from '../../components/DocumentsModal'
+import {
+  createEmailBodyEditorInit,
+  SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
+} from '../../lib/tinymceEmailMergeVariables'
+import type { DocumentRecord } from '../../services/documents'
 import {
   createEmailBookingTemplate,
   deleteEmailBookingTemplate,
@@ -98,7 +104,7 @@ function toApiPayload(
     subject: normalizeSubject(form.subject),
     body: form.body,
     is_active: form.is_active,
-    ...(mode === 'create' && companyId != null ? { company_id: companyId } : {}),
+    ...(companyId != null ? { company_id: companyId } : {}),
   }
 }
 
@@ -109,41 +115,6 @@ function bodyPreview(body: string, max = 80): string {
     .trim()
   if (!text) return '—'
   return text.length > max ? `${text.slice(0, max)}…` : text
-}
-
-const TEMPLATE_BODY_EDITOR_INIT = {
-  height: 360,
-  menubar: false,
-  toolbar_mode: 'wrap' as const,
-  plugins: [
-    'advlist',
-    'autolink',
-    'lists',
-    'link',
-    'image',
-    'charmap',
-    'preview',
-    'anchor',
-    'searchreplace',
-    'visualblocks',
-    'code',
-    'fullscreen',
-    'insertdatetime',
-    'media',
-    'table',
-    'help',
-    'wordcount',
-  ],
-  toolbar:
-    'undo redo | blocks | bold italic forecolor | ' +
-    'alignleft aligncenter alignright alignjustify | ' +
-    'bullist numlist outdent indent | link image table | ' +
-    'emailmergevars | removeformat code | help',
-  setup: (editor) => {
-    registerEmailMergeVariablesToolbar(editor)
-  },
-  content_style:
-    'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; }',
 }
 
 const EmailTemplatesPanel = ({
@@ -157,6 +128,7 @@ const EmailTemplatesPanel = ({
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
 
   const [templates, setTemplates] = useState<EmailTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -171,8 +143,28 @@ const EmailTemplatesPanel = ({
   const [deleteTarget, setDeleteTarget] = useState<EmailTemplateRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [bodyEditorKey, setBodyEditorKey] = useState(0)
+  const [docsModalOpen, setDocsModalOpen] = useState(false)
+  const bodyEditorRef = useRef<TinyMCEEditor | null>(null)
   const initialSubjectRef = useRef('')
   const initialBodyRef = useRef('')
+
+  const handleDocSelect = (doc: DocumentRecord) => {
+    const editor = bodyEditorRef.current
+    if (!editor) {
+      setDocsModalOpen(false)
+      return
+    }
+    if (doc.is_image) {
+      editor.insertContent(
+        `<img src="${doc.url}" alt="${doc.original_name}" style="max-width:100%;" />`,
+      )
+    } else {
+      editor.insertContent(
+        `<a href="${doc.url}" target="_blank">${doc.original_name}</a>`,
+      )
+    }
+    setDocsModalOpen(false)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -181,6 +173,7 @@ const EmailTemplatesPanel = ({
       .then(([companyRows, user]) => {
         if (cancelled) return
         setCompanies(companyRows)
+        setUserCompanyId(user.company)
         setSelectedCompanyId((prev) => {
           if (prev != null && companyRows.some((c) => c.id === prev)) return prev
           return pickDefaultCompanyId(companyRows, user.company)
@@ -257,16 +250,16 @@ const EmailTemplatesPanel = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editing && selectedCompanyId == null) {
-      setFormError('Select a company before creating a template.')
+    if (userCompanyId == null) {
+      setFormError('Your user account has no company; cannot save templates.')
       return
     }
     setSaving(true)
     setFormError(null)
     try {
       const payload = editing
-        ? toApiPayload(form, 'edit', editing.name)
-        : toApiPayload(form, 'create', undefined, selectedCompanyId)
+        ? toApiPayload(form, 'edit', editing.name, userCompanyId)
+        : toApiPayload(form, 'create', undefined, userCompanyId)
       if (editing) {
         await updateTemplate(editing.id, payload)
       } else {
@@ -298,7 +291,7 @@ const EmailTemplatesPanel = ({
   }
 
   const showFormModal = (composing || editing !== null) && !deleteTarget
-  const canCreate = selectedCompanyId != null && !companiesLoading
+  const canCreate = userCompanyId != null && !companiesLoading
 
   return (
     <div>
@@ -368,7 +361,12 @@ const EmailTemplatesPanel = ({
                 <strong>{t.title || t.name || '—'}</strong>
                 <div className="text-muted small">{t.subject || '—'}</div>
                 <div className="text-muted small">{bodyPreview(t.body)}</div>
-                {!t.is_active && <span className="badge bg-secondary mt-1">Inactive</span>}
+                <div className="d-flex flex-wrap gap-1 mt-1">
+                  {t.is_default && (
+                    <span className="badge bg-light text-dark border">Default</span>
+                  )}
+                  {!t.is_active && <span className="badge bg-secondary">Inactive</span>}
+                </div>
               </div>
               <div className="d-flex gap-1" onClick={(e) => e.stopPropagation()}>
                 <button
@@ -378,13 +376,16 @@ const EmailTemplatesPanel = ({
                 >
                   <i className="bi bi-pencil" />
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-danger"
-                  onClick={() => setDeleteTarget(t)}
-                >
-                  <i className="bi bi-trash" />
-                </button>
+                {!t.is_default && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => setDeleteTarget(t)}
+                    aria-label={`Delete ${t.title || t.name}`}
+                  >
+                    <i className="bi bi-trash" />
+                  </button>
+                )}
               </div>
             </button>
           ))}
@@ -437,9 +438,15 @@ const EmailTemplatesPanel = ({
                       key={`body-${typeLabel}-${bodyEditorKey}`}
                       tinymceScriptSrc="/tinymce/tinymce.min.js"
                       licenseKey="gpl"
+                      onInit={(_evt, editor) => {
+                        bodyEditorRef.current = editor
+                      }}
                       initialValue={initialBodyRef.current}
                       onEditorChange={(content) => setField('body', content)}
-                      init={TEMPLATE_BODY_EDITOR_INIT}
+                      init={createEmailBodyEditorInit({
+                        height: 360,
+                        onOpenDocuments: () => setDocsModalOpen(true),
+                      })}
                     />
                   </div>
                   <div className="form-check">
@@ -471,6 +478,13 @@ const EmailTemplatesPanel = ({
 
       {showFormModal && (
         <div className="modal-backdrop fade show" aria-hidden="true" onClick={closeModal} />
+      )}
+
+      {docsModalOpen && (
+        <DocumentsModal
+          onSelect={handleDocSelect}
+          onClose={() => setDocsModalOpen(false)}
+        />
       )}
 
       {deleteTarget && (

@@ -258,6 +258,7 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     ),
     notes: item.notes,
     pdfUrl: item.pdf_url ?? '',
+    totalAmount: item.total_amount ?? '',
   }
 }
 
@@ -887,6 +888,7 @@ const BookingsPage = () => {
       timeOfEvent: '',
       fields: [],
       notes: '',
+      totalAmount: '',
     })
   }
 
@@ -1034,7 +1036,18 @@ const BookingsPage = () => {
         })
         setItems((prev) => [...prev, created])
         if (!closeAfterSave) {
-          openEditItem(created)
+          setItemModal({
+            ...bookingItemToEditForm(created),
+            totalAmount: (created.total_amount ?? total_amount).trim() || total_amount,
+          })
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev)
+              next.set(EDIT_PARAM, String(created.id))
+              return next
+            },
+            { replace: true },
+          )
         }
       } else if (itemModal.id) {
         const updated = await updateBookingItem(itemModal.id, {
@@ -1051,7 +1064,10 @@ const BookingsPage = () => {
           prev.map((it) => (it.id === updated.id ? updated : it)),
         )
         if (!closeAfterSave) {
-          setItemModal(bookingItemToEditForm(updated))
+          setItemModal({
+            ...bookingItemToEditForm(updated),
+            totalAmount: (updated.total_amount ?? total_amount).trim() || total_amount,
+          })
         }
       }
       clearBookingDraft(itemModal.id)

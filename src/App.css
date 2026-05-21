@@ -7349,6 +7349,150 @@ body,
   z-index: 1340;
 }
 
+/* Booking payments modal (above booking edit, below email when opened from payments) */
+.booking-payments-modal-backdrop {
+  z-index: 1330;
+}
+
+.booking-payments-modal.modal {
+  z-index: 1340;
+}
+
+.booking-payments-table-card {
+  border: 1px solid rgba(31, 58, 95, 0.08);
+  border-radius: 0.5rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+.booking-payments-table-scroll {
+  overflow-x: auto;
+}
+
+.booking-payments-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
+}
+
+.booking-payments-table thead th {
+  color: #111827;
+  font-weight: 700;
+  padding: 0.95rem 1rem;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(31, 58, 95, 0.08);
+}
+
+.booking-payments-table tbody td {
+  padding: 0.9rem 1rem;
+  color: #374151;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(31, 58, 95, 0.05);
+  white-space: nowrap;
+}
+
+.booking-payments-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.booking-payments-table tbody tr:hover {
+  background: rgba(82, 181, 133, 0.04);
+}
+
+.booking-payments-table-empty-wrap {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.booking-payments-table-empty {
+  text-align: center;
+  color: #6b7785 !important;
+  font-weight: 500;
+  padding: 1.5rem !important;
+}
+
+.booking-payments-table-email,
+.booking-payments-table-date {
+  color: #374151;
+  font-weight: 500;
+}
+
+.booking-payments-table-id {
+  color: #1f3a5f;
+  font-weight: 700;
+}
+
+.booking-payments-table-id-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.booking-payments-table-id-link:hover {
+  text-decoration: underline;
+}
+
+.booking-payments-table-amount {
+  color: #c9a227;
+  font-weight: 800;
+}
+
+.booking-payments-th-actions {
+  text-align: center;
+  width: 130px;
+}
+
+.booking-payments-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.booking-payments-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 0.35rem;
+  color: #fff;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+
+.booking-payments-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.booking-payments-action-btn--open {
+  background: #3b7dd8;
+}
+
+.booking-payments-action-btn--open:not(:disabled):hover {
+  filter: brightness(0.92);
+}
+
+.booking-payments-action-btn--delete {
+  background: #d65a5a;
+}
+
+.booking-payments-action-btn--delete:not(:disabled):hover {
+  filter: brightness(0.92);
+}
+
+.booking-payments-action-btn--edit {
+  background: var(--brand-green);
+}
+
+.booking-payments-action-btn--edit:not(:disabled):hover {
+  filter: brightness(0.92);
+}
+
 .docs-grid-area {
   min-height: 200px;
   max-height: 420px;
@@ -7542,4 +7686,52 @@ body,
 
 .packages-modal-item-row--depth-3 .packages-modal-item-tree-icon {
   color: rgba(var(--bs-primary-rgb), 0.4);
+}
+
+/* --- Public payment page ------------------------------------------------ */
+.public-pay-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: linear-gradient(160deg, #f4f7fb 0%, #e8eef5 100%);
+}
+
+.public-pay-card {
+  width: 100%;
+  max-width: 28rem;
+  background: #fff;
+  border: 1px solid var(--brand-border, #dee2e6);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 8px 24px rgba(31, 58, 95, 0.08);
+}
+
+.public-pay-card__eyebrow {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand-navy, #1f3a5f);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.public-pay-breakdown td {
+  border: none;
+  padding: 0.35rem 0;
+}
+
+.booking-payment-links__title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--brand-navy, #1f3a5f);
+}
+
+.booking-payment-links__item {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--brand-border, #dee2e6);
+}
+
+.booking-payment-links__item:first-child {
+  border-top: none;
 }

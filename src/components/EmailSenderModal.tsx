@@ -4,14 +4,16 @@ import type { Editor as TinyMCEEditor } from 'tinymce'
 import type { EmailRecord, EmailPayload } from '../services/emails'
 import {
   fetchEmailBookingTemplates,
+  findCompanyDefaultBookingTemplate,
   type EmailBookingTemplateRecord,
 } from '../services/emailBookingTemplates'
 import { fetchMe } from '../services/users'
 import DocumentsModal from './DocumentsModal'
 import type { DocumentRecord } from '../services/documents'
+import { applyPaymentLinkPlaceholder } from '../lib/applyEmailMergeVariables'
 import { hasMeaningfulEmailBody } from '../lib/emailBody'
 import {
-  registerEmailMergeVariablesToolbar,
+  createEmailBodyEditorInit,
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
 } from '../lib/tinymceEmailMergeVariables'
 
@@ -120,6 +122,12 @@ export type EmailSenderModalProps = {
   composeDefaults?: Partial<EmailPayload>
   /** Separate localStorage draft key for compose mode (e.g. per booking). */
   draftScope?: string
+  /** Apply this booking template (``name``) when templates load. */
+  initialBookingTemplateName?: string
+  /** Replace ``{payment_link}`` in subject/body on send. */
+  paymentLinkUrl?: string
+  /** Scope booking templates to the logged-in user's company. */
+  bookingTemplateCompanyId?: number | null
 }
 
 const EMPTY_FORM: EmailPayload = {
@@ -190,6 +198,9 @@ const EmailSenderModal = ({
   onClose,
   composeDefaults,
   draftScope,
+  initialBookingTemplateName,
+  paymentLinkUrl,
+  bookingTemplateCompanyId,
 }: EmailSenderModalProps) => {
   const isCompose = !email
   const storageKey = draftKey(email, draftScope)
@@ -211,6 +222,7 @@ const EmailSenderModal = ({
   const [bookingTemplates, setBookingTemplates] = useState<EmailBookingTemplateRecord[]>([])
   const [bookingTemplatesLoading, setBookingTemplatesLoading] = useState(false)
   const [selectedBookingTemplateId, setSelectedBookingTemplateId] = useState('')
+  const initialTemplateAppliedRef = useRef(false)
 
   const activeBookingTemplates = useMemo(
     () => bookingTemplates.filter((t) => t.is_active),
@@ -221,7 +233,10 @@ const EmailSenderModal = ({
     if (!isCompose) return
     let cancelled = false
     setBookingTemplatesLoading(true)
-    fetchEmailBookingTemplates()
+    fetchEmailBookingTemplates(
+      '',
+      bookingTemplateCompanyId != null ? bookingTemplateCompanyId : undefined,
+    )
       .then((rows) => {
         if (!cancelled) setBookingTemplates(rows)
       })
@@ -234,7 +249,7 @@ const EmailSenderModal = ({
     return () => {
       cancelled = true
     }
-  }, [isCompose])
+  }, [isCompose, bookingTemplateCompanyId])
 
   useEffect(() => {
     let cancelled = false
@@ -321,6 +336,37 @@ const EmailSenderModal = ({
     setEditorKey((k) => k + 1)
   }
 
+  useEffect(() => {
+    if (
+      !isCompose ||
+      !initialBookingTemplateName ||
+      bookingTemplatesLoading ||
+      bookingTemplateCompanyId == null
+    ) {
+      return
+    }
+    if (initialTemplateAppliedRef.current) {
+      return
+    }
+    const template = findCompanyDefaultBookingTemplate(
+      bookingTemplates,
+      initialBookingTemplateName,
+      bookingTemplateCompanyId,
+    )
+    if (!template) {
+      return
+    }
+    initialTemplateAppliedRef.current = true
+    applyBookingTemplate(template)
+    setSelectedBookingTemplateId(String(template.id))
+  }, [
+    isCompose,
+    initialBookingTemplateName,
+    bookingTemplates,
+    bookingTemplatesLoading,
+    bookingTemplateCompanyId,
+  ])
+
   const handleBookingTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value
     setSelectedBookingTemplateId(value)
@@ -351,7 +397,16 @@ const EmailSenderModal = ({
     }
     setValidationError(null)
     clearDraft(storageKey)
-    onSend({ ...form, body })
+    const url = (paymentLinkUrl ?? '').trim()
+    let payload: EmailPayload = { ...form, body }
+    if (url) {
+      payload = {
+        ...payload,
+        subject: applyPaymentLinkPlaceholder(payload.subject ?? '', url),
+        body: applyPaymentLinkPlaceholder(body, url),
+      }
+    }
+    onSend(payload)
   }
 
   // Escape to close
@@ -524,33 +579,10 @@ const EmailSenderModal = ({
                       return next
                     })
                   }}
-                  init={{
+                  init={createEmailBodyEditorInit({
                     height: 350,
-                    menubar: false,
-                    toolbar_mode: 'wrap',
-                    plugins: [
-                      'advlist', 'autolink', 'lists', 'link', 'image',
-                      'charmap', 'preview', 'anchor', 'searchreplace',
-                      'visualblocks', 'code', 'fullscreen',
-                      'insertdatetime', 'media', 'table', 'help',
-                      'wordcount',
-                    ],
-                    toolbar:
-                      'undo redo | blocks | bold italic forecolor | ' +
-                      'alignleft aligncenter alignright alignjustify | ' +
-                      'bullist numlist outdent indent | link image table | ' +
-                      'documents emailmergevars | removeformat code | help',
-                    setup: (editor) => {
-                      editor.ui.registry.addButton('documents', {
-                        icon: 'browse',
-                        tooltip: 'Insert from Documents',
-                        onAction: () => setDocsMode('insert'),
-                      })
-                      registerEmailMergeVariablesToolbar(editor)
-                    },
-                    content_style:
-                      'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; }',
-                  }}
+                    onOpenDocuments: () => setDocsMode('insert'),
+                  })}
                 />
               </div>
 

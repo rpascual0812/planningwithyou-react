@@ -6,6 +6,35 @@ import {
 } from '../constants/emailMergeVariables'
 
 const MENU_BUTTON_ID = 'emailmergevars'
+const DOCUMENTS_BUTTON_ID = 'documents'
+
+export const EMAIL_BODY_EDITOR_PLUGINS = [
+  'advlist',
+  'autolink',
+  'lists',
+  'link',
+  'charmap',
+  'preview',
+  'anchor',
+  'searchreplace',
+  'visualblocks',
+  'code',
+  'fullscreen',
+  'insertdatetime',
+  'media',
+  'table',
+  'help',
+  'wordcount',
+] as const
+
+export const EMAIL_BODY_EDITOR_TOOLBAR =
+  'undo redo | blocks | bold italic forecolor | ' +
+  'alignleft aligncenter alignright alignjustify | ' +
+  'bullist numlist outdent indent | link table | ' +
+  'documents emailmergevars | removeformat code | help'
+
+export const EMAIL_BODY_CONTENT_STYLE =
+  'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 14px; }'
 
 /**
  * Registers a TinyMCE toolbar menu button that lists merge variables and inserts
@@ -27,6 +56,42 @@ export function registerEmailMergeVariablesToolbar(editor: Editor): void {
       )
     },
   })
+}
+
+/** Toolbar button that opens the Documents picker (caller handles insert). */
+export function registerEmailDocumentsToolbar(
+  editor: Editor,
+  onOpenDocuments: () => void,
+): void {
+  editor.ui.registry.addButton(DOCUMENTS_BUTTON_ID, {
+    icon: 'browse',
+    tooltip: 'Insert from Documents',
+    onAction: onOpenDocuments,
+  })
+}
+
+export type EmailBodyEditorInitOptions = {
+  height?: number
+  onOpenDocuments: () => void
+}
+
+/** Shared TinyMCE init for email HTML bodies (no image plugin/button). */
+export function createEmailBodyEditorInit(options: EmailBodyEditorInitOptions) {
+  const height = options.height ?? 350
+  return {
+    height,
+    menubar: false,
+    toolbar_mode: 'wrap' as const,
+    plugins: [...EMAIL_BODY_EDITOR_PLUGINS],
+    toolbar: EMAIL_BODY_EDITOR_TOOLBAR,
+    branding: false,
+    promotion: false,
+    content_style: EMAIL_BODY_CONTENT_STYLE,
+    setup: (editor: Editor) => {
+      registerEmailDocumentsToolbar(editor, options.onOpenDocuments)
+      registerEmailMergeVariablesToolbar(editor)
+    },
+  }
 }
 
 export const EMAIL_MERGE_VARS_TOOLBAR_ITEM = MENU_BUTTON_ID

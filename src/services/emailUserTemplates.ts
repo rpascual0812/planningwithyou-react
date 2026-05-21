@@ -10,6 +10,7 @@ export type EmailUserTemplateRecord = {
   body: string
   type: 'users'
   is_active: boolean
+  is_default: boolean
   company_id: number | null
   created_at: string
   updated_at: string

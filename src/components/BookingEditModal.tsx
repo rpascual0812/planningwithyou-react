@@ -12,6 +12,7 @@ import {
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
 import {
+  bookingStoredTotalAmountHasValue,
   getBookingGroupSubtotalMap,
   getBookingPriceGroups,
   resolveBookingFieldPriceRaw,
@@ -24,6 +25,7 @@ import {
   formatCurrency,
   type CurrencyFormatOptions,
 } from '../utils/currency'
+import BookingPaymentsModal from './BookingPaymentsModal'
 import ContactFormModal from './ContactFormModal'
 import SupplierFieldInput from './SupplierFieldInput'
 import {
@@ -47,6 +49,8 @@ import {
   formatContactAddress,
 } from '../lib/contactDisplay'
 import EmailSenderModal from './EmailSenderModal'
+import { applyPaymentLinkPlaceholder } from '../lib/applyEmailMergeVariables'
+import { fetchBookingPaymentLinks } from '../services/bookingPaymentLinks'
 import { sendEmail, type EmailPayload } from '../services/emails'
 import { fetchBookingItem } from '../services/bookings'
 import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
@@ -87,6 +91,8 @@ export type BookingFormState = {
   notes: string
   /** Public URL for the generated booking quote PDF, when available. */
   pdfUrl?: string
+  /** Persisted ``bookings.total_amount`` (set after save). */
+  totalAmount?: string
 }
 
 export type BookingStatus = {
@@ -212,7 +218,12 @@ const BookingEditModal = ({
   const [addContactError, setAddContactError] = useState<string | null>(null)
   const [addContactSaving, setAddContactSaving] = useState(false)
   const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+  const [paymentsModalOpen, setPaymentsModalOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
+  const [emailPaymentLinkMode, setEmailPaymentLinkMode] = useState(false)
+  const [paymentLinkUrlForEmail, setPaymentLinkUrlForEmail] = useState<string | null>(
+    null,
+  )
   const [emailSending, setEmailSending] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [pdfDownloading, setPdfDownloading] = useState(false)
@@ -390,7 +401,32 @@ const BookingEditModal = ({
     }
   }, [selectedContact, form.title, form.pdfUrl])
 
+  const paymentLinkEmailDefaults = useMemo((): Partial<EmailPayload> => {
+    const to = selectedContact?.email?.trim()
+    return {
+      to: to ? [to] : [],
+      subject: '',
+      body: '',
+      attachments: [],
+    }
+  }, [selectedContact])
+
+  const openPaymentLinkEmailModal = (link: { public_url: string }) => {
+    const to = selectedContact?.email?.trim()
+    if (!to) {
+      showErrorToast('Add a contact with an email address before sending the payment link.')
+      return
+    }
+    setEmailError(null)
+    setPaymentLinkUrlForEmail(link.public_url)
+    setEmailPaymentLinkMode(true)
+    setPaymentsModalOpen(false)
+    setEmailModalOpen(true)
+  }
+
   const openBookingEmailModal = async () => {
+    setEmailPaymentLinkMode(false)
+    setPaymentLinkUrlForEmail(null)
     setEmailError(null)
     if (form.id) {
       try {
@@ -450,8 +486,35 @@ const BookingEditModal = ({
     setEmailSending(true)
     setEmailError(null)
     try {
-      await sendEmail(data)
+      let payload = data
+      const explicitPaymentUrl = (paymentLinkUrlForEmail ?? '').trim()
+      if (explicitPaymentUrl) {
+        payload = {
+          ...data,
+          subject: applyPaymentLinkPlaceholder(data.subject, explicitPaymentUrl),
+          body: applyPaymentLinkPlaceholder(data.body, explicitPaymentUrl),
+        }
+      } else if (form.id != null) {
+        let paymentUrl = ''
+        try {
+          const links = await fetchBookingPaymentLinks(form.id)
+          const pending = links.find((l) => l.status === 'pending')
+          paymentUrl = (pending ?? links[0])?.public_url ?? ''
+        } catch {
+          paymentUrl = ''
+        }
+        if (paymentUrl) {
+          payload = {
+            ...data,
+            subject: applyPaymentLinkPlaceholder(data.subject, paymentUrl),
+            body: applyPaymentLinkPlaceholder(data.body, paymentUrl),
+          }
+        }
+      }
+      await sendEmail(payload)
       setEmailModalOpen(false)
+      setEmailPaymentLinkMode(false)
+      setPaymentLinkUrlForEmail(null)
       showSuccessToast('Email queued for delivery.')
     } catch (err) {
       setEmailError(err instanceof Error ? err.message : 'Failed to send email')
@@ -580,6 +643,17 @@ const BookingEditModal = ({
     () => getBookingPriceGroups(fieldGroups),
     [fieldGroups],
   )
+  const showPaymentsButton =
+    form.mode === 'edit' &&
+    form.id != null &&
+    bookingStoredTotalAmountHasValue(form.totalAmount)
+
+  const storedBookingTotal = useMemo(() => {
+    const raw = (form.totalAmount ?? '').trim()
+    const n = Number(raw)
+    return !Number.isNaN(n) && n > 0 ? n : 0
+  }, [form.totalAmount])
+
   const priceTotal = useMemo(
     () => sumBookingPriceGroups(priceGroups),
     [priceGroups],
@@ -1600,6 +1674,16 @@ const BookingEditModal = ({
                 {form.mode === 'edit' && (
                   <>
                     <div className="booking-edit-modal-footer__send">
+                      {showPaymentsButton && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary"
+                          onClick={() => setPaymentsModalOpen(true)}
+                        >
+                          <i className="bi bi-credit-card me-1" aria-hidden="true" />
+                          Payments
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn-outline-secondary"
@@ -1766,16 +1850,40 @@ const BookingEditModal = ({
         </>
       )}
 
+      {paymentsModalOpen && form.mode === 'edit' && form.id != null && (
+        <BookingPaymentsModal
+          bookingId={form.id}
+          bookingTotal={storedBookingTotal}
+          contactEmail={selectedContact?.email?.trim() ?? ''}
+          currencyOptions={currencyOptions}
+          onClose={() => setPaymentsModalOpen(false)}
+          onSendToCustomer={openPaymentLinkEmailModal}
+        />
+      )}
+
       {emailModalOpen && (
         <EmailSenderModal
-          key={`booking-email-${form.id ?? 'new'}`}
+          key={`booking-email-${form.id ?? 'new'}-${emailPaymentLinkMode ? 'payment-link' : 'general'}`}
           error={emailError}
           sending={emailSending}
-          composeDefaults={bookingEmailDefaults}
-          draftScope={`booking-${form.id ?? 'new'}`}
+          composeDefaults={
+            emailPaymentLinkMode ? paymentLinkEmailDefaults : bookingEmailDefaults
+          }
+          draftScope={
+            emailPaymentLinkMode
+              ? `booking-${form.id}-payment-link`
+              : `booking-${form.id ?? 'new'}`
+          }
+          initialBookingTemplateName={
+            emailPaymentLinkMode ? 'payment_link' : undefined
+          }
+          paymentLinkUrl={paymentLinkUrlForEmail ?? undefined}
+          bookingTemplateCompanyId={userCompanyId}
           onSend={handleBookingEmailSend}
           onClose={() => {
             setEmailModalOpen(false)
+            setEmailPaymentLinkMode(false)
+            setPaymentLinkUrlForEmail(null)
             setEmailError(null)
           }}
         />
