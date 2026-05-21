@@ -79,6 +79,12 @@ const Sidebar = () => {
                 <p>Settings</p>
               </NavLink>
             </li>
+            <li className="nav-item">
+              <NavLink to="/admin" className={linkClassName}>
+                <i className="nav-icon bi bi-shield-lock" />
+                <p>Admin</p>
+              </NavLink>
+            </li>
           </ul>
         </nav>
       </div>

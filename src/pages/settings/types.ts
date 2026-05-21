@@ -13,3 +13,14 @@ export type SettingsNavItem = {
   label: string
   icon: string
 }
+
+export type AdminSection =
+  | 'kyb'
+  | 'emails'
+  | 'support'
+
+export type AdminNavItem = {
+  id: AdminSection
+  label: string
+  icon: string
+}

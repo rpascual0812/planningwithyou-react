@@ -331,7 +331,7 @@ const BookingEditModal = ({
   const handleAddContactSave = async () => {
     setAddContactError(null)
     const validated = validateContactPayload(addContactForm)
-    if (!validated.ok) {
+    if (validated.ok === false) {
       setAddContactError(validated.error)
       return
     }

@@ -15,6 +15,7 @@ import { hasStoredSession } from './services/auth'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
+import AdminPage from './pages/settings/AdminPage'
 
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const BookingsPage = lazy(() => import('./pages/BookingsPage'))
@@ -137,6 +138,7 @@ function DashboardLayout() {
     '/profile': 'Edit Profile',
     '/reports': 'Reports',
     '/settings': 'Setting',
+    '/admin': 'Admin',
   }
 
   const pageTitle = pageTitleByPath[location.pathname] ?? 'Dashboard'
@@ -210,6 +212,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Route>
 
