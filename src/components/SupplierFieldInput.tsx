@@ -39,8 +39,12 @@ function supplierCapacityErrorMessage(supplierName: string): string {
 
 type SupplierFieldInputProps = {
   value: string
-  /** Second argument is tier price for ``booking_items.price``. */
-  onChange: (value: string, price?: string | null) => void
+  /** Tier price and package required downpayment for booking totals. */
+  onChange: (
+    value: string,
+    price?: string | null,
+    packageRequiredDownpayment?: string | null,
+  ) => void
   required?: boolean
   /** Booking form ``Date of Booking`` (YYYY-MM-DD). */
   dateOfEvent?: string
@@ -180,13 +184,17 @@ export default function SupplierFieldInput({
     }
   }, [parsed.supplier_id])
 
-  const emit = (next: SupplierFieldValue) => {
+  const emit = (
+    next: SupplierFieldValue,
+    packageRequiredDownpayment?: string | null,
+  ) => {
     onChange(
       serializeSupplierFieldValue({
         tier_id: next.tier_id,
         supplier_id: next.supplier_id,
       }),
       next.price ?? null,
+      packageRequiredDownpayment ?? null,
     )
   }
 
@@ -244,11 +252,14 @@ export default function SupplierFieldInput({
   const handleTierChange = (tierId: string) => {
     const tier_id = tierId === '' ? null : Number(tierId)
     const tier = tier_id == null ? null : tiers.find((t) => t.id === tier_id)
-    emit({
-      supplier_id: parsed.supplier_id,
-      tier_id,
-      price: tier?.price ?? null,
-    })
+    emit(
+      {
+        supplier_id: parsed.supplier_id,
+        tier_id,
+        price: tier?.price ?? null,
+      },
+      tier?.required_downpayment_amount ?? null,
+    )
   }
 
   const supplierStillValid =

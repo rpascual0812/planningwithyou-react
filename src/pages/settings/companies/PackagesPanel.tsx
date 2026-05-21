@@ -172,6 +172,7 @@ const PackagesPanel = () => {
   const [packageTierId, setPackageTierId] = useState<number | null>(null)
   const [description, setDescription] = useState('')
   const [totalPrice, setTotalPrice] = useState('')
+  const [requiredDownpayment, setRequiredDownpayment] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
@@ -313,6 +314,7 @@ const PackagesPanel = () => {
     setPackageTierId(selectedTierId)
     setDescription('')
     setTotalPrice('')
+    setRequiredDownpayment('')
     setIsActive(packages.length === 0)
     resetPackageItemFields()
     setFormError(null)
@@ -324,6 +326,7 @@ const PackagesPanel = () => {
     setPackageTierId(pkg.tier)
     setDescription(pkg.description)
     setTotalPrice(pkg.total_price)
+    setRequiredDownpayment(pkg.required_downpayment_amount ?? '')
     setIsActive(pkg.is_active)
     resetPackageItemFields()
     setFormError(null)
@@ -331,6 +334,7 @@ const PackagesPanel = () => {
     try {
       const full = await fetchPackage(pkg.id)
       setSavedItems(recordsToDrafts(full.items ?? []))
+      setRequiredDownpayment(full.required_downpayment_amount ?? '')
     } catch (e) {
       showErrorToast(e instanceof Error ? e.message : 'Failed to load package items')
     }
@@ -451,6 +455,19 @@ const PackagesPanel = () => {
       setFormError('Enter a valid total price (0 or greater).')
       return
     }
+    const downpaymentStr = requiredDownpayment.trim()
+    let downpaymentNum = 0
+    if (downpaymentStr) {
+      downpaymentNum = Number.parseFloat(downpaymentStr)
+      if (Number.isNaN(downpaymentNum) || downpaymentNum < 0) {
+        setFormError('Enter a valid downpayment (0 or greater).')
+        return
+      }
+      if (downpaymentNum >= priceNum) {
+        setFormError('Downpayment must be less than total price.')
+        return
+      }
+    }
     if (!editing && selectedCompanyId == null) {
       setFormError('Select a company first.')
       return
@@ -466,6 +483,7 @@ const PackagesPanel = () => {
       tier: packageTierId,
       description: description.trim(),
       total_price: priceNum.toFixed(2),
+      required_downpayment_amount: downpaymentNum.toFixed(2),
       is_active: isActive,
       items: itemsToPayload(savedItems),
     }
@@ -859,6 +877,20 @@ const PackagesPanel = () => {
                       step="0.01"
                       value={totalPrice}
                       onChange={(e) => setTotalPrice(e.target.value)}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="package-required-downpayment">
+                      Downpayment
+                    </label>
+                    <input
+                      id="package-required-downpayment"
+                      type="number"
+                      className="form-control"
+                      min={0}
+                      step="0.01"
+                      value={requiredDownpayment}
+                      onChange={(e) => setRequiredDownpayment(e.target.value)}
                     />
                   </div>
                   <div className="form-check">

@@ -59,9 +59,11 @@ export type BookingFieldValueRecord = {
   field_type: string
   is_required: boolean
   price: string | null
+  required_downpayment?: string | null
   value: string
   options: { label: string; price: string | null; sort_order: number }[]
   sort_order: number
+  package_required_downpayment_amount?: string
 }
 
 export type BookingItemRecord = {
@@ -72,7 +74,8 @@ export type BookingItemRecord = {
   title: string
   date_of_event: string | null
   total_amount: string
-  total_tax: string
+  required_downpayment_amount: string
+  package_required_downpayment_amount?: string
   groups?: BookingGroupRecord[]
   field_values: BookingFieldValueRecord[]
   notes: string
@@ -163,7 +166,7 @@ export async function createBookingItem(
     | 'title'
     | 'date_of_event'
     | 'total_amount'
-    | 'total_tax'
+    | 'required_downpayment_amount'
     | 'field_values'
     | 'notes'
   > & { contact?: number | null; groups?: BookingGroupWrite[] },
@@ -187,7 +190,7 @@ export async function updateBookingItem(
       | 'title'
       | 'date_of_event'
       | 'total_amount'
-      | 'total_tax'
+      | 'required_downpayment_amount'
       | 'field_values'
       | 'notes'
       | 'sort_order'

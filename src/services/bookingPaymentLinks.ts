@@ -30,6 +30,19 @@ export type BookingPaymentLinkRecord = {
   created_at: string
 }
 
+export type BookingPaymentSummary = {
+  total_amount: string
+  required_downpayment_amount: string
+  paid_amount: string
+  remaining_amount: string
+  has_paid_payment: boolean
+}
+
+export type BookingPaymentLinksResponse = {
+  links: BookingPaymentLinkRecord[]
+  summary: BookingPaymentSummary
+}
+
 export type PublicPaymentLinkRecord = {
   token: string
   status: string
@@ -51,7 +64,7 @@ export type PublicPaymentLinkRecord = {
 
 export async function fetchBookingPaymentLinks(
   bookingId: number,
-): Promise<BookingPaymentLinkRecord[]> {
+): Promise<BookingPaymentLinksResponse> {
   const res = await apiFetch(
     buildApiUrl(`/api/booking-items/${bookingId}/payment-links/`),
     { headers: authHeaders() },
@@ -84,13 +97,14 @@ export async function cancelBookingPaymentLink(
 
 export async function createBookingPaymentLink(
   bookingId: number,
+  amount: number,
 ): Promise<BookingPaymentLinkRecord> {
   const res = await apiFetch(
     buildApiUrl(`/api/booking-items/${bookingId}/payment-links/`),
     {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({}),
+      body: JSON.stringify({ amount: amount.toFixed(2) }),
     },
   )
   if (!res.ok) {

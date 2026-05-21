@@ -44,7 +44,12 @@ import {
   emptyBookingGroupNamesFromItem,
 } from '../lib/bookingFieldGroups'
 import { bookingCardSuppliersFromFieldValues } from '../lib/bookingCardSuppliers'
-import { bookingPriceSummaryTotalAmount } from '../lib/bookingPriceSummary'
+import {
+  bookingPriceSummaryRequiredDownpaymentAmount,
+  bookingPriceSummaryTotalAmount,
+  validateBookingFieldDownpayment,
+  validateBookingSupplierFieldDownpayment,
+} from '../lib/bookingPriceSummary'
 import { normalizeContactId } from '../lib/contactDisplay'
 import {
   currencyFormatFromAccount,
@@ -76,9 +81,15 @@ function fieldValuesToFields(item: BookingItem): BookingField[] {
         sort_order: o.sort_order,
       })),
       price: stored.price,
+      requiredDownpayment:
+        fieldType === 'supplier' ? null : (fv.required_downpayment ?? null),
       sort_order: fv.sort_order,
       saved: true,
       value: stored.value,
+      packageRequiredDownpayment:
+        fieldType === 'supplier'
+          ? (fv.package_required_downpayment_amount ?? null)
+          : null,
     }
   })
 }
@@ -97,6 +108,8 @@ function fieldsToFieldValues(fields: BookingField[]) {
         field_type: f.field_type,
         is_required: f.is_required,
         price: stored.price,
+        required_downpayment:
+          f.field_type === 'supplier' ? null : f.requiredDownpayment ?? null,
         value: stored.value,
         options: f.options.map((o, oi) => ({
           label: o.label,
@@ -259,6 +272,7 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     notes: item.notes,
     pdfUrl: item.pdf_url ?? '',
     totalAmount: item.total_amount ?? '',
+    requiredDownpaymentAmount: item.required_downpayment_amount ?? '',
   }
 }
 
@@ -1008,6 +1022,20 @@ const BookingsPage = () => {
       return
     }
 
+    for (const field of itemModal.fields) {
+      if (!field.saved) continue
+      const downpaymentError =
+        field.field_type === 'supplier'
+          ? validateBookingSupplierFieldDownpayment(field)
+          : validateBookingFieldDownpayment(field)
+      if (downpaymentError) {
+        showErrorToast(
+          `${field.label.trim() || 'Field'}: ${downpaymentError}`,
+        )
+        return
+      }
+    }
+
     try {
       const field_values = fieldsToFieldValues(itemModal.fields)
       const groups = buildBookingGroupsPayload(
@@ -1023,6 +1051,9 @@ const BookingsPage = () => {
         itemModal.extraGroupNames ?? [],
         apiGroups,
       )
+      const required_downpayment_amount = bookingPriceSummaryRequiredDownpaymentAmount(
+        itemModal.fields,
+      )
       if (itemModal.mode === 'create') {
         const created = await createBookingItem({
           status: statusId,
@@ -1030,6 +1061,7 @@ const BookingsPage = () => {
           title,
           date_of_event,
           total_amount,
+          required_downpayment_amount,
           groups,
           field_values,
           notes,
@@ -1039,6 +1071,9 @@ const BookingsPage = () => {
           setItemModal({
             ...bookingItemToEditForm(created),
             totalAmount: (created.total_amount ?? total_amount).trim() || total_amount,
+            requiredDownpaymentAmount:
+              (created.required_downpayment_amount ?? required_downpayment_amount).trim() ||
+              required_downpayment_amount,
           })
           setSearchParams(
             (prev) => {
@@ -1054,6 +1089,7 @@ const BookingsPage = () => {
           title,
           date_of_event,
           total_amount,
+          required_downpayment_amount,
           groups,
           field_values,
           notes,
@@ -1067,6 +1103,9 @@ const BookingsPage = () => {
           setItemModal({
             ...bookingItemToEditForm(updated),
             totalAmount: (updated.total_amount ?? total_amount).trim() || total_amount,
+            requiredDownpaymentAmount:
+              (updated.required_downpayment_amount ?? required_downpayment_amount).trim() ||
+              required_downpayment_amount,
           })
         }
       }

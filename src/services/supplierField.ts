@@ -19,6 +19,7 @@ export type SupplierTierOptionRecord = {
   price_override: string | null
   tax: string | null
   price: string | null
+  required_downpayment_amount: string | null
 }
 
 export type FetchSupplierOptionsParams = {

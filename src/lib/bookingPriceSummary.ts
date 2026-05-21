@@ -25,17 +25,25 @@ function configuredFieldPrice(field: BookingField): string | null {
   return field.price
 }
 
-/** Raw price string for a saved field (before formatting). */
-export function resolveBookingFieldPriceRaw(
+/** Raw price string for a field (before formatting). */
+function resolveBookingFieldPriceRawInner(
   field: BookingField,
+  requireSaved: boolean,
 ): string | null {
-  if (!field.saved || !field.label.trim()) return null
+  if (!field.label.trim()) return null
+  if (requireSaved && !field.saved) return null
 
   if (field.field_type === 'select') {
     if (field.value.trim()) {
       const selected = field.options.find((o) => o.label === field.value)
       const raw = selected?.price ?? field.price
       return raw === null || raw === '' ? null : raw
+    }
+    const optionPrices = field.options
+      .map((o) => parseAmount(o.price))
+      .filter((n): n is number => n !== null && n > 0)
+    if (optionPrices.length > 0) {
+      return String(Math.max(...optionPrices))
     }
     return configuredFieldPrice(field)
   }
@@ -48,11 +56,25 @@ export function resolveBookingFieldPriceRaw(
   }
 
   if (field.field_type === 'checkbox') {
-    if (field.value !== 'true') return null
+    if (requireSaved && field.value !== 'true') return null
     return configuredFieldPrice(field)
   }
 
   return configuredFieldPrice(field)
+}
+
+/** Raw price for a saved field (price summary, display). */
+export function resolveBookingFieldPriceRaw(
+  field: BookingField,
+): string | null {
+  return resolveBookingFieldPriceRawInner(field, true)
+}
+
+/** Raw price while editing / validating before the field row is saved. */
+export function resolveBookingFieldPriceRawForValidation(
+  field: BookingField,
+): string | null {
+  return resolveBookingFieldPriceRawInner(field, false)
 }
 
 /** Numeric price for a saved field, or null if it does not contribute. */
@@ -125,6 +147,74 @@ export function bookingStoredTotalAmountHasValue(
   if (!raw) return false
   const n = Number(raw)
   return !Number.isNaN(n) && n > 0
+}
+
+/** Error message when downpayment fails validation, or null if valid / empty. */
+export function validateBookingFieldDownpayment(
+  field: BookingField,
+): string | null {
+  const downRaw = (field.requiredDownpayment ?? '').trim()
+  if (!downRaw) return null
+
+  const down = Number(downRaw)
+  if (Number.isNaN(down) || down < 0) {
+    return 'Enter a valid downpayment (0 or greater).'
+  }
+
+  const priceAmount = parseAmount(resolveBookingFieldPriceRawForValidation(field))
+  if (priceAmount === null || priceAmount <= 0) {
+    return 'Set a field amount before entering a downpayment.'
+  }
+  if (down >= priceAmount) {
+    return 'Downpayment must be less than the field amount.'
+  }
+  return null
+}
+
+/** Error when package/tier downpayment is not less than the supplier field amount. */
+export function validateBookingSupplierFieldDownpayment(
+  field: BookingField,
+): string | null {
+  if (field.field_type !== 'supplier') return null
+  const downRaw = (field.packageRequiredDownpayment ?? '').trim()
+  if (!downRaw) return null
+  const down = Number(downRaw)
+  if (Number.isNaN(down) || down < 0) {
+    return 'Enter a valid downpayment (0 or greater).'
+  }
+  const priceAmount = parseAmount(resolveBookingFieldPriceRawForValidation(field))
+  if (priceAmount === null || priceAmount <= 0) {
+    return 'Set a supplier price before applying a package downpayment.'
+  }
+  if (down >= priceAmount) {
+    return 'Downpayment must be less than the field amount.'
+  }
+  return null
+}
+
+/** Sum required downpayments for saved fields (supplier packages + line amounts). */
+export function bookingPriceSummaryRequiredDownpayment(
+  fields: BookingField[],
+): number {
+  let total = 0
+  for (const field of fields) {
+    if (!field.saved) continue
+    const raw =
+      field.field_type === 'supplier'
+        ? field.packageRequiredDownpayment
+        : field.requiredDownpayment
+    if (raw === null || raw === undefined || raw === '') continue
+    const n = Number(raw)
+    if (!Number.isNaN(n) && n > 0) total += n
+  }
+  return total
+}
+
+/** Decimal string for ``bookings.required_downpayment_amount`` API field. */
+export function bookingPriceSummaryRequiredDownpaymentAmount(
+  fields: BookingField[],
+): string {
+  return bookingPriceSummaryRequiredDownpayment(fields).toFixed(2)
 }
 
 /** Decimal string for ``bookings.total_amount`` API field. */

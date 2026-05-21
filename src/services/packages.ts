@@ -23,6 +23,7 @@ export type PackageRecord = {
   tier_name: string
   description: string
   total_price: string
+  required_downpayment_amount: string
   company: number
   is_active: boolean
   items?: PackageItemRecord[]
@@ -33,6 +34,7 @@ export type PackagePayload = {
   tier: number
   description?: string
   total_price?: string | number
+  required_downpayment_amount?: string | number
   company?: number
   package_version?: number
   is_active?: boolean

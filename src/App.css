@@ -7493,6 +7493,61 @@ body,
   filter: brightness(0.92);
 }
 
+.booking-payments-charge-panel {
+  border: 1px solid rgba(31, 58, 95, 0.08);
+  border-radius: 0.5rem;
+  padding: 1rem 1.1rem;
+  background: #f8f9fb;
+}
+
+.booking-payments-charge-panel__title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.booking-payments-summary-dl {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.booking-payments-summary-dl__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.88rem;
+}
+
+.booking-payments-summary-dl__row dt {
+  margin: 0;
+  color: #6b7785;
+  font-weight: 500;
+}
+
+.booking-payments-summary-dl__row dd {
+  margin: 0;
+  font-weight: 700;
+  color: #111827;
+}
+
+.booking-payments-summary-dl__row--emphasis dd {
+  color: var(--brand-green);
+}
+
+.booking-payments-charge-input {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  max-width: 14rem;
+}
+
+.booking-price-summary__downpayment {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed rgba(31, 58, 95, 0.12);
+  font-size: 0.9rem;
+}
+
 .docs-grid-area {
   min-height: 200px;
   max-height: 420px;

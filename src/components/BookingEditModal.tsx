@@ -12,11 +12,14 @@ import {
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
 import {
+  bookingPriceSummaryRequiredDownpayment,
   bookingStoredTotalAmountHasValue,
   getBookingGroupSubtotalMap,
   getBookingPriceGroups,
   resolveBookingFieldPriceRaw,
   sumBookingPriceGroups,
+  validateBookingFieldDownpayment,
+  validateBookingSupplierFieldDownpayment,
 } from '../lib/bookingPriceSummary'
 import { fetchBookingsGroupNameConfig } from '../services/config'
 import { fetchCurrentAccount } from '../services/accounts'
@@ -70,9 +73,13 @@ export type BookingField = {
   is_required: boolean
   options: BookingFieldOption[]
   price: string | null
+  /** Per-line downpayment (non-supplier fields); stored on ``booking_items``. */
+  requiredDownpayment?: string | null
   sort_order: number
   saved: boolean
   value: string
+  /** From active package ``required_downpayment_amount`` (supplier fields). */
+  packageRequiredDownpayment?: string | null
 }
 
 export type BookingFormState = {
@@ -93,6 +100,8 @@ export type BookingFormState = {
   pdfUrl?: string
   /** Persisted ``bookings.total_amount`` (set after save). */
   totalAmount?: string
+  /** Persisted ``bookings.required_downpayment_amount`` (set after save). */
+  requiredDownpaymentAmount?: string
 }
 
 export type BookingStatus = {
@@ -140,6 +149,7 @@ const EMPTY_FIELD: BookingField = {
   is_required: false,
   options: [],
   price: null,
+  requiredDownpayment: null,
   sort_order: 0,
   saved: false,
   value: '',
@@ -497,9 +507,9 @@ const BookingEditModal = ({
       } else if (form.id != null) {
         let paymentUrl = ''
         try {
-          const links = await fetchBookingPaymentLinks(form.id)
-          const pending = links.find((l) => l.status === 'pending')
-          paymentUrl = (pending ?? links[0])?.public_url ?? ''
+          const { links: paymentLinks } = await fetchBookingPaymentLinks(form.id)
+          const pending = paymentLinks.find((l) => l.status === 'pending')
+          paymentUrl = (pending ?? paymentLinks[0])?.public_url ?? ''
         } catch {
           paymentUrl = ''
         }
@@ -658,6 +668,10 @@ const BookingEditModal = ({
     () => sumBookingPriceGroups(priceGroups),
     [priceGroups],
   )
+  const requiredDownpaymentTotal = useMemo(
+    () => bookingPriceSummaryRequiredDownpayment(form.fields),
+    [form.fields],
+  )
   const groupSubtotals = useMemo(
     () => getBookingGroupSubtotalMap(fieldGroups),
     [fieldGroups],
@@ -672,6 +686,13 @@ const BookingEditModal = ({
 
   const getSavedFieldDisplayPrice = (field: BookingField): string | null =>
     formatFieldPriceAmount(resolveBookingFieldPriceRaw(field))
+
+  const getSavedFieldDisplayDownpayment = (field: BookingField): string | null => {
+    if (!field.saved || field.field_type === 'supplier') return null
+    const raw = field.requiredDownpayment
+    if (raw === null || raw === undefined || raw === '') return null
+    return formatFieldPriceAmount(raw)
+  }
 
   // Restore draft on mount (create only — edit keeps server contact/status)
   useEffect(() => {
@@ -719,6 +740,7 @@ const BookingEditModal = ({
         sort_order: o.sort_order,
       })),
       price: f.price,
+      requiredDownpayment: null,
       sort_order: baseOrder + idx,
       saved: true,
       value: '',
@@ -975,6 +997,14 @@ const BookingEditModal = ({
       showErrorToast('Add at least one option for dropdown fields.')
       return
     }
+    const downpaymentError =
+      field.field_type === 'supplier'
+        ? validateBookingSupplierFieldDownpayment(field)
+        : validateBookingFieldDownpayment(field)
+    if (downpaymentError) {
+      showErrorToast(downpaymentError)
+      return
+    }
     updateField(idx, { saved: true })
   }
 
@@ -1033,6 +1063,7 @@ const BookingEditModal = ({
                   updateField(idx, {
                     field_type,
                     price: null,
+                    requiredDownpayment: null,
                     value: '',
                     options: [],
                   })
@@ -1060,29 +1091,69 @@ const BookingEditModal = ({
               ))}
             </select>
           </div>
-          {field.field_type !== 'select' && field.field_type !== 'supplier' && (
+          {field.field_type === 'select' && (
             <div className="col-sm-3">
-              <label className="form-label">Price</label>
+              <label className="form-label">Downpayment</label>
               <input
                 type="number"
                 className="form-control form-control-sm"
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                value={field.price ?? ''}
+                value={field.requiredDownpayment ?? ''}
                 onChange={(e) =>
                   updateField(idx, {
-                    price: e.target.value === '' ? null : e.target.value,
+                    requiredDownpayment:
+                      e.target.value === '' ? null : e.target.value,
                   })
                 }
               />
             </div>
           )}
+          {field.field_type !== 'select' && field.field_type !== 'supplier' && (
+            <>
+              <div className="col-sm-2">
+                <label className="form-label">Price</label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={field.price ?? ''}
+                  onChange={(e) =>
+                    updateField(idx, {
+                      price: e.target.value === '' ? null : e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="col-sm-2">
+                <label className="form-label">Downpayment</label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={field.requiredDownpayment ?? ''}
+                  onChange={(e) =>
+                    updateField(idx, {
+                      requiredDownpayment:
+                        e.target.value === '' ? null : e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </>
+          )}
           <div
             className={`${
-              field.field_type === 'select' || field.field_type === 'supplier'
+              field.field_type === 'supplier'
                 ? 'col-sm-5'
-                : 'col-sm-2'
+                : field.field_type === 'select'
+                  ? 'col-sm-2'
+                  : 'col-sm-2'
             } d-flex align-items-end`}
           >
             <div className="form-check">
@@ -1176,6 +1247,7 @@ const BookingEditModal = ({
     const requiredMark = field.is_required ? ' *' : ''
     const fieldLabel = `${field.label}${requiredMark}`
     const displayPrice = getSavedFieldDisplayPrice(field)
+    const displayDownpayment = getSavedFieldDisplayDownpayment(field)
 
     return (
       <div key={idx} className="mb-3 booking-saved-field">
@@ -1184,6 +1256,11 @@ const BookingEditModal = ({
             {fieldLabel}
           </label>
           <div className="booking-field-header__end">
+            {displayDownpayment && (
+              <span className="booking-field-downpayment text-muted small">
+                Down {displayDownpayment}
+              </span>
+            )}
             {displayPrice && (
               <span className="booking-field-price">{displayPrice}</span>
             )}
@@ -1312,8 +1389,12 @@ const BookingEditModal = ({
             value={field.value}
             dateOfEvent={form.dateOfEvent}
             excludeBookingId={form.mode === 'edit' ? form.id : null}
-            onChange={(value, price) =>
-              updateField(idx, { value, price: price ?? null })
+            onChange={(value, price, packageRequiredDownpayment) =>
+              updateField(idx, {
+                value,
+                price: price ?? null,
+                packageRequiredDownpayment: packageRequiredDownpayment ?? null,
+              })
             }
             required={field.is_required}
           />
@@ -1665,6 +1746,12 @@ const BookingEditModal = ({
                         <span>Total</span>
                         <span>{formatCurrency(priceTotal, currencyOptions)}</span>
                       </div>
+                      <div className="booking-price-summary__total booking-price-summary__downpayment">
+                        <span>Downpayment</span>
+                        <span>
+                          {formatCurrency(requiredDownpaymentTotal, currencyOptions)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1854,6 +1941,11 @@ const BookingEditModal = ({
         <BookingPaymentsModal
           bookingId={form.id}
           bookingTotal={storedBookingTotal}
+          requiredDownpayment={
+            Number((form.requiredDownpaymentAmount ?? '').trim()) > 0
+              ? Number(form.requiredDownpaymentAmount)
+              : requiredDownpaymentTotal
+          }
           contactEmail={selectedContact?.email?.trim() ?? ''}
           currencyOptions={currencyOptions}
           onClose={() => setPaymentsModalOpen(false)}

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   cancelBookingPaymentLink,
   createBookingPaymentLink,
   fetchBookingPaymentLinks,
   type BookingPaymentLinkRecord,
+  type BookingPaymentSummary,
 } from '../services/bookingPaymentLinks'
 import { formatCurrency } from '../utils/currency'
 import type { CurrencyFormatOptions } from '../utils/currency'
@@ -12,6 +13,7 @@ import { showErrorToast, showSuccessToast } from '../utils/toast'
 type Props = {
   bookingId: number
   bookingTotal: number
+  requiredDownpayment: number
   contactEmail: string
   currencyOptions: CurrencyFormatOptions
   onClose: () => void
@@ -32,30 +34,55 @@ function formatPaymentLinkDate(iso: string): string {
   })
 }
 
+function parseSummaryAmount(value: string | number | undefined): number {
+  const n = Number(value)
+  return Number.isNaN(n) ? 0 : n
+}
+
+function defaultChargeInput(
+  summary: BookingPaymentSummary | null,
+  requiredDownpayment: number,
+): string {
+  if (!summary) return ''
+  const remaining = parseSummaryAmount(summary.remaining_amount)
+  if (remaining <= 0) return '0'
+  if (summary.has_paid_payment) {
+    return remaining.toFixed(2)
+  }
+  const down = parseSummaryAmount(summary.required_downpayment_amount)
+  const use = down > 0 ? down : requiredDownpayment
+  return Math.min(use > 0 ? use : remaining, remaining).toFixed(2)
+}
+
 export default function BookingPaymentsModal({
   bookingId,
   bookingTotal,
+  requiredDownpayment,
   contactEmail,
   currencyOptions,
   onClose,
   onSendToCustomer,
 }: Props) {
   const [links, setLinks] = useState<BookingPaymentLinkRecord[]>([])
+  const [summary, setSummary] = useState<BookingPaymentSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
+  const [chargeInput, setChargeInput] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await fetchBookingPaymentLinks(bookingId)
-      setLinks(data)
+      setLinks(data.links)
+      setSummary(data.summary)
+      setChargeInput(defaultChargeInput(data.summary, requiredDownpayment))
     } catch (e) {
       showErrorToast(e instanceof Error ? e.message : 'Failed to load payment links')
     } finally {
       setLoading(false)
     }
-  }, [bookingId])
+  }, [bookingId, requiredDownpayment])
 
   useEffect(() => {
     void load()
@@ -74,17 +101,46 @@ export default function BookingPaymentsModal({
     }
   }, [onClose])
 
+  const summaryDisplay = useMemo(() => {
+    const total = summary
+      ? parseSummaryAmount(summary.total_amount)
+      : bookingTotal
+    const down = summary
+      ? parseSummaryAmount(summary.required_downpayment_amount)
+      : requiredDownpayment
+    const paid = summary ? parseSummaryAmount(summary.paid_amount) : 0
+    const remaining = summary
+      ? parseSummaryAmount(summary.remaining_amount)
+      : Math.max(0, total - paid)
+    return { total, down, paid, remaining }
+  }, [summary, bookingTotal, requiredDownpayment])
+
   const handleCreate = async () => {
-    if (bookingTotal <= 0) {
-      showErrorToast('Save the booking with a quote total before creating a payment link.')
+    const remaining = summaryDisplay.remaining
+    if (remaining <= 0) {
+      showErrorToast('This booking is already fully paid.')
+      return
+    }
+    const amount = Number.parseFloat(chargeInput.trim())
+    if (Number.isNaN(amount) || amount <= 0) {
+      showErrorToast('Enter a valid payment amount greater than zero.')
+      return
+    }
+    if (amount > remaining + 0.0001) {
+      showErrorToast(
+        `Amount cannot exceed the remaining balance (${formatCurrency(remaining, currencyOptions)}).`,
+      )
       return
     }
     setCreating(true)
     try {
-      const link = await createBookingPaymentLink(bookingId)
-      setLinks((prev) => [link, ...prev])
-      await navigator.clipboard.writeText(link.public_url)
-      showSuccessToast('Payment link created and copied to clipboard.')
+      const link = await createBookingPaymentLink(bookingId, amount)
+      const refreshed = await fetchBookingPaymentLinks(bookingId)
+      setLinks(refreshed.links)
+      setSummary(refreshed.summary)
+      setChargeInput(defaultChargeInput(refreshed.summary, requiredDownpayment))
+      showSuccessToast('Payment link created.')
+      onSendToCustomer(link)
     } catch (e) {
       showErrorToast(e instanceof Error ? e.message : 'Failed to create payment link')
     } finally {
@@ -97,11 +153,10 @@ export default function BookingPaymentsModal({
     setCancellingId(link.id)
     try {
       await cancelBookingPaymentLink(bookingId, link.id)
-      setLinks((prev) =>
-        prev.map((row) =>
-          row.id === link.id ? { ...row, status: 'cancelled' } : row,
-        ),
-      )
+      const refreshed = await fetchBookingPaymentLinks(bookingId)
+      setLinks(refreshed.links)
+      setSummary(refreshed.summary)
+      setChargeInput(defaultChargeInput(refreshed.summary, requiredDownpayment))
       showSuccessToast('Payment link cancelled.')
     } catch (e) {
       showErrorToast(e instanceof Error ? e.message : 'Failed to cancel payment link')
@@ -115,6 +170,10 @@ export default function BookingPaymentsModal({
       ...currencyOptions,
       currencyCode: link.currency || currencyOptions.currencyCode,
     })
+
+  const chargeLabel = summary?.has_paid_payment
+    ? 'Amount to collect (remaining balance)'
+    : 'Amount to collect (downpayment)'
 
   return (
     <>
@@ -144,30 +203,76 @@ export default function BookingPaymentsModal({
               />
             </div>
             <div className="modal-body">
-              <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-                <p className="text-muted small mb-0">
+              <div className="booking-payments-charge-panel mb-3">
+                <h6 className="booking-payments-charge-panel__title mb-2">
+                  Payment summary
+                </h6>
+                <dl className="booking-payments-summary-dl mb-3">
+                  <div className="booking-payments-summary-dl__row">
+                    <dt>Total amount</dt>
+                    <dd>{formatCurrency(summaryDisplay.total, currencyOptions)}</dd>
+                  </div>
+                  <div className="booking-payments-summary-dl__row">
+                    <dt>Downpayment</dt>
+                    <dd>{formatCurrency(summaryDisplay.down, currencyOptions)}</dd>
+                  </div>
+                  {summaryDisplay.paid > 0 && (
+                    <div className="booking-payments-summary-dl__row">
+                      <dt>Paid</dt>
+                      <dd>{formatCurrency(summaryDisplay.paid, currencyOptions)}</dd>
+                    </div>
+                  )}
+                  <div className="booking-payments-summary-dl__row booking-payments-summary-dl__row--emphasis">
+                    <dt>Remaining</dt>
+                    <dd>{formatCurrency(summaryDisplay.remaining, currencyOptions)}</dd>
+                  </div>
+                </dl>
+                <label
+                  className="form-label"
+                  htmlFor="booking-payment-charge-amount"
+                >
+                  {chargeLabel}
+                </label>
+                <div className="d-flex flex-wrap gap-2 align-items-stretch">
+                  <input
+                    id="booking-payment-charge-amount"
+                    type="number"
+                    className="form-control booking-payments-charge-input"
+                    min={0}
+                    step="0.01"
+                    max={summaryDisplay.remaining}
+                    value={chargeInput}
+                    disabled={summaryDisplay.remaining <= 0 || loading}
+                    onChange={(e) => setChargeInput(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={
+                      creating ||
+                      loading ||
+                      summaryDisplay.remaining <= 0
+                    }
+                    onClick={() => void handleCreate()}
+                  >
+                    {creating ? (
+                      <span
+                        className="spinner-border spinner-border-sm"
+                        role="status"
+                        aria-hidden
+                      />
+                    ) : (
+                      <>
+                        <i className="bi bi-link-45deg me-1" aria-hidden />
+                        Generate payment link
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="text-muted small mb-0 mt-2">
                   Customer pays via PayMongo (all methods). Amount is grossed up for
                   processing and a 1% platform fee.
                 </p>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  disabled={creating || loading}
-                  onClick={() => void handleCreate()}
-                >
-                  {creating ? (
-                    <span
-                      className="spinner-border spinner-border-sm"
-                      role="status"
-                      aria-hidden
-                    />
-                  ) : (
-                    <>
-                      <i className="bi bi-link-45deg me-1" aria-hidden />
-                      Generate payment link
-                    </>
-                  )}
-                </button>
               </div>
 
               <div className="booking-payments-table-card">
@@ -191,8 +296,7 @@ export default function BookingPaymentsModal({
                         {links.map((link) => {
                           const canAct = link.status === 'pending'
                           const openUrl = paymentLinkOpenUrl(link)
-                          const email =
-                            contactEmail.trim() || '—'
+                          const email = contactEmail.trim() || '—'
                           return (
                             <tr key={link.id} className="booking-payments-table-row">
                               <td className="booking-payments-table-email">
@@ -235,9 +339,7 @@ export default function BookingPaymentsModal({
                                     type="button"
                                     className="booking-payments-action-btn booking-payments-action-btn--delete"
                                     title="Cancel link"
-                                    disabled={
-                                      !canAct || cancellingId === link.id
-                                    }
+                                    disabled={!canAct || cancellingId === link.id}
                                     onClick={() => void handleCancel(link)}
                                   >
                                     {cancellingId === link.id ? (
@@ -253,7 +355,7 @@ export default function BookingPaymentsModal({
                                   <button
                                     type="button"
                                     className="booking-payments-action-btn booking-payments-action-btn--edit"
-                                    title="Send link to customer"
+                                    title="Resend link to customer"
                                     disabled={!canAct}
                                     onClick={() => onSendToCustomer(link)}
                                   >
