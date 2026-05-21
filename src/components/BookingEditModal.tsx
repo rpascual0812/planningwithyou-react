@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 import type { DragEvent, FormEvent } from 'react'
 import {
@@ -24,8 +24,20 @@ import {
   localeFromIso2,
   type CurrencyFormatOptions,
 } from '../utils/currency'
+import ContactFormModal from './ContactFormModal'
 import SupplierFieldInput from './SupplierFieldInput'
-import { fetchContact, fetchContacts, type ContactRecord } from '../services/contacts'
+import {
+  EMPTY_CONTACT_FORM,
+  validateContactPayload,
+} from '../lib/contactForm'
+import {
+  createContact,
+  fetchContact,
+  fetchContacts,
+  type ContactPayload,
+  type ContactRecord,
+} from '../services/contacts'
+import { fetchMe } from '../services/users'
 import {
   contactAddressLabel,
   contactDefaultAddress,
@@ -191,6 +203,13 @@ const BookingEditModal = ({
   const [contacts, setContacts] = useState<ContactRecord[]>([])
   const [contactsLoading, setContactsLoading] = useState(true)
   const [linkedContact, setLinkedContact] = useState<ContactRecord | null>(null)
+  const [addContactOpen, setAddContactOpen] = useState(false)
+  const [addContactForm, setAddContactForm] = useState<ContactPayload>({
+    ...EMPTY_CONTACT_FORM,
+  })
+  const [addContactError, setAddContactError] = useState<string | null>(null)
+  const [addContactSaving, setAddContactSaving] = useState(false)
+  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailSending, setEmailSending] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
@@ -236,6 +255,18 @@ const BookingEditModal = ({
 
   useEffect(() => {
     let cancelled = false
+    fetchMe()
+      .then((user) => {
+        if (!cancelled) setUserCompanyId(user.company)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     setContactsLoading(true)
     fetchContacts()
       .then((rows) => {
@@ -251,6 +282,58 @@ const BookingEditModal = ({
       cancelled = true
     }
   }, [])
+
+  const reloadContacts = useCallback(async () => {
+    setContactsLoading(true)
+    try {
+      setContacts(await fetchContacts())
+    } catch {
+      setContacts([])
+    } finally {
+      setContactsLoading(false)
+    }
+  }, [])
+
+  const openAddContact = () => {
+    setAddContactForm({
+      ...EMPTY_CONTACT_FORM,
+      company_id: userCompanyId,
+    })
+    setAddContactError(null)
+    setAddContactOpen(true)
+  }
+
+  const closeAddContact = () => {
+    setAddContactOpen(false)
+    setAddContactError(null)
+  }
+
+  const handleAddContactSave = async () => {
+    setAddContactError(null)
+    const validated = validateContactPayload(addContactForm)
+    if (!validated.ok) {
+      setAddContactError(validated.error)
+      return
+    }
+    setAddContactSaving(true)
+    try {
+      const created = await createContact(validated.payload)
+      await reloadContacts()
+      onChange({ ...form, contactId: created.id })
+      setLinkedContact(created)
+      closeAddContact()
+      showSuccessToast('Contact created.')
+    } catch (e) {
+      setAddContactError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setAddContactSaving(false)
+    }
+  }
+
+  const setAddContactField = <K extends keyof ContactPayload>(
+    key: K,
+    val: ContactPayload[K],
+  ) => setAddContactForm((prev) => ({ ...prev, [key]: val }))
 
   useEffect(() => {
     let cancelled = false
@@ -1154,6 +1237,8 @@ const BookingEditModal = ({
         {field.field_type === 'supplier' && (
           <SupplierFieldInput
             value={field.value}
+            dateOfEvent={form.dateOfEvent}
+            excludeBookingId={form.mode === 'edit' ? form.id : null}
             onChange={(value, price) =>
               updateField(idx, { value, price: price ?? null })
             }
@@ -1375,31 +1460,45 @@ const BookingEditModal = ({
                       <label htmlFor="booking-contact" className="form-label">
                         Contact
                       </label>
-                      <select
-                        id="booking-contact"
-                        className="form-select"
-                        value={form.contactId != null ? String(form.contactId) : ''}
-                        disabled={contactsLoading}
-                        onChange={(e) => {
-                          const raw = e.target.value
-                          onChange({
-                            ...form,
-                            contactId: raw === '' ? null : Number(raw),
-                          })
-                        }}
-                      >
-                        <option value="">
-                          {contactsLoading ? 'Loading contacts…' : 'Select a contact'}
-                        </option>
-                        {contacts.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {contactDisplayName(c)}
+                      <div className="input-group">
+                        <select
+                          id="booking-contact"
+                          className="form-select"
+                          value={form.contactId != null ? String(form.contactId) : ''}
+                          disabled={contactsLoading}
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            onChange({
+                              ...form,
+                              contactId: raw === '' ? null : Number(raw),
+                            })
+                          }}
+                        >
+                          <option value="">
+                            {contactsLoading ? 'Loading contacts…' : 'Select a contact'}
                           </option>
-                        ))}
-                      </select>
+                          {contacts.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {contactDisplayName(c)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary"
+                          title="Add contact"
+                          aria-label="Add contact"
+                          onClick={openAddContact}
+                        >
+                          <i className="bi bi-plus-lg" />
+                        </button>
+                      </div>
                     </div>
                     {selectedContact && (
                       <div className="booking-contact-summary mb-3">
+                        <div className="booking-contact-summary__heading fw-semibold mb-2">
+                          Contact Details
+                        </div>
                         <div className="booking-contact-summary__row">
                           <span className="booking-contact-summary__label">First name</span>
                           <span className="booking-contact-summary__value">
@@ -1670,6 +1769,19 @@ const BookingEditModal = ({
             setEmailModalOpen(false)
             setEmailError(null)
           }}
+        />
+      )}
+
+      {addContactOpen && (
+        <ContactFormModal
+          editing={null}
+          form={addContactForm}
+          setField={setAddContactField}
+          error={addContactError}
+          saving={addContactSaving}
+          onSave={() => void handleAddContactSave()}
+          onClose={closeAddContact}
+          elevated
         />
       )}
     </>

@@ -5,6 +5,7 @@ export type SupplierOptionRecord = {
   id: number
   name: string
   supplier_type_id: number
+  kyb_verified: boolean
 }
 
 export type SupplierTierOptionRecord = {
@@ -47,6 +48,33 @@ export async function fetchSupplierOptions(
 }
 
 /** Tiers available for the selected supplier. */
+export type SupplierBookingCapacityResult = {
+  supplier_id: number
+  max_bookings_per_day: number
+  booking_count: number
+  at_capacity: boolean
+  available: boolean
+}
+
+export async function fetchSupplierBookingCapacity(params: {
+  supplierId: number
+  dateOfEvent: string
+  excludeBookingId?: number | null
+}): Promise<SupplierBookingCapacityResult> {
+  const search = new URLSearchParams()
+  search.set('supplier_id', String(params.supplierId))
+  search.set('date_of_event', params.dateOfEvent)
+  if (params.excludeBookingId != null) {
+    search.set('exclude_booking_id', String(params.excludeBookingId))
+  }
+  const res = await apiFetch(
+    buildApiUrl(`/api/supplier-booking-capacity/?${search.toString()}`),
+    { headers: authHeaders() },
+  )
+  if (!res.ok) throw new Error('Failed to check supplier booking capacity')
+  return res.json()
+}
+
 export async function fetchTiersForSupplier(
   supplierId: number,
 ): Promise<SupplierTierOptionRecord[]> {

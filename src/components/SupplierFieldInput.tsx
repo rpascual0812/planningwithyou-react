@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Swal from 'sweetalert2'
 import {
   parseSupplierFieldValue,
   serializeSupplierFieldValue,
   type SupplierFieldValue,
 } from '../lib/supplierFieldValue'
 import {
+  fetchSupplierBookingCapacity,
   fetchSupplierOptions,
   fetchTiersForSupplier,
   type SupplierOptionRecord,
@@ -15,11 +17,35 @@ import {
   type SupplierTypeRecord,
 } from '../services/supplierTypes'
 
+function CompanyKybIcon({ verified }: { verified: boolean }) {
+  return verified ? (
+    <i
+      className="bi bi-shield-check text-success flex-shrink-0"
+      title="KYB verified"
+      aria-label="KYB verified"
+    />
+  ) : (
+    <i
+      className="bi bi-shield-exclamation text-danger flex-shrink-0"
+      title="KYB not verified"
+      aria-label="KYB not verified"
+    />
+  )
+}
+
+function supplierCapacityErrorMessage(supplierName: string): string {
+  return `${supplierName} has reached the maximum allowed bookings for that day.`
+}
+
 type SupplierFieldInputProps = {
   value: string
   /** Second argument is tier price for ``booking_items.price``. */
   onChange: (value: string, price?: string | null) => void
   required?: boolean
+  /** Booking form ``Date of Booking`` (YYYY-MM-DD). */
+  dateOfEvent?: string
+  /** When editing a booking, exclude it from the daily capacity count. */
+  excludeBookingId?: number | null
   tierLabel?: string
   supplierLabel?: string
   supplierTypeLabel?: string
@@ -30,6 +56,8 @@ export default function SupplierFieldInput({
   value,
   onChange,
   required = false,
+  dateOfEvent = '',
+  excludeBookingId = null,
   tierLabel = 'Tier',
   supplierLabel = 'Supplier',
   supplierTypeLabel = 'Supplier type',
@@ -48,6 +76,8 @@ export default function SupplierFieldInput({
   const [loadingSuppliers, setLoadingSuppliers] = useState(false)
   const [loadingTiers, setLoadingTiers] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [supplierMenuOpen, setSupplierMenuOpen] = useState(false)
+  const supplierMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -163,11 +193,51 @@ export default function SupplierFieldInput({
   const handleSupplierTypeChange = (typeId: string) => {
     const nextTypeId = typeId === '' ? '' : Number(typeId)
     setSupplierTypeId(nextTypeId)
+    setSupplierMenuOpen(false)
     emit({ supplier_id: null, tier_id: null, price: null })
   }
 
-  const handleSupplierChange = (supplierId: string) => {
-    const supplier_id = supplierId === '' ? null : Number(supplierId)
+  const showSupplierCapacityError = async (supplierName: string) => {
+    await Swal.fire({
+      icon: 'error',
+      title: 'Booking limit reached',
+      text: supplierCapacityErrorMessage(supplierName),
+    })
+  }
+
+  const isSupplierAtCapacity = async (supplierId: number): Promise<boolean> => {
+    const eventDate = dateOfEvent.trim()
+    if (!eventDate) return false
+    try {
+      const result = await fetchSupplierBookingCapacity({
+        supplierId,
+        dateOfEvent: eventDate,
+        excludeBookingId,
+      })
+      return result.at_capacity
+    } catch {
+      return false
+    }
+  }
+
+  const handleSupplierChange = async (supplierId: string) => {
+    if (supplierId === '') {
+      setSupplierMenuOpen(false)
+      emit({ supplier_id: null, tier_id: null, price: null })
+      return
+    }
+    const supplier_id = Number(supplierId)
+    const supplier = suppliers.find((s) => s.id === supplier_id)
+    if (dateOfEvent.trim()) {
+      const atCapacity = await isSupplierAtCapacity(supplier_id)
+      if (atCapacity) {
+        await showSupplierCapacityError(supplier?.name ?? 'This supplier')
+        setSupplierMenuOpen(false)
+        emit({ supplier_id: null, tier_id: null, price: null })
+        return
+      }
+    }
+    setSupplierMenuOpen(false)
     emit({ supplier_id, tier_id: null, price: null })
   }
 
@@ -184,6 +254,44 @@ export default function SupplierFieldInput({
   const supplierStillValid =
     parsed.supplier_id == null ||
     suppliers.some((s) => s.id === parsed.supplier_id)
+
+  const selectedSupplier =
+    supplierStillValid && parsed.supplier_id != null
+      ? suppliers.find((s) => s.id === parsed.supplier_id)
+      : undefined
+
+  useEffect(() => {
+    const eventDate = dateOfEvent.trim()
+    if (!eventDate || parsed.supplier_id == null) return
+    let cancelled = false
+    void (async () => {
+      const supplierId = parsed.supplier_id as number
+      const atCapacity = await isSupplierAtCapacity(supplierId)
+      if (cancelled || !atCapacity) return
+      const supplierName =
+        suppliers.find((s) => s.id === supplierId)?.name ?? 'This supplier'
+      await showSupplierCapacityError(supplierName)
+      emit({ supplier_id: null, tier_id: null, price: null })
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateOfEvent, excludeBookingId])
+
+  useEffect(() => {
+    if (!supplierMenuOpen) return
+    const close = (event: MouseEvent) => {
+      if (
+        supplierMenuRef.current &&
+        !supplierMenuRef.current.contains(event.target as Node)
+      ) {
+        setSupplierMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [supplierMenuOpen])
 
   const tierStillValid =
     parsed.tier_id == null || tiers.some((t) => t.id === parsed.tier_id)
@@ -227,32 +335,80 @@ export default function SupplierFieldInput({
       </div>
       <div className="col-sm-6">
         <label className={labelClass}>{supplierLabel}</label>
-        <select
-          className={selectClass}
-          value={
-            supplierStillValid && parsed.supplier_id != null
-              ? parsed.supplier_id
-              : ''
-          }
-          onChange={(e) => handleSupplierChange(e.target.value)}
-          required={required && supplierTypeId !== ''}
-          disabled={supplierTypeId === '' || loadingSuppliers}
-        >
-          <option value="">
-            {supplierTypeId === ''
-              ? 'Select a supplier type first'
-              : loadingSuppliers
-                ? 'Loading suppliers...'
-                : suppliers.length === 0
-                  ? 'No suppliers available'
-                  : 'Select supplier...'}
-          </option>
-          {suppliers.map((supplier) => (
-            <option key={supplier.id} value={supplier.id}>
-              {supplier.name}
-            </option>
-          ))}
-        </select>
+        <div className="position-relative" ref={supplierMenuRef}>
+          <button
+            type="button"
+            className={`${selectClass} text-start d-flex align-items-center justify-content-between gap-2 w-100`}
+            onClick={() => {
+              if (supplierTypeId !== '' && !loadingSuppliers && suppliers.length > 0) {
+                setSupplierMenuOpen((open) => !open)
+              }
+            }}
+            disabled={supplierTypeId === '' || loadingSuppliers || suppliers.length === 0}
+            aria-haspopup="listbox"
+            aria-expanded={supplierMenuOpen}
+          >
+            <span className="d-flex align-items-center gap-2 min-w-0 text-truncate">
+              {selectedSupplier ? (
+                <>
+                  <CompanyKybIcon verified={selectedSupplier.kyb_verified} />
+                  <span className="text-truncate">{selectedSupplier.name}</span>
+                </>
+              ) : (
+                <span className="text-muted">
+                  {supplierTypeId === ''
+                    ? 'Select a supplier type first'
+                    : loadingSuppliers
+                      ? 'Loading suppliers...'
+                      : suppliers.length === 0
+                        ? 'No suppliers available'
+                        : 'Select supplier...'}
+                </span>
+              )}
+            </span>
+          </button>
+          {supplierMenuOpen && suppliers.length > 0 && (
+            <ul
+              className="dropdown-menu show w-100"
+              role="listbox"
+              style={{ position: 'absolute', top: '100%', left: 0, zIndex: 1050 }}
+            >
+              {suppliers.map((supplier) => (
+                <li key={supplier.id}>
+                  <button
+                    type="button"
+                    className={`dropdown-item d-flex align-items-center gap-2${
+                      supplier.id === parsed.supplier_id ? ' active' : ''
+                    }`}
+                    role="option"
+                    aria-selected={supplier.id === parsed.supplier_id}
+                    onClick={() => void handleSupplierChange(String(supplier.id))}
+                  >
+                    <CompanyKybIcon verified={supplier.kyb_verified} />
+                    <span>{supplier.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {required && supplierTypeId !== '' && (
+          <input
+            tabIndex={-1}
+            required
+            value={parsed.supplier_id != null ? '1' : ''}
+            readOnly
+            onChange={() => {}}
+            style={{
+              opacity: 0,
+              height: 0,
+              width: 0,
+              position: 'absolute',
+              pointerEvents: 'none',
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
       <div className="col-sm-6">
         <label className={labelClass}>{tierLabel}</label>

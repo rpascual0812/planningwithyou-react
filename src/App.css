@@ -1327,6 +1327,14 @@ body,
   z-index: 1300;
 }
 
+.contact-form-modal-elevated.user-details-modal-backdrop {
+  z-index: 1310;
+}
+
+.contact-form-modal-elevated.user-details-modal.modal {
+  z-index: 1320;
+}
+
 .appointment-edit-modal-backdrop {
   z-index: 1390;
 }
@@ -1340,6 +1348,11 @@ body,
   border-radius: 0.375rem;
   padding: 0.75rem 0.875rem;
   font-size: 0.8125rem;
+}
+
+.booking-contact-summary__heading {
+  color: #212529;
+  font-size: 0.875rem;
 }
 
 .booking-contact-summary__row {

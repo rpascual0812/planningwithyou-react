@@ -17,6 +17,8 @@ import CompanyKybModal from './CompanyKybModal'
 
 const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
 
+const DEFAULT_MAX_BOOKINGS_PER_DAY = 1
+
 const EMPTY_FORM = {
   name: '',
   timezone: '',
@@ -27,6 +29,7 @@ const EMPTY_FORM = {
   website: '',
   is_active: true,
   is_main: false,
+  max_bookings_per_day: DEFAULT_MAX_BOOKINGS_PER_DAY,
   supplier_type: null as number | null,
 }
 
@@ -162,6 +165,7 @@ const CompaniesPanel = () => {
     setEditing(null)
     setForm({
       ...EMPTY_FORM,
+      max_bookings_per_day: DEFAULT_MAX_BOOKINGS_PER_DAY,
       is_main: companies.length === 0,
     })
     resetLogoState()
@@ -181,6 +185,10 @@ const CompaniesPanel = () => {
       website: row.website ?? '',
       is_active: row.is_active,
       is_main: row.is_main,
+      max_bookings_per_day:
+        row.max_bookings_per_day >= 1
+          ? row.max_bookings_per_day
+          : DEFAULT_MAX_BOOKINGS_PER_DAY,
       supplier_type: row.supplier_type,
     })
     setLogoUrl(row.logo_url ?? '')
@@ -207,6 +215,10 @@ const CompaniesPanel = () => {
       setFormError('Supplier type is required.')
       return
     }
+    if (form.max_bookings_per_day < 1) {
+      setFormError('Bookings per day must be at least 1.')
+      return
+    }
     setSaving(true)
     setFormError(null)
     const payload: CompanyPayload = {
@@ -220,6 +232,7 @@ const CompaniesPanel = () => {
       website: form.website.trim(),
       is_active: form.is_active,
       is_main: form.is_main,
+      max_bookings_per_day: form.max_bookings_per_day,
       ...(logoFile ? { logo: logoFile } : {}),
     }
     try {
@@ -592,6 +605,32 @@ const CompaniesPanel = () => {
                     <div className="form-text">
                       Only one company can be marked as main per account.
                     </div>
+                  </div>
+                  <div className="border rounded p-3 mt-3">
+                    <div className="fw-semibold mb-3">Additional Information</div>
+                    <label
+                      className="form-label mb-2"
+                      htmlFor="company-max-bookings-per-day"
+                    >
+                      How many bookings can you accept in a day?
+                    </label>
+                    <input
+                      id="company-max-bookings-per-day"
+                      type="number"
+                      className="form-control"
+                      min={1}
+                      step={1}
+                      value={form.max_bookings_per_day ?? DEFAULT_MAX_BOOKINGS_PER_DAY}
+                      onChange={(e) => {
+                        const parsed = parseInt(e.target.value, 10)
+                        setForm((prev) => ({
+                          ...prev,
+                          max_bookings_per_day: Number.isFinite(parsed)
+                            ? Math.max(DEFAULT_MAX_BOOKINGS_PER_DAY, parsed)
+                            : DEFAULT_MAX_BOOKINGS_PER_DAY,
+                        }))
+                      }}
+                    />
                   </div>
                   {formError && (
                     <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">

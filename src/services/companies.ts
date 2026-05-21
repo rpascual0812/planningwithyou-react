@@ -32,6 +32,7 @@ export type CompanyRecord = {
   is_active: boolean
   is_main: boolean
   kyb_verified: boolean
+  max_bookings_per_day: number
   logo: string
   logo_url: string
   sort_order: number
@@ -49,6 +50,7 @@ export type CompanyPayload = {
   website?: string
   is_active?: boolean
   is_main?: boolean
+  max_bookings_per_day?: number
   sort_order?: number
   logo?: File | null
 }
