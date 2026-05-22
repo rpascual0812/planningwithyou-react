@@ -16,6 +16,8 @@ import {
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
+import BookingPaymentStatusPill from '../components/BookingPaymentStatusPill'
+import { bookingPaymentStatus } from '../lib/bookingPaymentStatus'
 import AppointmentEditModal, {
   type AppointmentFormState,
 } from '../components/AppointmentEditModal'
@@ -1318,7 +1320,15 @@ const BookingsPage = () => {
                   aria-hidden="true"
                 />
                 <div className="kanban-card-body">
-                  <p className="kanban-card-booking-id mb-1">{formatBookingId(it)}</p>
+                  <div className="kanban-card-header">
+                    <p className="kanban-card-booking-id mb-0">
+                      {formatBookingId(it)}
+                    </p>
+                    <BookingPaymentStatusPill
+                      item={it}
+                      className="kanban-card-payment-status"
+                    />
+                  </div>
                   <p className="kanban-card-title mb-1">{it.title}</p>
                   <p className="kanban-card-event-date mb-1">
                     <i className="bi bi-calendar-event me-1" aria-hidden="true" />
@@ -1592,6 +1602,10 @@ const BookingsPage = () => {
                       </p>
                       <p className="booking-card-title mb-0">{item.title}</p>
                       <p className="booking-card-subtitle mb-0">{subtitle}</p>
+                      <BookingPaymentStatusPill
+                        item={item}
+                        className="booking-card-payment-status mt-1"
+                      />
                     </div>
                     <button
                       type="button"
@@ -1684,6 +1698,7 @@ const BookingsPage = () => {
                     <th>Status</th>
                     <th>Status</th>
                     <th>Notes</th>
+                    <th>Payment</th>
                     <th>Price</th>
                     <th>Date</th>
                     <th className="text-end">Action</th>
@@ -1696,7 +1711,7 @@ const BookingsPage = () => {
                 >
                   {filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="bookings-list-empty">
+                      <td colSpan={10} className="bookings-list-empty">
                         {isSearching
                           ? `No bookings match "${search}".`
                           : columns.length === 0
@@ -1728,7 +1743,7 @@ const BookingsPage = () => {
                       if (row.kind === 'placeholder') {
                         return (
                           <tr key={row.key} className="bookings-list-placeholder" aria-hidden="true">
-                            <td colSpan={9} />
+                            <td colSpan={10} />
                           </tr>
                         )
                       }
@@ -1764,6 +1779,13 @@ const BookingsPage = () => {
                           </td>
                           <td className="bookings-list-notes">
                             {item.notes || '—'}
+                          </td>
+                          <td className="bookings-list-payment">
+                            {bookingPaymentStatus(item) ? (
+                              <BookingPaymentStatusPill item={item} />
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           <td className="bookings-list-price">
                             {formatBookingCardTotalAmount(item, currencyFormat)}

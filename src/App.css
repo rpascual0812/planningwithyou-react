@@ -1972,6 +1972,39 @@ body,
   color: #b94343;
 }
 
+.booking-payment-status {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.booking-payment-status--unpaid {
+  background: rgba(107, 119, 133, 0.14);
+  color: #4b5563;
+}
+
+.booking-payment-status--partial {
+  background: rgba(59, 125, 216, 0.14);
+  color: #1e4f8f;
+}
+
+.booking-payment-status--paid {
+  background: rgba(82, 181, 133, 0.18);
+  color: #1d6b45;
+}
+
+.booking-card-payment-status {
+  align-self: flex-start;
+}
+
+.bookings-list-payment .booking-payment-status {
+  font-size: 0.72rem;
+}
+
 .booking-card-footer {
   display: flex;
   align-items: center;
@@ -2415,6 +2448,15 @@ body,
   min-width: 0;
 }
 
+.kanban-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  padding-right: 1.1rem;
+}
+
 .kanban-card-booking-id {
   margin: 0;
   font-size: 0.6875rem;
@@ -2422,6 +2464,20 @@ body,
   letter-spacing: 0.02em;
   color: #6c757d;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kanban-card-payment-status.booking-payment-status {
+  flex: 0 0 auto;
+  font-size: 0.58rem;
+  padding: 0.12rem 0.4rem;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kanban-card-title {
