@@ -53,7 +53,9 @@ import {
 } from '../lib/contactDisplay'
 import EmailSenderModal from './EmailSenderModal'
 import { applyPaymentLinkPlaceholder } from '../lib/applyEmailMergeVariables'
-import { fetchBookingPaymentLinks } from '../services/bookingPaymentLinks'
+import {
+  fetchBookingPaymentLinks,
+} from '../services/bookingPaymentLinks'
 import { sendEmail, type EmailPayload } from '../services/emails'
 import { fetchBookingItem } from '../services/bookings'
 import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
@@ -102,6 +104,11 @@ export type BookingFormState = {
   totalAmount?: string
   /** Persisted ``bookings.required_downpayment_amount`` (set after save). */
   requiredDownpaymentAmount?: string
+  /** Sum of successful ``booking_payments`` base credited (edit). */
+  paidAmount?: string
+  paidChargeAmount?: string
+  paidProcessingFees?: string
+  paidPlatformFees?: string
 }
 
 export type BookingStatus = {
@@ -672,6 +679,28 @@ const BookingEditModal = ({
     () => bookingPriceSummaryRequiredDownpayment(form.fields),
     [form.fields],
   )
+  const parseAmount = (raw: string | undefined): number => {
+    const n = Number((raw ?? '').trim())
+    return !Number.isNaN(n) && n >= 0 ? n : 0
+  }
+  const paidTotal = useMemo(() => parseAmount(form.paidAmount), [form.paidAmount])
+  const paidChargeTotal = useMemo(
+    () => parseAmount(form.paidChargeAmount),
+    [form.paidChargeAmount],
+  )
+  const paidProcessingTotal = useMemo(
+    () => parseAmount(form.paidProcessingFees),
+    [form.paidProcessingFees],
+  )
+  const paidPlatformTotal = useMemo(
+    () => parseAmount(form.paidPlatformFees),
+    [form.paidPlatformFees],
+  )
+  const balanceTotal =
+    storedBookingTotal > 0 ? storedBookingTotal : priceTotal
+  const remainingBalance = Math.max(0, balanceTotal - paidTotal)
+  const showPaymentBalance =
+    form.mode === 'edit' && form.id != null && balanceTotal > 0
   const groupSubtotals = useMemo(
     () => getBookingGroupSubtotalMap(fieldGroups),
     [fieldGroups],
@@ -1752,6 +1781,44 @@ const BookingEditModal = ({
                           {formatCurrency(requiredDownpaymentTotal, currencyOptions)}
                         </span>
                       </div>
+                      {showPaymentBalance && (
+                        <>
+                          <div className="booking-price-summary__total booking-price-summary__paid">
+                            <span>Paid toward booking</span>
+                            <span>{formatCurrency(paidTotal, currencyOptions)}</span>
+                          </div>
+                          {paidChargeTotal > 0 && (
+                            <div className="booking-price-summary__detail">
+                              <span>Customer paid (gross)</span>
+                              <span>
+                                {formatCurrency(paidChargeTotal, currencyOptions)}
+                              </span>
+                            </div>
+                          )}
+                          {paidProcessingTotal > 0 && (
+                            <div className="booking-price-summary__detail">
+                              <span>Processing fees</span>
+                              <span>
+                                {formatCurrency(paidProcessingTotal, currencyOptions)}
+                              </span>
+                            </div>
+                          )}
+                          {paidPlatformTotal > 0 && (
+                            <div className="booking-price-summary__detail">
+                              <span>Platform fees</span>
+                              <span>
+                                {formatCurrency(paidPlatformTotal, currencyOptions)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="booking-price-summary__total booking-price-summary__remaining">
+                            <span>Remaining</span>
+                            <span>
+                              {formatCurrency(remainingBalance, currencyOptions)}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1948,7 +2015,22 @@ const BookingEditModal = ({
           }
           contactEmail={selectedContact?.email?.trim() ?? ''}
           currencyOptions={currencyOptions}
-          onClose={() => setPaymentsModalOpen(false)}
+          onClose={() => {
+            setPaymentsModalOpen(false)
+            if (form.id != null) {
+              void fetchBookingPaymentLinks(form.id)
+                .then(({ summary }) => {
+                  onChange({
+                    ...form,
+                    paidAmount: summary.paid_amount,
+                    paidChargeAmount: summary.paid_charge_amount ?? '0',
+                    paidProcessingFees: summary.paid_processing_fees ?? '0',
+                    paidPlatformFees: summary.paid_platform_fees ?? '0',
+                  })
+                })
+                .catch(() => {})
+            }
+          }}
           onSendToCustomer={openPaymentLinkEmailModal}
         />
       )}

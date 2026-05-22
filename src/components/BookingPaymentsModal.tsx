@@ -4,6 +4,7 @@ import {
   createBookingPaymentLink,
   fetchBookingPaymentLinks,
   type BookingPaymentLinkRecord,
+  type BookingPaymentRecord,
   type BookingPaymentSummary,
 } from '../services/bookingPaymentLinks'
 import { formatCurrency } from '../utils/currency'
@@ -24,7 +25,10 @@ function paymentLinkOpenUrl(link: BookingPaymentLinkRecord): string {
   return (link.public_url || link.checkout_url || '').trim()
 }
 
-function formatPaymentLinkDate(iso: string): string {
+type PaymentsTab = 'links' | 'made'
+
+function formatPaymentDate(iso: string | null | undefined): string {
+  if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString(undefined, {
@@ -32,6 +36,26 @@ function formatPaymentLinkDate(iso: string): string {
     month: 'long',
     day: 'numeric',
   })
+}
+
+function formatTransactionStatus(status: string): string {
+  const s = status.trim()
+  if (!s) return '—'
+  return s.replace(/_/g, ' ')
+}
+
+function paymentStatusClass(status: string): string {
+  const s = status.trim().toLowerCase()
+  if (s === 'paid' || s === 'succeeded' || s === 'success') {
+    return 'booking-payments-status booking-payments-status--success'
+  }
+  if (s === 'failed' || s === 'cancelled' || s === 'canceled' || s === 'void') {
+    return 'booking-payments-status booking-payments-status--failed'
+  }
+  if (s === 'pending' || s === 'processing') {
+    return 'booking-payments-status booking-payments-status--pending'
+  }
+  return 'booking-payments-status'
 }
 
 function parseSummaryAmount(value: string | number | undefined): number {
@@ -64,7 +88,9 @@ export default function BookingPaymentsModal({
   onSendToCustomer,
 }: Props) {
   const [links, setLinks] = useState<BookingPaymentLinkRecord[]>([])
+  const [payments, setPayments] = useState<BookingPaymentRecord[]>([])
   const [summary, setSummary] = useState<BookingPaymentSummary | null>(null)
+  const [activeTab, setActiveTab] = useState<PaymentsTab>('links')
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
@@ -75,6 +101,7 @@ export default function BookingPaymentsModal({
     try {
       const data = await fetchBookingPaymentLinks(bookingId)
       setLinks(data.links)
+      setPayments(data.payments ?? [])
       setSummary(data.summary)
       setChargeInput(defaultChargeInput(data.summary, requiredDownpayment))
     } catch (e) {
@@ -109,10 +136,27 @@ export default function BookingPaymentsModal({
       ? parseSummaryAmount(summary.required_downpayment_amount)
       : requiredDownpayment
     const paid = summary ? parseSummaryAmount(summary.paid_amount) : 0
+    const paidCharge = summary
+      ? parseSummaryAmount(summary.paid_charge_amount)
+      : 0
+    const paidProcessing = summary
+      ? parseSummaryAmount(summary.paid_processing_fees)
+      : 0
+    const paidPlatform = summary
+      ? parseSummaryAmount(summary.paid_platform_fees)
+      : 0
     const remaining = summary
       ? parseSummaryAmount(summary.remaining_amount)
       : Math.max(0, total - paid)
-    return { total, down, paid, remaining }
+    return {
+      total,
+      down,
+      paid,
+      paidCharge,
+      paidProcessing,
+      paidPlatform,
+      remaining,
+    }
   }, [summary, bookingTotal, requiredDownpayment])
 
   const handleCreate = async () => {
@@ -137,6 +181,7 @@ export default function BookingPaymentsModal({
       const link = await createBookingPaymentLink(bookingId, amount)
       const refreshed = await fetchBookingPaymentLinks(bookingId)
       setLinks(refreshed.links)
+      setPayments(refreshed.payments ?? [])
       setSummary(refreshed.summary)
       setChargeInput(defaultChargeInput(refreshed.summary, requiredDownpayment))
       showSuccessToast('Payment link created.')
@@ -155,6 +200,7 @@ export default function BookingPaymentsModal({
       await cancelBookingPaymentLink(bookingId, link.id)
       const refreshed = await fetchBookingPaymentLinks(bookingId)
       setLinks(refreshed.links)
+      setPayments(refreshed.payments ?? [])
       setSummary(refreshed.summary)
       setChargeInput(defaultChargeInput(refreshed.summary, requiredDownpayment))
       showSuccessToast('Payment link cancelled.')
@@ -165,11 +211,20 @@ export default function BookingPaymentsModal({
     }
   }
 
-  const formatAmount = (link: BookingPaymentLinkRecord) =>
+  const formatLinkAmount = (link: BookingPaymentLinkRecord) =>
     formatCurrency(Number(link.charge_amount), {
       ...currencyOptions,
       currencyCode: link.currency || currencyOptions.currencyCode,
     })
+
+  const formatPaymentField = (raw: string | undefined) =>
+    formatCurrency(Number(raw ?? 0), currencyOptions)
+
+  const paymentCreditAmount = (payment: BookingPaymentRecord): number => {
+    const base = Number(payment.base_amount)
+    if (!Number.isNaN(base) && base > 0) return base
+    return Number(payment.amount) || 0
+  }
 
   const chargeLabel = summary?.has_paid_payment
     ? 'Amount to collect (remaining balance)'
@@ -217,10 +272,42 @@ export default function BookingPaymentsModal({
                     <dd>{formatCurrency(summaryDisplay.down, currencyOptions)}</dd>
                   </div>
                   {summaryDisplay.paid > 0 && (
-                    <div className="booking-payments-summary-dl__row">
-                      <dt>Paid</dt>
-                      <dd>{formatCurrency(summaryDisplay.paid, currencyOptions)}</dd>
-                    </div>
+                    <>
+                      <div className="booking-payments-summary-dl__row">
+                        <dt>Paid toward booking</dt>
+                        <dd>{formatCurrency(summaryDisplay.paid, currencyOptions)}</dd>
+                      </div>
+                      {summaryDisplay.paidCharge > 0 && (
+                        <div className="booking-payments-summary-dl__row">
+                          <dt>Customer paid (gross)</dt>
+                          <dd>
+                            {formatCurrency(summaryDisplay.paidCharge, currencyOptions)}
+                          </dd>
+                        </div>
+                      )}
+                      {summaryDisplay.paidProcessing > 0 && (
+                        <div className="booking-payments-summary-dl__row">
+                          <dt>Processing fees</dt>
+                          <dd>
+                            {formatCurrency(
+                              summaryDisplay.paidProcessing,
+                              currencyOptions,
+                            )}
+                          </dd>
+                        </div>
+                      )}
+                      {summaryDisplay.paidPlatform > 0 && (
+                        <div className="booking-payments-summary-dl__row">
+                          <dt>Platform fees</dt>
+                          <dd>
+                            {formatCurrency(
+                              summaryDisplay.paidPlatform,
+                              currencyOptions,
+                            )}
+                          </dd>
+                        </div>
+                      )}
+                    </>
                   )}
                   <div className="booking-payments-summary-dl__row booking-payments-summary-dl__row--emphasis">
                     <dt>Remaining</dt>
@@ -275,13 +362,39 @@ export default function BookingPaymentsModal({
                 </p>
               </div>
 
+              <ul className="nav nav-tabs booking-payments-tabs" role="tablist">
+                <li className="nav-item" role="presentation">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'links'}
+                    className={`nav-link${activeTab === 'links' ? ' active' : ''}`}
+                    onClick={() => setActiveTab('links')}
+                  >
+                    Payment Links
+                  </button>
+                </li>
+                <li className="nav-item" role="presentation">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'made'}
+                    className={`nav-link${activeTab === 'made' ? ' active' : ''}`}
+                    onClick={() => setActiveTab('made')}
+                  >
+                    Payments Made
+                  </button>
+                </li>
+              </ul>
+
               <div className="booking-payments-table-card">
                 <div className="booking-payments-table-scroll">
-                  {loading && links.length === 0 ? (
+                  {loading &&
+                  (activeTab === 'links' ? links.length === 0 : payments.length === 0) ? (
                     <div className="booking-payments-table-empty-wrap">
                       <span className="booking-payments-table-empty">Loading…</span>
                     </div>
-                  ) : (
+                  ) : activeTab === 'links' ? (
                     <table className="booking-payments-table">
                       <thead>
                         <tr>
@@ -317,10 +430,10 @@ export default function BookingPaymentsModal({
                                 )}
                               </td>
                               <td className="booking-payments-table-amount">
-                                {formatAmount(link)}
+                                {formatLinkAmount(link)}
                               </td>
                               <td className="booking-payments-table-date">
-                                {formatPaymentLinkDate(link.created_at)}
+                                {formatPaymentDate(link.created_at)}
                               </td>
                               <td>
                                 <div className="booking-payments-actions">
@@ -370,6 +483,61 @@ export default function BookingPaymentsModal({
                           <tr>
                             <td colSpan={5} className="booking-payments-table-empty">
                               No payment links yet. Generate one to get started.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <table className="booking-payments-table booking-payments-table--made">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Booking credit</th>
+                          <th>Gross</th>
+                          <th>Proc. fee</th>
+                          <th>Plat. fee</th>
+                          <th>Method</th>
+                          <th>Status</th>
+                          <th>Transaction</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {payments.map((payment) => (
+                          <tr key={payment.id} className="booking-payments-table-row">
+                            <td className="booking-payments-table-date">
+                              {formatPaymentDate(
+                                payment.transaction_date || payment.created_at,
+                              )}
+                            </td>
+                            <td className="booking-payments-table-amount">
+                              {formatCurrency(
+                                paymentCreditAmount(payment),
+                                currencyOptions,
+                              )}
+                            </td>
+                            <td>{formatPaymentField(payment.charge_amount)}</td>
+                            <td>{formatPaymentField(payment.processing_fee)}</td>
+                            <td>{formatPaymentField(payment.platform_fee)}</td>
+                            <td>{payment.payment_method.trim() || '—'}</td>
+                            <td>
+                              <span
+                                className={paymentStatusClass(
+                                  payment.transaction_status,
+                                )}
+                              >
+                                {formatTransactionStatus(payment.transaction_status)}
+                              </span>
+                            </td>
+                            <td className="booking-payments-table-txn">
+                              {payment.transaction_id.trim() || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                        {payments.length === 0 && !loading && (
+                          <tr>
+                            <td colSpan={8} className="booking-payments-table-empty">
+                              No payments recorded yet.
                             </td>
                           </tr>
                         )}

@@ -34,12 +34,34 @@ export type BookingPaymentSummary = {
   total_amount: string
   required_downpayment_amount: string
   paid_amount: string
+  paid_charge_amount: string
+  paid_processing_fees: string
+  paid_platform_fees: string
+  paid_net_amount: string
   remaining_amount: string
   has_paid_payment: boolean
 }
 
+export type BookingPaymentRecord = {
+  id: number
+  amount: string
+  charge_amount: string
+  base_amount: string
+  platform_fee: string
+  processing_fee: string
+  net_amount: string
+  tax: string
+  payment_method: string
+  transaction_id: string
+  transaction_status: string
+  transaction_date: string | null
+  created_at: string
+  notes: string
+}
+
 export type BookingPaymentLinksResponse = {
   links: BookingPaymentLinkRecord[]
+  payments: BookingPaymentRecord[]
   summary: BookingPaymentSummary
 }
 

@@ -273,6 +273,10 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     pdfUrl: item.pdf_url ?? '',
     totalAmount: item.total_amount ?? '',
     requiredDownpaymentAmount: item.required_downpayment_amount ?? '',
+    paidAmount: item.paid_amount ?? '0',
+    paidChargeAmount: item.paid_charge_amount ?? '0',
+    paidProcessingFees: item.paid_processing_fees ?? '0',
+    paidPlatformFees: item.paid_platform_fees ?? '0',
   }
 }
 
@@ -1074,6 +1078,10 @@ const BookingsPage = () => {
             requiredDownpaymentAmount:
               (created.required_downpayment_amount ?? required_downpayment_amount).trim() ||
               required_downpayment_amount,
+            paidAmount: created.paid_amount ?? '0',
+            paidChargeAmount: created.paid_charge_amount ?? '0',
+            paidProcessingFees: created.paid_processing_fees ?? '0',
+            paidPlatformFees: created.paid_platform_fees ?? '0',
           })
           setSearchParams(
             (prev) => {
@@ -1106,6 +1114,13 @@ const BookingsPage = () => {
             requiredDownpaymentAmount:
               (updated.required_downpayment_amount ?? required_downpayment_amount).trim() ||
               required_downpayment_amount,
+            paidAmount: updated.paid_amount ?? itemModal.paidAmount ?? '0',
+            paidChargeAmount:
+              updated.paid_charge_amount ?? itemModal.paidChargeAmount ?? '0',
+            paidProcessingFees:
+              updated.paid_processing_fees ?? itemModal.paidProcessingFees ?? '0',
+            paidPlatformFees:
+              updated.paid_platform_fees ?? itemModal.paidPlatformFees ?? '0',
           })
         }
       }

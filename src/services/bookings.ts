@@ -75,6 +75,11 @@ export type BookingItemRecord = {
   date_of_event: string | null
   total_amount: string
   required_downpayment_amount: string
+  paid_amount?: string
+  paid_charge_amount?: string
+  paid_processing_fees?: string
+  paid_platform_fees?: string
+  remaining_amount?: string
   package_required_downpayment_amount?: string
   groups?: BookingGroupRecord[]
   field_values: BookingFieldValueRecord[]
