@@ -108,6 +108,17 @@ export async function fetchCompanies(): Promise<CompanyRecord[]> {
   return parseApiList<CompanyRecord>(data)
 }
 
+/** All active companies (any account) for admin / supplier directory. */
+export async function fetchCompaniesDirectory(): Promise<CompanyRecord[]> {
+  const res = await apiFetch(
+    buildApiUrl('/api/companies/?supplier_directory=1&active_only=true'),
+    { headers: authHeaders() },
+  )
+  if (!res.ok) throw new Error('Failed to load companies')
+  const data: unknown = await res.json()
+  return parseApiList<CompanyRecord>(data)
+}
+
 /** Active, non-deleted companies for the current account. */
 export async function fetchActiveCompanies(): Promise<CompanyRecord[]> {
   const res = await apiFetch(buildApiUrl('/api/companies/?active_only=true'), {

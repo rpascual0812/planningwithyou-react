@@ -2,17 +2,19 @@ import { useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AdminEmailPage from './AdminEmailPage'
 import AdminKYBPage from './AdminKYBPage'
+import AdminPayoutPage from './AdminPayoutPage'
 import AdminSupportPage from './AdminSupportPage'
 import type { AdminNavItem, AdminSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<AdminSection>([
-  'kyb', 'emails', 'support'
+  'kyb', 'emails', 'payouts', 'support',
 ])
 
 const NAV_ITEMS: AdminNavItem[] = [
   { id: 'kyb', label: 'Company Verification', icon: 'bi-buildings' },
   { id: 'emails', label: 'Emails', icon: 'bi-envelope' },
+  { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
   { id: 'support', label: 'Support', icon: 'bi-chat-dots' },
 ]
 
@@ -88,6 +90,8 @@ const ActiveAdminPage = ({
       return <AdminKYBPage />
     case 'emails':
       return <AdminEmailPage />
+    case 'payouts':
+      return <AdminPayoutPage />
     case 'support':
     return null
     //   return <AdminSupportPage />

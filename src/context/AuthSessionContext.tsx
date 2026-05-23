@@ -13,11 +13,13 @@ import {
   startAuthSessionKeepAlive,
   subscribeToAuthSync,
 } from '../services/auth'
+import { fetchCurrentAccount } from '../services/accounts'
 import { fetchMe, type UserRecord } from '../services/users'
 
 type AuthSessionContextValue = {
   isAuthenticated: boolean
   currentUser: UserRecord | null
+  subscriptionPlan: string | null
   userLoading: boolean
   syncAuthState: () => void
 }
@@ -40,20 +42,27 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [isAuthenticated, setIsAuthenticated] = useState(hasStoredSession)
   const [currentUser, setCurrentUser] = useState<UserRecord | null>(null)
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null)
   const [userLoading, setUserLoading] = useState(hasStoredSession)
 
   const loadCurrentUser = useCallback(async () => {
     if (!hasStoredSession()) {
       setCurrentUser(null)
+      setSubscriptionPlan(null)
       setUserLoading(false)
       return
     }
     setUserLoading(true)
     try {
-      const user = await fetchMe()
+      const [user, account] = await Promise.all([
+        fetchMe(),
+        fetchCurrentAccount(),
+      ])
       setCurrentUser(user)
+      setSubscriptionPlan(account.subscription_plan ?? 'free')
     } catch {
       setCurrentUser(null)
+      setSubscriptionPlan(null)
     } finally {
       setUserLoading(false)
     }
@@ -66,6 +75,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       void loadCurrentUser()
     } else {
       setCurrentUser(null)
+      setSubscriptionPlan(null)
       setUserLoading(false)
     }
   }, [loadCurrentUser])
@@ -88,6 +98,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       onLogout: () => {
         setIsAuthenticated(false)
         setCurrentUser(null)
+        setSubscriptionPlan(null)
         setUserLoading(false)
         if (!isPublicAuthPath(location.pathname)) {
           navigate('/login', { replace: true })
@@ -98,8 +109,14 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   }, [location.pathname, navigate, syncAuthState])
 
   const value = useMemo(
-    () => ({ isAuthenticated, currentUser, userLoading, syncAuthState }),
-    [isAuthenticated, currentUser, userLoading, syncAuthState],
+    () => ({
+      isAuthenticated,
+      currentUser,
+      subscriptionPlan,
+      userLoading,
+      syncAuthState,
+    }),
+    [isAuthenticated, currentUser, subscriptionPlan, userLoading, syncAuthState],
   )
 
   return (

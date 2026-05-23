@@ -16,6 +16,8 @@ export type AccountRecord = {
   country_currency: string
   country_currency_symbol: string
   country_currency_code: string
+  /** Active ``subscriptions.plan`` slug (e.g. ``free``, ``pro``). */
+  subscription_plan?: string
   created_at: string
   updated_at: string
 }

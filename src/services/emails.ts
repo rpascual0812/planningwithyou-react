@@ -32,10 +32,12 @@ export type EmailPayload = {
 export async function fetchEmails(
   search = '',
   statusFilter = '',
+  companyId?: number | null,
 ): Promise<EmailRecord[]> {
   const params = new URLSearchParams()
   if (search) params.set('search', search)
   if (statusFilter) params.set('status', statusFilter)
+  if (companyId != null) params.set('company_id', String(companyId))
   const qs = params.toString() ? `?${params.toString()}` : ''
 
   const res = await apiFetch(buildApiUrl(`/api/emails/${qs}`), {

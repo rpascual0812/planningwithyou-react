@@ -3,13 +3,14 @@ import { useSearchParams } from 'react-router-dom'
 import EmailSenderModal from '../../components/EmailSenderModal'
 import {
   fetchEmails,
-  sendEmail,
   resendEmail,
   type EmailRecord,
   type EmailPayload,
 } from '../../services/emails'
-import { fetchActiveCompanies, type CompanyRecord } from '../../services/companies'
-import { fetchMe } from '../../services/users'
+import {
+  fetchCompaniesDirectory,
+  type CompanyRecord,
+} from '../../services/companies'
 
 const EDIT_PARAM = 'edit'
 
@@ -36,23 +37,11 @@ const formatRecipients = (addrs: string[]) => {
   return `${addrs[0]}, ${addrs[1]} (+${addrs.length - 2})`
 }
 
-function pickDefaultCompanyId(
-  companies: CompanyRecord[],
-  userCompanyId: number | null,
-): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
-  }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
-}
-
 const AdminEmailPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+  const [companyFilterId, setCompanyFilterId] = useState<number | null>(null)
 
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,9 +51,6 @@ const AdminEmailPage = () => {
   const [statusFilter, setStatusFilter] = useState('')
 
   const [selected, setSelected] = useState<EmailRecord | null>(null)
-  const [composing, setComposing] = useState(
-    () => searchParams.get(EDIT_PARAM) === 'compose',
-  )
   const [resending, setResending] = useState(false)
   const [resendError, setResendError] = useState<string | null>(null)
 
@@ -97,11 +83,11 @@ const AdminEmailPage = () => {
   useEffect(() => {
     let cancelled = false
     setCompaniesLoading(true)
-    void Promise.all([fetchActiveCompanies(), fetchMe()])
-      .then(([companyRows, user]) => {
+    void fetchCompaniesDirectory()
+      .then((companyRows) => {
         if (cancelled) return
         setCompanies(companyRows)
-        setUserCompanyId(pickDefaultCompanyId(companyRows, user.company))
+        setCompanyFilterId(null)
       })
       .catch((e) => {
         if (!cancelled) {
@@ -116,32 +102,29 @@ const AdminEmailPage = () => {
     }
   }, [])
 
-  const loadEmails = useCallback(async (q = '', status = '') => {
-    if (userCompanyId == null) {
-      setEmails([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchEmails(q, status)
-      setEmails(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load emails')
-    } finally {
-      setLoading(false)
-    }
-  }, [userCompanyId])
+  const loadEmails = useCallback(
+    async (q = '', status = '', companyId: number | null = null) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await fetchEmails(q, status, companyId)
+        setEmails(data)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load emails')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
-    loadEmails(debouncedSearch, statusFilter)
-  }, [debouncedSearch, statusFilter, userCompanyId, loadEmails])
+    void loadEmails(debouncedSearch, statusFilter, companyFilterId)
+  }, [debouncedSearch, statusFilter, companyFilterId, loadEmails])
 
-  // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
     const targetId = searchParams.get(EDIT_PARAM)
-    if (!targetId || targetId === 'compose') return
+    if (!targetId) return
     const email = emails.find((e) => String(e.id) === targetId)
     if (!email) {
       if (!loading) clearEditParam()
@@ -167,35 +150,20 @@ const AdminEmailPage = () => {
     writeEditParam(email.id)
   }
 
-  const openCompose = () => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.set(EDIT_PARAM, 'compose')
-      return next
-    }, { replace: true })
-    setSelected(null)
-    setResendError(null)
-    setComposing(true)
-  }
-
   const closeModal = () => {
     clearEditParam()
     setSelected(null)
-    setComposing(false)
     setResendError(null)
   }
 
   const handleSend = async (data: EmailPayload) => {
+    if (!selected) return
     setResending(true)
     setResendError(null)
     try {
-      if (selected) {
-        await resendEmail(selected.id, data)
-      } else {
-        await sendEmail(data)
-      }
+      await resendEmail(selected.id, data)
       closeModal()
-      await loadEmails(debouncedSearch, statusFilter)
+      await loadEmails(debouncedSearch, statusFilter, companyFilterId)
     } catch (e) {
       setResendError(e instanceof Error ? e.message : 'Send failed')
     } finally {
@@ -215,25 +183,19 @@ const AdminEmailPage = () => {
               <select
                 id="emails-company"
                 className="form-select form-select-sm"
-                value={userCompanyId ?? ''}
-                disabled={companiesLoading || companies.length === 0 || userCompanyId == null}
-                aria-readonly="true"
-                onChange={() => {}}
+                value={companyFilterId ?? ''}
+                disabled={companiesLoading}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setCompanyFilterId(raw === '' ? null : Number(raw))
+                }}
               >
-                {companies.length === 0 ? (
-                  <option value="">No active companies</option>
-                ) : (
-                  companies.map((company) => (
-                    <option
-                      key={company.id}
-                      value={company.id}
-                      disabled={userCompanyId != null && company.id !== userCompanyId}
-                    >
-                      {company.name}
-                      {company.is_main ? ' (main)' : ''}
-                    </option>
-                  ))
-                )}
+                <option value="">All companies</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -275,15 +237,6 @@ const AdminEmailPage = () => {
               <span className="emails-search-count">
                 {emails.length} email{emails.length !== 1 && 's'}
               </span>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={openCompose}
-                disabled={userCompanyId == null || companiesLoading}
-              >
-                <i className="bi bi-pencil-square me-1" />
-                Compose
-              </button>
             </div>
           </div>
 
@@ -351,7 +304,7 @@ const AdminEmailPage = () => {
                   {emails.length === 0 && !loading && (
                     <tr>
                       <td colSpan={9} className="emails-table-empty">
-                        {search || statusFilter
+                        {search || statusFilter || companyFilterId != null
                           ? 'No emails match your filters.'
                           : 'No emails recorded yet.'}
                       </td>
@@ -364,7 +317,7 @@ const AdminEmailPage = () => {
         </div>
       </div>
 
-      {(selected || composing) && (
+      {selected && (
         <EmailSenderModal
           email={selected}
           error={resendError}

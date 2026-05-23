@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuthSession } from '../context/AuthSessionContext'
 import {
   fetchUsers,
   createUser,
@@ -43,6 +44,9 @@ const EMPTY_FORM: UserPayload = {
 }
 
 const UsersPage = () => {
+  const { currentUser, subscriptionPlan } = useAuthSession()
+  const canManageAdmin = currentUser?.is_admin === true
+  const canAddUser = subscriptionPlan != null && subscriptionPlan !== 'free'
   const [searchParams, setSearchParams] = useSearchParams()
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,15 +163,19 @@ const UsersPage = () => {
     setFormError(null)
   }
 
+  const payloadForSave = (): UserPayload =>
+    canManageAdmin ? form : { ...form, is_admin: false }
+
   const handleSave = async () => {
     setFormError(null)
     setSaving(true)
+    const payload = payloadForSave()
     try {
       if (editingUser) {
-        await updateUser(editingUser.id, form)
+        await updateUser(editingUser.id, payload)
         await loadUsers(debouncedSearch)
       } else {
-        const created = await createUser(form)
+        const created = await createUser(payload)
         await loadUsers(debouncedSearch)
         writeEditParam(created.id)
       }
@@ -246,13 +254,15 @@ const UsersPage = () => {
               <span className="users-search-count">
                 {users.length} user{users.length !== 1 && 's'}
               </span>
-              <button
-                type="button"
-                className="btn users-btn-add"
-                onClick={openAdd}
-              >
-                <i className="bi bi-plus-lg" /> Add User
-              </button>
+              {canAddUser && (
+                <button
+                  type="button"
+                  className="btn users-btn-add"
+                  onClick={openAdd}
+                >
+                  <i className="bi bi-plus-lg" /> Add User
+                </button>
+              )}
             </div>
           </div>
 
@@ -364,6 +374,7 @@ const UsersPage = () => {
           setField={setField}
           error={formError}
           saving={saving}
+          canManageAdmin={canManageAdmin}
           onSave={handleSave}
           onClose={closeModal}
         />
@@ -392,6 +403,7 @@ type UserFormModalProps = {
   setField: <K extends keyof UserPayload>(key: K, val: UserPayload[K]) => void
   error: string | null
   saving: boolean
+  canManageAdmin: boolean
   onSave: () => void
   onClose: () => void
 }
@@ -402,6 +414,7 @@ const UserFormModal = ({
   setField,
   error,
   saving,
+  canManageAdmin,
   onSave,
   onClose,
 }: UserFormModalProps) => {
@@ -500,20 +513,22 @@ const UserFormModal = ({
                       </label>
                     </div>
                   </div>
-                  <div className="col-sm-6">
-                    <div className="form-check form-switch mt-1">
-                      <input
-                        className="form-check-input"
-                        type="checkbox"
-                        id="userIsAdmin"
-                        checked={form.is_admin}
-                        onChange={(e) => setField('is_admin', e.target.checked)}
-                      />
-                      <label className="form-check-label" htmlFor="userIsAdmin">
-                        Admin
-                      </label>
+                  {canManageAdmin && (
+                    <div className="col-sm-6">
+                      <div className="form-check form-switch mt-1">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="userIsAdmin"
+                          checked={form.is_admin}
+                          onChange={(e) => setField('is_admin', e.target.checked)}
+                        />
+                        <label className="form-check-label" htmlFor="userIsAdmin">
+                          Admin
+                        </label>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
               <div className="modal-footer">

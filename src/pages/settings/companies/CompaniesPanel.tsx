@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAuthSession } from '../../../context/AuthSessionContext'
 import { fetchSecuredFileBlobUrl } from '../../../lib/securedFileUrl'
 import {
   createCompany,
@@ -45,6 +46,9 @@ function formatWebsite(url: string): string {
 }
 
 const CompaniesPanel = () => {
+  const { subscriptionPlan } = useAuthSession()
+  const canAddCompany =
+    subscriptionPlan != null && subscriptionPlan !== 'free'
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -279,10 +283,12 @@ const CompaniesPanel = () => {
         <span className="text-muted small">
           {companies.length} compan{companies.length === 1 ? 'y' : 'ies'}
         </span>
-        <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
-          <i className="bi bi-plus-lg me-1" />
-          Add company
-        </button>
+        {canAddCompany && (
+          <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+            <i className="bi bi-plus-lg me-1" />
+            Add company
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-danger py-2">{error}</div>}
@@ -363,14 +369,16 @@ const CompaniesPanel = () => {
                       >
                         <i className="bi bi-pencil-square" />
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        title="Delete company"
-                        onClick={() => setDeleteTarget(row)}
-                      >
-                        <i className="bi bi-trash3" />
-                      </button>
+                      {!row.is_main && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          title="Delete company"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          <i className="bi bi-trash3" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
