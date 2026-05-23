@@ -2,16 +2,14 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 
 export type PayMongoIntegrationStatus = {
   payment_gateway: 'paymongo'
-  uses_platform_defaults: boolean
-  has_custom_credentials: boolean
-  key_masked: string
-  webhook_secret_set: boolean
   platform_configured: boolean
-}
-
-export type PayMongoIntegrationPayload = {
-  key: string
-  secret?: string
+  platform_merchant_configured: boolean
+  paymongo_account_id: string
+  activation_status: string
+  identity_verification_status: string
+  identity_verification_url: string
+  payments_ready: boolean
+  onboarding_status_label: string
 }
 
 function extractError(body: unknown): string {
@@ -47,25 +45,42 @@ export async function fetchPayMongoIntegration(
   return res.json()
 }
 
-export async function savePayMongoIntegration(
+/** Start or continue PayMongo Platforms onboarding (create child account, KYC link). */
+export async function startPayMongoOnboarding(
   companyId: number,
-  payload: PayMongoIntegrationPayload,
 ): Promise<PayMongoIntegrationStatus> {
   const res = await apiFetch(
     buildApiUrl(`/api/companies/${companyId}/payment-integrations/paymongo/`),
     {
       method: 'PUT',
       headers: authHeaders(),
-      body: JSON.stringify(payload),
     },
   )
   if (!res.ok) {
-    throw await integrationApiError(res, 'Failed to save PayMongo integration')
+    throw await integrationApiError(res, 'Failed to start PayMongo onboarding')
   }
   return res.json()
 }
 
-export async function clearPayMongoIntegration(
+export async function refreshPayMongoIntegration(
+  companyId: number,
+): Promise<PayMongoIntegrationStatus> {
+  const res = await apiFetch(
+    buildApiUrl(
+      `/api/companies/${companyId}/payment-integrations/paymongo/refresh/`,
+    ),
+    {
+      method: 'POST',
+      headers: authHeaders(),
+    },
+  )
+  if (!res.ok) {
+    throw await integrationApiError(res, 'Failed to refresh PayMongo status')
+  }
+  return res.json()
+}
+
+export async function disconnectPayMongoIntegration(
   companyId: number,
 ): Promise<PayMongoIntegrationStatus> {
   const res = await apiFetch(
@@ -76,7 +91,7 @@ export async function clearPayMongoIntegration(
     },
   )
   if (!res.ok) {
-    throw await integrationApiError(res, 'Failed to clear PayMongo integration')
+    throw await integrationApiError(res, 'Failed to disconnect PayMongo')
   }
   return res.json()
 }

@@ -10,9 +10,10 @@ import {
   type CompanyRecord,
 } from '../../../services/companies'
 import {
-  clearPayMongoIntegration,
+  disconnectPayMongoIntegration,
   fetchPayMongoIntegration,
-  savePayMongoIntegration,
+  refreshPayMongoIntegration,
+  startPayMongoOnboarding,
   type PayMongoIntegrationStatus,
 } from '../../../services/paymentIntegrations'
 import { showSuccessToast } from '../../../utils/toast'
@@ -48,8 +49,6 @@ const IntegrationsPanel = () => {
   const [error, setError] = useState<string | null>(null)
 
   const [modalOpen, setModalOpen] = useState(false)
-  const [secretKey, setSecretKey] = useState('')
-  const [webhookSecret, setWebhookSecret] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -111,44 +110,46 @@ const IntegrationsPanel = () => {
 
   const openModal = () => {
     if (!selectedCompany?.kyb_verified) return
-    setSecretKey('')
-    setWebhookSecret('')
     setModalOpen(true)
   }
 
   const closeModal = () => setModalOpen(false)
 
-  const paymongoConnected =
-    status != null &&
-    (status.has_custom_credentials || status.platform_configured)
+  const paymongoConnected = status?.payments_ready === true
 
-  const paymongoStatusLabel = (() => {
-    if (!status) return '—'
-    if (status.has_custom_credentials) return 'Custom account'
-    if (status.platform_configured) return 'Platform default'
-    return 'Not configured'
-  })()
+  const paymongoStatusLabel = status?.onboarding_status_label ?? '—'
 
-  const handleSave = async () => {
+  const handleConnect = async () => {
     if (selectedCompanyId == null) return
-    const key = secretKey.trim()
-    if (!key) {
-      await Swal.fire('Missing key', 'Enter your PayMongo secret API key.', 'warning')
-      return
+    setSaving(true)
+    setError(null)
+    try {
+      const updated = await startPayMongoOnboarding(selectedCompanyId)
+      setStatus(updated)
+      showSuccessToast('PayMongo onboarding started.')
+      if (updated.identity_verification_url) {
+        window.open(updated.identity_verification_url, '_blank', 'noopener,noreferrer')
+      }
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Failed to start onboarding'
+      await Swal.fire('PayMongo onboarding', message, 'error')
+    } finally {
+      setSaving(false)
     }
+  }
+
+  const handleRefresh = async () => {
+    if (selectedCompanyId == null) return
     setSaving(true)
     try {
-      const updated = await savePayMongoIntegration(selectedCompanyId, {
-        key,
-        secret: webhookSecret.trim() || undefined,
-      })
+      const updated = await refreshPayMongoIntegration(selectedCompanyId)
       setStatus(updated)
-      showSuccessToast('PayMongo credentials saved.')
-      closeModal()
+      showSuccessToast('PayMongo status updated.')
     } catch (e) {
       await Swal.fire(
         'Error',
-        e instanceof Error ? e.message : 'Failed to save credentials',
+        e instanceof Error ? e.message : 'Failed to refresh status',
         'error',
       )
     } finally {
@@ -156,27 +157,26 @@ const IntegrationsPanel = () => {
     }
   }
 
-  const handleUsePlatformDefault = async () => {
-    if (selectedCompanyId == null || !status?.has_custom_credentials) return
+  const handleDisconnect = async () => {
+    if (selectedCompanyId == null) return
     const result = await Swal.fire({
-      title: 'Use platform PayMongo?',
-      text: 'Payments for this company will use the server PayMongo keys instead of your own account.',
+      title: 'Disconnect PayMongo?',
+      text: 'This company will no longer accept payments until PayMongo is connected again.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Use platform default',
-      confirmButtonColor: '#198754',
+      confirmButtonText: 'Disconnect',
+      confirmButtonColor: '#d65a5a',
     })
     if (!result.isConfirmed) return
     setSaving(true)
     try {
-      const updated = await clearPayMongoIntegration(selectedCompanyId)
+      const updated = await disconnectPayMongoIntegration(selectedCompanyId)
       setStatus(updated)
-      showSuccessToast('Using platform PayMongo credentials.')
-      closeModal()
+      showSuccessToast('PayMongo disconnected.')
     } catch (e) {
       await Swal.fire(
         'Error',
-        e instanceof Error ? e.message : 'Failed to clear credentials',
+        e instanceof Error ? e.message : 'Failed to disconnect',
         'error',
       )
     } finally {
@@ -187,6 +187,11 @@ const IntegrationsPanel = () => {
   const selectedCompany = companies.find((c) => c.id === selectedCompanyId)
   const selectedKybVerified = selectedCompany?.kyb_verified === true
   const hasVerifiedCompany = companies.some((c) => c.kyb_verified)
+
+  const needsVerification =
+    status != null &&
+    !status.payments_ready &&
+    Boolean(status.identity_verification_url)
 
   return (
     <>
@@ -256,10 +261,16 @@ const IntegrationsPanel = () => {
         </p>
       ) : null}
 
-      {status && !status.platform_configured && !status.has_custom_credentials && (
+      {status && !status.platform_configured && (
         <p className="text-warning small mt-2 mb-0">
-          Platform PayMongo is not configured on the server. Add your own keys
-          for {selectedCompany?.name ?? 'this company'} or contact support.
+          Platform PayMongo is not configured on the server. Contact support.
+        </p>
+      )}
+
+      {status && status.platform_configured && !status.platform_merchant_configured && (
+        <p className="text-warning small mt-2 mb-0">
+          Platform merchant id is not configured. Contact support to enable split
+          payouts.
         </p>
       )}
 
@@ -301,30 +312,35 @@ const IntegrationsPanel = () => {
 
                 <div className="modal-body">
                   <p className="integration-modal-desc">
-                    {PAYMONGO_INTEGRATION.description}
+                    Connect this company as a PayMongo sub-merchant under our
+                    platform. Customer payments are collected on the company&apos;s
+                    linked account; our 1% platform fee is split automatically at
+                    payment time.
                   </p>
 
                   <dl className="integration-modal-details mb-3">
                     <div>
-                      <dt>Mode</dt>
-                      <dd>
-                        {status?.has_custom_credentials
-                          ? 'Company PayMongo account'
-                          : 'Platform default (server keys)'}
-                      </dd>
+                      <dt>Status</dt>
+                      <dd>{status?.onboarding_status_label ?? '—'}</dd>
                     </div>
-                    {status?.has_custom_credentials && status.key_masked && (
+                    {status?.paymongo_account_id && (
                       <div>
-                        <dt>Secret key</dt>
-                        <dd className="font-monospace">{status.key_masked}</dd>
+                        <dt>PayMongo account</dt>
+                        <dd className="font-monospace small">
+                          {status.paymongo_account_id}
+                        </dd>
                       </div>
                     )}
-                    {status?.has_custom_credentials && (
+                    {status?.identity_verification_status && (
                       <div>
-                        <dt>Webhook secret</dt>
-                        <dd>
-                          {status.webhook_secret_set ? 'Configured' : 'Not set'}
-                        </dd>
+                        <dt>Identity verification</dt>
+                        <dd>{status.identity_verification_status}</dd>
+                      </div>
+                    )}
+                    {status?.activation_status && (
+                      <div>
+                        <dt>Activation</dt>
+                        <dd>{status.activation_status}</dd>
                       </div>
                     )}
                   </dl>
@@ -332,60 +348,47 @@ const IntegrationsPanel = () => {
                   <div className="integration-modal-note mb-3">
                     <i className="bi bi-info-circle" aria-hidden="true" />
                     <span>
-                      Leave custom credentials empty to use the platform
-                      PayMongo account. When you add keys here, checkout and
-                      webhooks for this company use your PayMongo merchant
-                      account.
+                      You do not need your own PayMongo API keys. After our KYB
+                      approval, complete PayMongo&apos;s representative verification
+                      (government ID and selfie). Once activated, payment links use
+                      real-time split: 1% to the platform, the remainder to this
+                      company.
                     </span>
                   </div>
 
-                  <h6 className="mb-2">Custom PayMongo credentials</h6>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="paymongo-secret-key">
-                      Secret API key
-                    </label>
-                    <input
-                      id="paymongo-secret-key"
-                      type="password"
-                      className="form-control form-control-sm"
-                      autoComplete="off"
-                      placeholder="sk_live_…"
-                      value={secretKey}
-                      onChange={(e) => setSecretKey(e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-0">
-                    <label className="form-label" htmlFor="paymongo-webhook-secret">
-                      Webhook secret
-                    </label>
-                    <input
-                      id="paymongo-webhook-secret"
-                      type="password"
-                      className="form-control form-control-sm"
-                      autoComplete="off"
-                      placeholder={
-                        status?.webhook_secret_set
-                          ? 'Leave blank to keep current'
-                          : 'whsec_…'
-                      }
-                      value={webhookSecret}
-                      onChange={(e) => setWebhookSecret(e.target.value)}
-                    />
-                    
-                  </div>
+                  {needsVerification && (
+                    <p className="mb-3">
+                      <a
+                        href={status.identity_verification_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        Open PayMongo verification
+                      </a>
+                    </p>
+                  )}
                 </div>
 
                 <div className="modal-footer flex-wrap">
-                  {status?.has_custom_credentials && (
+                  {status?.paymongo_account_id && (
                     <button
                       type="button"
-                      className="btn btn-outline-secondary me-auto"
+                      className="btn btn-outline-danger me-auto"
                       disabled={saving}
-                      onClick={() => void handleUsePlatformDefault()}
+                      onClick={() => void handleDisconnect()}
                     >
-                      Use platform default
+                      Disconnect
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    disabled={saving || !status?.paymongo_account_id}
+                    onClick={() => void handleRefresh()}
+                  >
+                    Refresh status
+                  </button>
                   <button
                     type="button"
                     className="btn btn-secondary"
@@ -394,14 +397,20 @@ const IntegrationsPanel = () => {
                   >
                     Close
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={saving}
-                    onClick={() => void handleSave()}
-                  >
-                    {saving ? 'Saving…' : 'Save credentials'}
-                  </button>
+                  {!status?.payments_ready && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={saving || !status?.platform_configured}
+                      onClick={() => void handleConnect()}
+                    >
+                      {saving
+                        ? 'Working…'
+                        : status?.paymongo_account_id
+                          ? 'Continue onboarding'
+                          : 'Connect PayMongo'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
