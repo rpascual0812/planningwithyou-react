@@ -21,12 +21,20 @@ function pickDefaultCompanyId(
   companies: CompanyRecord[],
   userCompanyId: number | null | undefined,
 ): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
+  const verified = companies.filter((c) => c.kyb_verified)
+  if (verified.length === 0) return null
+  if (userCompanyId != null) {
+    const userCompany = verified.find((c) => c.id === userCompanyId)
+    if (userCompany) return userCompany.id
   }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
+  const main = verified.find((c) => c.is_main)
+  return main?.id ?? verified[0].id
+}
+
+function companyOptionLabel(company: CompanyRecord): string {
+  return company.kyb_verified
+    ? `${company.name} — KYB verified`
+    : `${company.name} — KYB not verified`
 }
 
 const IntegrationsPanel = () => {
@@ -66,11 +74,12 @@ const IntegrationsPanel = () => {
   }, [])
 
   useEffect(() => {
-    if (companies.length > 0 && selectedCompanyId == null) {
-      setSelectedCompanyId(
-        pickDefaultCompanyId(companies, currentUser?.company ?? null),
-      )
-    }
+    if (companies.length === 0) return
+    const selected = companies.find((c) => c.id === selectedCompanyId)
+    if (selected?.kyb_verified) return
+    setSelectedCompanyId(
+      pickDefaultCompanyId(companies, currentUser?.company ?? null),
+    )
   }, [companies, selectedCompanyId, currentUser?.company])
 
   const loadStatus = useCallback(async (companyId: number) => {
@@ -88,11 +97,20 @@ const IntegrationsPanel = () => {
   }, [])
 
   useEffect(() => {
-    if (selectedCompanyId == null) return
+    if (selectedCompanyId == null) {
+      setStatus(null)
+      return
+    }
+    const company = companies.find((c) => c.id === selectedCompanyId)
+    if (!company?.kyb_verified) {
+      setStatus(null)
+      return
+    }
     void loadStatus(selectedCompanyId)
-  }, [selectedCompanyId, loadStatus])
+  }, [selectedCompanyId, loadStatus, companies])
 
   const openModal = () => {
+    if (!selectedCompany?.kyb_verified) return
     setSecretKey('')
     setWebhookSecret('')
     setModalOpen(true)
@@ -167,6 +185,8 @@ const IntegrationsPanel = () => {
   }
 
   const selectedCompany = companies.find((c) => c.id === selectedCompanyId)
+  const selectedKybVerified = selectedCompany?.kyb_verified === true
+  const hasVerifiedCompany = companies.some((c) => c.kyb_verified)
 
   return (
     <>
@@ -187,14 +207,26 @@ const IntegrationsPanel = () => {
           >
             {companies.length === 0 ? (
               <option value="">No active companies</option>
+            ) : !hasVerifiedCompany ? (
+              <option value="">No KYB-verified companies</option>
             ) : (
               companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
+                <option
+                  key={company.id}
+                  value={company.id}
+                  disabled={!company.kyb_verified}
+                >
+                  {companyOptionLabel(company)}
                 </option>
               ))
             )}
           </select>
+          {companies.length > 0 && !hasVerifiedCompany && (
+            <div className="form-text text-warning">
+              Complete KYB verification for a company before configuring
+              payment integrations.
+            </div>
+          )}
         </div>
       </div>
 
@@ -202,9 +234,15 @@ const IntegrationsPanel = () => {
         <p className="text-danger small mb-2">{error}</p>
       )}
 
-      {loading && !status ? (
+      {!selectedKybVerified && hasVerifiedCompany && selectedCompany && (
+        <p className="text-warning small mb-2">
+          Select a KYB-verified company to manage payment integrations.
+        </p>
+      )}
+
+      {loading && !status && selectedKybVerified ? (
         <p className="text-muted small mb-0">Loading integrations…</p>
-      ) : (
+      ) : selectedKybVerified ? (
         <ul className="connection-grid connection-grid--single">
           <PayMongoIntegrationCard
             connected={paymongoConnected}
@@ -212,7 +250,11 @@ const IntegrationsPanel = () => {
             onViewIntegration={openModal}
           />
         </ul>
-      )}
+      ) : !hasVerifiedCompany && !companiesLoading ? (
+        <p className="text-muted small mb-0">
+          Payment integrations are available after KYB verification is approved.
+        </p>
+      ) : null}
 
       {status && !status.platform_configured && !status.has_custom_credentials && (
         <p className="text-warning small mt-2 mb-0">
