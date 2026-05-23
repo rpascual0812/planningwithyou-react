@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import CompaniesPanel from './companies/CompaniesPanel'
+import IntegrationsPanel from './companies/IntegrationsPanel'
 import TiersPanel from './companies/TiersPanel'
 import PackagesPanel from './companies/PackagesPanel'
 
 const CompaniesSettingsPage = () => {
   const [companiesOpen, setCompaniesOpen] = useState(false)
+  const [integrationsOpen, setIntegrationsOpen] = useState(false)
   const [tiersOpen, setTiersOpen] = useState(false)
   const [packagesOpen, setPackagesOpen] = useState(false)
 
@@ -29,6 +31,28 @@ const CompaniesSettingsPage = () => {
           {companiesOpen && (
             <div className="faq-answer faq-answer--form">
               <CompaniesPanel />
+            </div>
+          )}
+        </li>
+
+        <li className={`faq-item${integrationsOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={integrationsOpen}
+            onClick={() => setIntegrationsOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-diagram-3" />
+            </span>
+            <span className="faq-question">Integrations</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {integrationsOpen && (
+            <div className="faq-answer faq-answer--view">
+              <IntegrationsPanel />
             </div>
           )}
         </li>

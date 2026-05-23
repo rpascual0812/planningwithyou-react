@@ -128,6 +128,8 @@ export type EmailSenderModalProps = {
   paymentLinkUrl?: string
   /** Scope booking templates to the logged-in user's company. */
   bookingTemplateCompanyId?: number | null
+  /** Render above booking payments modal (z-index stack). */
+  stacked?: boolean
 }
 
 const EMPTY_FORM: EmailPayload = {
@@ -201,7 +203,9 @@ const EmailSenderModal = ({
   initialBookingTemplateName,
   paymentLinkUrl,
   bookingTemplateCompanyId,
+  stacked = false,
 }: EmailSenderModalProps) => {
+  const layerClass = stacked ? ' email-modal--stacked' : ''
   const isCompose = !email
   const storageKey = draftKey(email, draftScope)
 
@@ -426,11 +430,11 @@ const EmailSenderModal = ({
   return (
     <>
       <div
-        className="email-modal-backdrop modal-backdrop fade show"
+        className={`email-modal-backdrop modal-backdrop fade show${layerClass}`}
         onClick={onClose}
       />
       <div
-        className="email-modal modal fade show d-block"
+        className={`email-modal modal fade show d-block${layerClass}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="emailSenderTitle"

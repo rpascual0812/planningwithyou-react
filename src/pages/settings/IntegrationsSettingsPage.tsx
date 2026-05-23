@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 type IntegrationId =
+  | 'paymongo'
   | 'gmail'
   | 'google-calendar'
   | 'microsoft-outlook'
@@ -20,6 +21,13 @@ type Integration = {
 }
 
 const INTEGRATIONS: Integration[] = [
+  {
+    id: 'paymongo',
+    name: 'PayMongo',
+    description: 'Connect PayMongo to accept payments from your customers.',
+    iconClass: 'bi-credit-card-fill',
+    color: '#dcf38c',
+  },
   {
     id: 'gmail',
     name: 'Gmail',

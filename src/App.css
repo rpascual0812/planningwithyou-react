@@ -4741,6 +4741,10 @@ body,
 }
 
 /* ----- Connection tab ----- */
+.connection-grid--single {
+  max-width: 360px;
+}
+
 .connection-grid {
   list-style: none;
   margin: 0;
@@ -7383,6 +7387,14 @@ body,
 
 .email-modal {
   z-index: 1320;
+}
+
+.email-modal-backdrop.email-modal--stacked {
+  z-index: 1350;
+}
+
+.email-modal.email-modal--stacked {
+  z-index: 1360;
 }
 
 .email-subject-editor .tox-tinymce {

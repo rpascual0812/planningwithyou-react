@@ -21,6 +21,8 @@ type Props = {
   currencyOptions: CurrencyFormatOptions
   onClose: () => void
   onSendToCustomer: (link: BookingPaymentLinkRecord) => void
+  /** When true, Escape does not close this modal (e.g. email compose is open on top). */
+  nestedModalOpen?: boolean
 }
 
 function paymentLinkOpenUrl(link: BookingPaymentLinkRecord): string {
@@ -82,6 +84,7 @@ function defaultChargeInput(
 
 export default function BookingPaymentsModal({
   bookingId,
+  nestedModalOpen = false,
   bookingTotal,
   requiredDownpayment,
   contactEmail,
@@ -167,14 +170,14 @@ export default function BookingPaymentsModal({
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !nestedModalOpen) onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
       document.body.style.overflow = prev
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onClose])
+  }, [onClose, nestedModalOpen])
 
   const summaryDisplay = useMemo(() => {
     const total = summary

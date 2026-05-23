@@ -425,7 +425,6 @@ const BookingEditModal = ({
     setEmailError(null)
     setPaymentLinkUrlForEmail(link.public_url)
     setEmailPaymentLinkMode(true)
-    setPaymentsModalOpen(false)
     setEmailModalOpen(true)
   }
 
@@ -2083,6 +2082,7 @@ const BookingEditModal = ({
       {paymentsModalOpen && form.mode === 'edit' && form.id != null && (
         <BookingPaymentsModal
           bookingId={form.id}
+          nestedModalOpen={emailModalOpen}
           bookingTotal={storedBookingTotal}
           requiredDownpayment={
             Number((form.requiredDownpaymentAmount ?? '').trim()) > 0
@@ -2114,6 +2114,7 @@ const BookingEditModal = ({
       {emailModalOpen && (
         <EmailSenderModal
           key={`booking-email-${form.id ?? 'new'}-${emailPaymentLinkMode ? 'payment-link' : 'general'}`}
+          stacked={emailPaymentLinkMode && paymentsModalOpen}
           error={emailError}
           sending={emailSending}
           composeDefaults={
