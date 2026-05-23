@@ -13,9 +13,12 @@ import {
   startAuthSessionKeepAlive,
   subscribeToAuthSync,
 } from '../services/auth'
+import { fetchMe, type UserRecord } from '../services/users'
 
 type AuthSessionContextValue = {
   isAuthenticated: boolean
+  currentUser: UserRecord | null
+  userLoading: boolean
   syncAuthState: () => void
 }
 
@@ -36,35 +39,67 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [isAuthenticated, setIsAuthenticated] = useState(hasStoredSession)
+  const [currentUser, setCurrentUser] = useState<UserRecord | null>(null)
+  const [userLoading, setUserLoading] = useState(hasStoredSession)
+
+  const loadCurrentUser = useCallback(async () => {
+    if (!hasStoredSession()) {
+      setCurrentUser(null)
+      setUserLoading(false)
+      return
+    }
+    setUserLoading(true)
+    try {
+      const user = await fetchMe()
+      setCurrentUser(user)
+    } catch {
+      setCurrentUser(null)
+    } finally {
+      setUserLoading(false)
+    }
+  }, [])
 
   const syncAuthState = useCallback(() => {
-    setIsAuthenticated(hasStoredSession())
-  }, [])
+    const authed = hasStoredSession()
+    setIsAuthenticated(authed)
+    if (authed) {
+      void loadCurrentUser()
+    } else {
+      setCurrentUser(null)
+      setUserLoading(false)
+    }
+  }, [loadCurrentUser])
 
   useEffect(() => {
     return startAuthSessionKeepAlive()
   }, [])
 
   useEffect(() => {
+    void loadCurrentUser()
+  }, [loadCurrentUser])
+
+  useEffect(() => {
     const syncFromStorage = () => {
-      setIsAuthenticated(hasStoredSession())
+      syncAuthState()
     }
 
     return subscribeToAuthSync({
       onLogin: syncFromStorage,
       onLogout: () => {
         setIsAuthenticated(false)
+        setCurrentUser(null)
+        setUserLoading(false)
         if (!isPublicAuthPath(location.pathname)) {
           navigate('/login', { replace: true })
         }
       },
       onTokensUpdated: syncFromStorage,
     })
-  }, [location.pathname, navigate])
+  }, [location.pathname, navigate, syncAuthState])
 
   const value = useMemo(
-    () => ({ isAuthenticated, syncAuthState }),
-    [isAuthenticated, syncAuthState],
+    () => ({ isAuthenticated, currentUser, userLoading, syncAuthState }),
+    [isAuthenticated, currentUser, userLoading, syncAuthState],
   )
 
   return (

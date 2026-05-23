@@ -9,6 +9,7 @@ export type OwnerDirectorIdFile = string | { label: string; file: string }
 export type CompanyKybRecord = {
   id: number
   company: number
+  company_name?: string
   business_type: KybBusinessType
   status: KybStatus
   government_id_file: string

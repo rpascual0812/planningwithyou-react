@@ -1,4 +1,4 @@
-import type { BookingField } from '../components/BookingEditModal'
+import type { BookingField } from './bookingFieldTypes'
 
 export const DEFAULT_BOOKING_GROUP_NAME = 'Suppliers'
 

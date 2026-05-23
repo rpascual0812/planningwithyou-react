@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuthSession } from '../context/AuthSessionContext'
 import { logout } from '../services/auth'
-import { fetchMe, type UserRecord } from '../services/users'
+import type { UserRecord } from '../services/users'
 
 type NavbarProps = {
   onToggleSidebar: () => void
@@ -20,12 +20,8 @@ function getDisplayName(user: UserRecord): string {
 }
 
 const Navbar = ({ onToggleSidebar }: NavbarProps) => {
-  const [user, setUser] = useState<UserRecord | null>(null)
+  const { currentUser: user } = useAuthSession()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    fetchMe().then(setUser).catch(() => {})
-  }, [])
 
   return (
     <nav className="app-header navbar navbar-expand bg-body">

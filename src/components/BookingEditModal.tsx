@@ -11,6 +11,7 @@ import {
   mergeBookingFieldGroups,
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
+import type { BookingField } from '../lib/bookingFieldTypes'
 import {
   bookingPriceSummaryRequiredDownpayment,
   bookingStoredTotalAmountHasValue,
@@ -61,28 +62,7 @@ import { fetchBookingItem } from '../services/bookings'
 import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
-export type BookingFieldOption = {
-  label: string
-  price: string | null
-  sort_order: number
-}
-
-export type BookingField = {
-  label: string
-  group_name: string
-  booking_group_id?: number | null
-  field_type: FieldType
-  is_required: boolean
-  options: BookingFieldOption[]
-  price: string | null
-  /** Per-line downpayment (non-supplier fields); stored on ``booking_items``. */
-  requiredDownpayment?: string | null
-  sort_order: number
-  saved: boolean
-  value: string
-  /** From active package ``required_downpayment_amount`` (supplier fields). */
-  packageRequiredDownpayment?: string | null
-}
+export type { BookingField, BookingFieldOption } from '../lib/bookingFieldTypes'
 
 export type BookingFormState = {
   mode: 'create' | 'edit'
@@ -109,6 +89,10 @@ export type BookingFormState = {
   paidChargeAmount?: string
   paidProcessingFees?: string
   paidPlatformFees?: string
+  /** False when another company appears on the booking; view-only in the UI. */
+  canEdit?: boolean
+  /** Owner company name (``bookings.company_id``); shown in view-only mode. */
+  companyName?: string
 }
 
 export type BookingStatus = {
@@ -218,6 +202,10 @@ const BookingEditModal = ({
   onSubmit,
   onSendToCalendar,
 }: BookingEditModalProps) => {
+  const viewOnly = form.mode === 'edit' && form.canEdit === false
+  const readOnlyFieldProps = viewOnly
+    ? ({ readOnly: true, disabled: true } as const)
+    : {}
   const [fieldDragOver, setFieldDragOver] = useState<number | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [restoredDraft, setRestoredDraft] = useState(false)
@@ -661,6 +649,7 @@ const BookingEditModal = ({
     [fieldGroups],
   )
   const showPaymentsButton =
+    !viewOnly &&
     form.mode === 'edit' &&
     form.id != null &&
     bookingStoredTotalAmountHasValue(form.totalAmount)
@@ -1047,7 +1036,7 @@ const BookingEditModal = ({
       <div
         key={idx}
         className={`card card-body p-3 mb-2${fieldDragOver === idx ? ' border-primary' : ''}`}
-        draggable
+        draggable={!viewOnly}
         onDragStart={(e) => handleFieldDragStart(e, idx)}
         onDragOver={(e) => handleFieldDragOver(e, idx)}
         onDrop={(e) => handleFieldDrop(e, idx)}
@@ -1293,24 +1282,26 @@ const BookingEditModal = ({
             {displayPrice && (
               <span className="booking-field-price">{displayPrice}</span>
             )}
-            <div className="d-flex gap-1">
-              <button
-                type="button"
-                className="btn btn-sm btn-link p-0"
-                title="Edit field"
-                onClick={() => editField(idx)}
-              >
-                <i className="bi bi-pencil-square" />
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-link p-0 text-danger"
-                title="Remove field"
-                onClick={() => removeField(idx)}
-              >
-                <i className="bi bi-x-lg" />
-              </button>
-            </div>
+            {!viewOnly && (
+              <div className="d-flex gap-1">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link p-0"
+                  title="Edit field"
+                  onClick={() => editField(idx)}
+                >
+                  <i className="bi bi-pencil-square" />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link p-0 text-danger"
+                  title="Remove field"
+                  onClick={() => removeField(idx)}
+                >
+                  <i className="bi bi-x-lg" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
         {field.field_type === 'text' && (
@@ -1320,6 +1311,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'textarea' && (
@@ -1329,6 +1321,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'number' && (
@@ -1338,6 +1331,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'date' && (
@@ -1347,6 +1341,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'time' && (
@@ -1359,6 +1354,7 @@ const BookingEditModal = ({
               updateField(idx, { value: timeInputToStored(e.target.value) })
             }
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'email' && (
@@ -1368,6 +1364,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'phone' && (
@@ -1377,6 +1374,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           />
         )}
         {field.field_type === 'checkbox' && (
@@ -1388,6 +1386,7 @@ const BookingEditModal = ({
               checked={field.value === 'true'}
               onChange={(e) => updateField(idx, { value: e.target.checked ? 'true' : '' })}
               required={field.is_required && field.value !== 'true'}
+              {...readOnlyFieldProps}
             />
             <label className="form-check-label" htmlFor={`booking-field-${idx}`}>
               {field.label}
@@ -1400,6 +1399,7 @@ const BookingEditModal = ({
             value={field.value}
             onChange={(e) => updateField(idx, { value: e.target.value })}
             required={field.is_required}
+            {...readOnlyFieldProps}
           >
             <option value="">Select...</option>
             {field.options.filter((o) => o.label.trim()).map((opt, oi) => {
@@ -1448,11 +1448,24 @@ const BookingEditModal = ({
       >
         <div className="modal-dialog modal-dialog-centered modal-xl">
           <div className="modal-content">
-            <form onSubmit={onSubmit} noValidate>
+            <form
+              onSubmit={(e) => {
+                if (viewOnly) {
+                  e.preventDefault()
+                  return
+                }
+                void onSubmit(e)
+              }}
+              noValidate
+            >
               <div className="modal-header">
                 <div className="me-auto">
                   <h1 id="bookingEditTitle" className="modal-title fs-5 mb-0">
-                    {form.mode === 'create' ? 'New booking' : 'Edit booking'}
+                    {form.mode === 'create'
+                      ? 'New booking'
+                      : viewOnly
+                        ? 'View booking'
+                        : 'Edit booking'}
                   </h1>
                   {form.mode === 'edit' && form.id != null && (
                     <p className="booking-edit-modal__booking-id text-muted small mb-0 mt-1">
@@ -1471,7 +1484,21 @@ const BookingEditModal = ({
                 />
               </div>
               <div className="modal-body">
-                {restoredDraft && (
+                {viewOnly && (
+                  <div className="alert alert-info py-2 small mb-3" role="status">
+                    This booking belongs to{' '}
+                    <span className="fw-semibold">
+                      {(form.companyName ?? '').trim() || 'another company'}
+                    </span>
+                    . You can view details and download the PDF only.
+                  </div>
+                )}
+                <fieldset
+                  className={`booking-edit-modal__fieldset${
+                    viewOnly ? ' is-view-only' : ''
+                  }`}
+                >
+                {restoredDraft && !viewOnly && (
                   <div className="alert alert-info py-2 mb-3 d-flex align-items-center" role="status">
                     <i className="bi bi-save me-2" />
                     <span className="flex-grow-1">
@@ -1503,6 +1530,7 @@ const BookingEditModal = ({
                         }
                         required
                         autoFocus
+                        {...readOnlyFieldProps}
                       />
                     </div>
                     <div className="mb-3">
@@ -1516,6 +1544,7 @@ const BookingEditModal = ({
                           onChange={(e) =>
                             onChange({ ...form, dateOfEvent: e.target.value })
                           }
+                          {...readOnlyFieldProps}
                         />
                         <input
                           id="booking-time"
@@ -1525,19 +1554,22 @@ const BookingEditModal = ({
                           onChange={(e) =>
                             onChange({ ...form, timeOfEvent: e.target.value })
                           }
+                          {...readOnlyFieldProps}
                         />
                       </div>
                     </div>
                     <div className="mb-3 booking-fields-groups">
-                      <div className="booking-fields-groups-toolbar">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={openAddGroupModal}
-                        >
-                          + Add {groupLabel}
-                        </button>
-                      </div>
+                      {!viewOnly && (
+                        <div className="booking-fields-groups-toolbar">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={openAddGroupModal}
+                          >
+                            + Add {groupLabel}
+                          </button>
+                        </div>
+                      )}
                       <ul className="faq-list booking-fields-group-list">
                         {fieldGroups.map((group) => {
                           const isOpen = openGroups[group.groupName] ?? false
@@ -1567,15 +1599,17 @@ const BookingEditModal = ({
                                     <i className="bi bi-chevron-down" />
                                   </span>
                                 </button>
-                                <button
-                                  type="button"
-                                  className="booking-fields-group-edit btn btn-link"
-                                  aria-label={`Rename ${group.groupName}`}
-                                  title={`Rename ${group.groupName}`}
-                                  onClick={() => openEditGroupModal(group.groupName)}
-                                >
-                                  <i className="bi bi-pencil-square" aria-hidden="true" />
-                                </button>
+                                {!viewOnly && (
+                                  <button
+                                    type="button"
+                                    className="booking-fields-group-edit btn btn-link"
+                                    aria-label={`Rename ${group.groupName}`}
+                                    title={`Rename ${group.groupName}`}
+                                    onClick={() => openEditGroupModal(group.groupName)}
+                                  >
+                                    <i className="bi bi-pencil-square" aria-hidden="true" />
+                                  </button>
+                                )}
                               </div>
                               {isOpen && (
                                 <div className="faq-answer faq-answer--form">
@@ -1591,22 +1625,24 @@ const BookingEditModal = ({
                                       No fields in this group yet.
                                     </p>
                                   )}
-                                  <div className="booking-fields-group-actions">
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-danger"
-                                      onClick={() => void deleteFieldGroup(group.groupName)}
-                                    >
-                                      Delete
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-primary"
-                                      onClick={() => addFieldToGroup(group.groupName)}
-                                    >
-                                      + Add Field
-                                    </button>
-                                  </div>
+                                  {!viewOnly && (
+                                    <div className="booking-fields-group-actions">
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-danger"
+                                        onClick={() => void deleteFieldGroup(group.groupName)}
+                                      >
+                                        Delete
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => addFieldToGroup(group.groupName)}
+                                      >
+                                        + Add Field
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </li>
@@ -1626,6 +1662,7 @@ const BookingEditModal = ({
                         onChange={(e) =>
                           onChange({ ...form, notes: e.target.value })
                         }
+                        {...readOnlyFieldProps}
                       />
                     </div>
                   </div>
@@ -1641,6 +1678,7 @@ const BookingEditModal = ({
                         onChange={(e) =>
                           onChange({ ...form, statusId: Number(e.target.value) })
                         }
+                        {...readOnlyFieldProps}
                       >
                         {statuses.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -1658,7 +1696,7 @@ const BookingEditModal = ({
                           id="booking-contact"
                           className="form-select"
                           value={form.contactId != null ? String(form.contactId) : ''}
-                          disabled={contactsLoading}
+                          disabled={contactsLoading || viewOnly}
                           onChange={(e) => {
                             const raw = e.target.value
                             onChange({
@@ -1676,15 +1714,17 @@ const BookingEditModal = ({
                             </option>
                           ))}
                         </select>
-                        <button
-                          type="button"
-                          className="btn btn-outline-primary"
-                          title="Add contact"
-                          aria-label="Add contact"
-                          onClick={openAddContact}
-                        >
-                          <i className="bi bi-plus-lg" />
-                        </button>
+                        {!viewOnly && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-primary"
+                            title="Add contact"
+                            aria-label="Add contact"
+                            onClick={openAddContact}
+                          >
+                            <i className="bi bi-plus-lg" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     {selectedContact && (
@@ -1822,84 +1862,120 @@ const BookingEditModal = ({
                     </div>
                   </div>
                 </div>
+                </fieldset>
               </div>
               <div className="modal-footer booking-edit-modal-footer">
                 <div className="booking-edit-modal-footer__end">
-                {form.mode === 'edit' && (
+                {viewOnly && form.mode === 'edit' ? (
                   <>
-                    <div className="booking-edit-modal-footer__send">
-                      {showPaymentsButton && (
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary"
-                          onClick={() => setPaymentsModalOpen(true)}
-                        >
-                          <i className="bi bi-credit-card me-1" aria-hidden="true" />
-                          Payments
-                        </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      title="Download Quotation"
+                      aria-label="Download Quotation"
+                      disabled={pdfDownloading || form.id == null}
+                      onClick={() => void handleDownloadBookingPdf()}
+                    >
+                      {pdfDownloading ? (
+                        <span
+                          className="spinner-border spinner-border-sm"
+                          role="status"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <>
+                          <i className="bi bi-file-earmark-arrow-down me-1" aria-hidden="true" />
+                          Download PDF
+                        </>
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={onClose}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {form.mode === 'edit' && (
+                      <>
+                        <div className="booking-edit-modal-footer__send">
+                          {showPaymentsButton && (
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary"
+                              onClick={() => setPaymentsModalOpen(true)}
+                            >
+                              <i className="bi bi-credit-card me-1" aria-hidden="true" />
+                              Payments
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => onSendToCalendar?.()}
+                            disabled={!onSendToCalendar}
+                          >
+                            <i className="bi bi-calendar-event me-1" aria-hidden="true" />
+                            Send to Calendar
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => void openBookingEmailModal()}
+                          >
+                            <i className="bi bi-envelope me-1" aria-hidden="true" />
+                            Send Email to Client
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            title="Download Quotation"
+                            aria-label="Download Quotation"
+                            disabled={pdfDownloading || form.id == null}
+                            onClick={() => void handleDownloadBookingPdf()}
+                          >
+                            {pdfDownloading ? (
+                              <span
+                                className="spinner-border spinner-border-sm"
+                                role="status"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <i className="bi bi-file-earmark-arrow-down" aria-hidden="true" />
+                            )}
+                          </button>
+                        </div>
+                        <div
+                          className="booking-edit-modal-footer__divider"
+                          role="separator"
+                          aria-orientation="vertical"
+                        />
+                      </>
+                    )}
+                    <div className="booking-edit-modal-footer__actions">
                       <button
                         type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => onSendToCalendar?.()}
-                        disabled={!onSendToCalendar}
+                        className="btn btn-secondary"
+                        onClick={onClose}
                       >
-                        <i className="bi bi-calendar-event me-1" aria-hidden="true" />
-                        Send to Calendar
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn btn-primary">
+                        Save
                       </button>
                       <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => void openBookingEmailModal()}
+                        type="submit"
+                        className="btn btn-primary"
+                        data-close-after="true"
                       >
-                        <i className="bi bi-envelope me-1" aria-hidden="true" />
-                        Send Email to Client
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        title="Download Quotation"
-                        aria-label="Download Quotation"
-                        disabled={pdfDownloading || form.id == null}
-                        onClick={() => void handleDownloadBookingPdf()}
-                      >
-                        {pdfDownloading ? (
-                          <span
-                            className="spinner-border spinner-border-sm"
-                            role="status"
-                            aria-hidden="true"
-                          />
-                        ) : (
-                          <i className="bi bi-file-earmark-arrow-down" aria-hidden="true" />
-                        )}
+                        Save and Close
                       </button>
                     </div>
-                    <div
-                      className="booking-edit-modal-footer__divider"
-                      role="separator"
-                      aria-orientation="vertical"
-                    />
                   </>
                 )}
-                <div className="booking-edit-modal-footer__actions">
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={onClose}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary">
-                    Save
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    data-close-after="true"
-                  >
-                    Save and Close
-                  </button>
-                </div>
                 </div>
               </div>
             </form>

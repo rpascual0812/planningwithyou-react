@@ -7,6 +7,8 @@ import {
   type BookingPaymentRecord,
   type BookingPaymentSummary,
 } from '../services/bookingPaymentLinks'
+import CompanyKybModal from '../pages/settings/companies/CompanyKybModal'
+import { fetchCompanies, type CompanyRecord } from '../services/companies'
 import { formatCurrency } from '../utils/currency'
 import type { CurrencyFormatOptions } from '../utils/currency'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
@@ -95,8 +97,13 @@ export default function BookingPaymentsModal({
   const [creating, setCreating] = useState(false)
   const [cancellingId, setCancellingId] = useState<number | null>(null)
   const [chargeInput, setChargeInput] = useState('')
+  const [mainCompany, setMainCompany] = useState<CompanyRecord | null>(null)
+  const [companyLoading, setCompanyLoading] = useState(true)
+  const [kybModalOpen, setKybModalOpen] = useState(false)
 
-  const load = useCallback(async () => {
+  const kybVerified = mainCompany?.kyb_verified === true
+
+  const loadPayments = useCallback(async () => {
     setLoading(true)
     try {
       const data = await fetchBookingPaymentLinks(bookingId)
@@ -111,9 +118,50 @@ export default function BookingPaymentsModal({
     }
   }, [bookingId, requiredDownpayment])
 
+  const refreshCompany = useCallback(async () => {
+    setCompanyLoading(true)
+    try {
+      const list = await fetchCompanies()
+      const main = list.find((c) => c.is_main) ?? null
+      setMainCompany(main)
+      return main
+    } catch (e) {
+      showErrorToast(e instanceof Error ? e.message : 'Failed to load company')
+      setMainCompany(null)
+      return null
+    } finally {
+      setCompanyLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    void load()
-  }, [load])
+    let cancelled = false
+    void (async () => {
+      setCompanyLoading(true)
+      try {
+        const list = await fetchCompanies()
+        if (cancelled) return
+        const main = list.find((c) => c.is_main) ?? null
+        setMainCompany(main)
+        if (main?.kyb_verified) {
+          await loadPayments()
+        } else {
+          setLoading(false)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          showErrorToast(e instanceof Error ? e.message : 'Failed to load company')
+          setMainCompany(null)
+          setLoading(false)
+        }
+      } finally {
+        if (!cancelled) setCompanyLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [loadPayments])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -258,6 +306,32 @@ export default function BookingPaymentsModal({
               />
             </div>
             <div className="modal-body">
+              {companyLoading ? (
+                <p className="text-muted mb-0">Loading…</p>
+              ) : !kybVerified ? (
+                <div className="booking-payments-kyb-gate text-center py-4 px-3">
+                  <div
+                    className="booking-payments-kyb-gate__icon mb-3"
+                    aria-hidden="true"
+                  >
+                    <i className="bi bi-shield-exclamation" />
+                  </div>
+                  <h2 className="h5 mb-2">Verify your company first</h2>
+                  <p className="text-muted mb-4">
+                    Payment links and PayMongo checkout are available after your
+                    company completes Know Your Business (KYB) verification.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!mainCompany}
+                    onClick={() => setKybModalOpen(true)}
+                  >
+                    Verify Now!
+                  </button>
+                </div>
+              ) : (
+              <>
               <div className="booking-payments-charge-panel mb-3">
                 <h6 className="booking-payments-charge-panel__title mb-2">
                   Payment summary
@@ -546,6 +620,8 @@ export default function BookingPaymentsModal({
                   )}
                 </div>
               </div>
+              </>
+              )}
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={onClose}>
@@ -555,6 +631,21 @@ export default function BookingPaymentsModal({
           </div>
         </div>
       </div>
+
+      {kybModalOpen && mainCompany && (
+        <CompanyKybModal
+          companyId={mainCompany.id}
+          companyName={mainCompany.name}
+          stacked
+          onClose={() => setKybModalOpen(false)}
+          onSaved={async () => {
+            const main = await refreshCompany()
+            if (main?.kyb_verified) {
+              void loadPayments()
+            }
+          }}
+        />
+      )}
     </>
   )
 }

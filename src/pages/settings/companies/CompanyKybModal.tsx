@@ -5,6 +5,7 @@ import {
   type CompanyKybRecord,
   type KybBusinessType,
 } from '../../../services/companyKyb'
+import KybDocumentDisplay from '../../../components/KybDocumentDisplay'
 import { uploadDocument } from '../../../services/documents'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
@@ -13,6 +14,8 @@ type Props = {
   companyName: string
   onClose: () => void
   onSaved: () => void
+  /** Raise above another open modal (e.g. booking payments). */
+  stacked?: boolean
 }
 
 type KybFormState = {
@@ -138,12 +141,15 @@ const KybFileField = ({
       <label className="form-label" htmlFor={id}>
         {label}
       </label>
-      {value ? (
+      {value && disabled ? (
+        <KybDocumentDisplay label={label} fileUrl={value} showLabel={false} />
+      ) : value ? (
         <p className="small text-success mb-1">
           <i className="bi bi-check-circle me-1" />
           Document attached
         </p>
       ) : null}
+      {!disabled && (
       <input
         id={id}
         type="file"
@@ -151,12 +157,19 @@ const KybFileField = ({
         disabled={disabled || uploading}
         onChange={(e) => void handleFile(e.target.files?.[0])}
       />
+      )}
       {uploading && <div className="form-text">Uploading…</div>}
     </div>
   )
 }
 
-const CompanyKybModal = ({ companyId, companyName, onClose, onSaved }: Props) => {
+const CompanyKybModal = ({
+  companyId,
+  companyName,
+  onClose,
+  onSaved,
+  stacked = false,
+}: Props) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -249,10 +262,19 @@ const CompanyKybModal = ({ companyId, companyName, onClose, onSaved }: Props) =>
     rejected: 'Rejected',
   }
 
+  const layerClass = stacked ? ' company-kyb-modal--stacked' : ''
+
   return (
     <>
-      <div className="modal-backdrop fade show" onClick={onClose} />
-      <div className="modal fade show d-block" role="dialog" aria-modal="true">
+      <div
+        className={`modal-backdrop fade show${layerClass}`}
+        onClick={onClose}
+      />
+      <div
+        className={`modal fade show d-block${layerClass}`}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
           <div className="modal-content">
             <div className="modal-header">

@@ -85,8 +85,7 @@ const ActiveAdminPage = ({
 }: ActiveAdminPageProps) => {
   switch (activeNav) {
     case 'kyb':
-    //   return <AdminKYBPage/>
-    return null
+      return <AdminKYBPage />
     case 'emails':
       return <AdminEmailPage />
     case 'support':

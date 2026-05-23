@@ -91,6 +91,21 @@ function RequireAuth() {
   return <Outlet />
 }
 
+function RequireAdmin() {
+  const { currentUser, userLoading } = useAuthSession()
+  if (userLoading) {
+    return (
+      <div className="app-content">
+        <div className="container-fluid py-3 text-muted">Loading…</div>
+      </div>
+    )
+  }
+  if (!currentUser?.is_admin) {
+    return <Navigate to="/" replace />
+  }
+  return <Outlet />
+}
+
 function DashboardLayout() {
   const location = useLocation()
   const isMobile = useIsMobileViewport()
@@ -212,7 +227,9 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin" element={<AdminPage />} />
+          </Route>
         </Route>
       </Route>
 

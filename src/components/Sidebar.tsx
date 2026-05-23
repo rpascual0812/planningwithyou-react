@@ -1,6 +1,9 @@
 import { NavLink } from 'react-router-dom'
+import { useAuthSession } from '../context/AuthSessionContext'
 
 const Sidebar = () => {
+  const { currentUser } = useAuthSession()
+  const showAdmin = currentUser?.is_admin === true
   const linkClassName = ({ isActive }: { isActive: boolean }) =>
     `nav-link${isActive ? ' active' : ''}`
 
@@ -79,12 +82,14 @@ const Sidebar = () => {
                 <p>Settings</p>
               </NavLink>
             </li>
-            <li className="nav-item">
-              <NavLink to="/admin" className={linkClassName}>
-                <i className="nav-icon bi bi-shield-lock" />
-                <p>Admin</p>
-              </NavLink>
-            </li>
+            {showAdmin && (
+              <li className="nav-item">
+                <NavLink to="/admin" className={linkClassName}>
+                  <i className="nav-icon bi bi-shield-lock" />
+                  <p>Admin</p>
+                </NavLink>
+              </li>
+            )}
           </ul>
         </nav>
       </div>

@@ -463,8 +463,8 @@ const PackagesPanel = () => {
         setFormError('Enter a valid downpayment (0 or greater).')
         return
       }
-      if (downpaymentNum >= priceNum) {
-        setFormError('Downpayment must be less than total price.')
+      if (downpaymentNum > priceNum) {
+        setFormError('Downpayment cannot exceed total price.')
         return
       }
     }

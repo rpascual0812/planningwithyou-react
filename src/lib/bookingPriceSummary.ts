@@ -1,4 +1,4 @@
-import type { BookingField } from '../components/BookingEditModal'
+import type { BookingField } from './bookingFieldTypes'
 import type { BookingFieldGroup } from './bookingFieldGroups'
 import { mergeBookingFieldGroups } from './bookingFieldGroups'
 import { parseSupplierFieldValue } from './supplierFieldValue'
@@ -165,13 +165,13 @@ export function validateBookingFieldDownpayment(
   if (priceAmount === null || priceAmount <= 0) {
     return 'Set a field amount before entering a downpayment.'
   }
-  if (down >= priceAmount) {
-    return 'Downpayment must be less than the field amount.'
+  if (down > priceAmount) {
+    return 'Downpayment cannot exceed the field amount.'
   }
   return null
 }
 
-/** Error when package/tier downpayment is not less than the supplier field amount. */
+/** Error when package/tier downpayment exceeds the supplier field amount. */
 export function validateBookingSupplierFieldDownpayment(
   field: BookingField,
 ): string | null {
@@ -186,8 +186,8 @@ export function validateBookingSupplierFieldDownpayment(
   if (priceAmount === null || priceAmount <= 0) {
     return 'Set a supplier price before applying a package downpayment.'
   }
-  if (down >= priceAmount) {
-    return 'Downpayment must be less than the field amount.'
+  if (down > priceAmount) {
+    return 'Downpayment cannot exceed the field amount.'
   }
   return null
 }

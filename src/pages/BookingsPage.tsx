@@ -249,6 +249,104 @@ function computeDropIndex(
   return cards.length
 }
 
+function bookingCanEdit(item: BookingItem): boolean {
+  return item.can_edit === true
+}
+
+function BookingOwnerCompanyLabel({
+  item,
+  className = '',
+}: {
+  item: BookingItem
+  className?: string
+}) {
+  if (bookingCanEdit(item)) {
+    return null
+  }
+  const name = item.company_name?.trim()
+  if (!name) {
+    return null
+  }
+  return (
+    <p className={`booking-owner-company mb-0${className ? ` ${className}` : ''}`}>
+      <span className="booking-owner-company__label">Created by:</span>{' '}
+      <span className="booking-owner-company__name">{name}</span>
+    </p>
+  )
+}
+
+/** Booking status id exists on this account's board columns. */
+function bookingHasLocalStatusColumn(
+  item: BookingItem,
+  columns: BookingColumn[],
+): boolean {
+  return columns.some((c) => c.id === item.status)
+}
+
+/** Map booking status to a local column (cross-account suppliers use title). */
+function bookingColumnIdForItem(
+  item: BookingItem,
+  columns: BookingColumn[],
+): number | null {
+  if (bookingHasLocalStatusColumn(item, columns)) {
+    return item.status
+  }
+  const title = (item.status_title ?? '').trim().toLowerCase()
+  if (!title) {
+    return null
+  }
+  const match = columns.find((c) => c.title.trim().toLowerCase() === title)
+  return match?.id ?? null
+}
+
+/** Tenant booking shown on this account's board (view-only supplier). */
+function bookingIsFromOtherCompany(item: BookingItem): boolean {
+  return !bookingCanEdit(item)
+}
+
+/** Status id is from the owner's account, not this board's columns. */
+function bookingUsesForeignStatus(
+  item: BookingItem,
+  columns: BookingColumn[],
+): boolean {
+  return bookingIsFromOtherCompany(item) && !bookingHasLocalStatusColumn(item, columns)
+}
+
+function bookingForeignStatusTitle(item: BookingItem): string {
+  return (item.status_title ?? '').trim() || 'Unknown status'
+}
+
+const FOREIGN_UNMATCHED_COLUMN_TITLE = 'Other statuses'
+
+function BookingForeignStatusNote({
+  item,
+  className = '',
+}: {
+  item: BookingItem
+  className?: string
+}) {
+  return (
+    <div
+      className={`booking-foreign-status${className ? ` ${className}` : ''}`}
+    >
+      <span className="booking-foreign-status__title">
+        {bookingForeignStatusTitle(item)}
+      </span>
+      <span className="booking-foreign-status__note">
+        Status from another company
+      </span>
+    </div>
+  )
+}
+
+function bookingCardColumnForItem(
+  item: BookingItem,
+  columns: BookingColumn[],
+): BookingColumn | undefined {
+  const columnId = bookingColumnIdForItem(item, columns)
+  return columnId != null ? columns.find((c) => c.id === columnId) : undefined
+}
+
 function bookingItemToEditForm(item: BookingItem): BookingFormState {
   let dateOfEvent = ''
   let timeOfEvent = ''
@@ -279,6 +377,8 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     paidChargeAmount: item.paid_charge_amount ?? '0',
     paidProcessingFees: item.paid_processing_fees ?? '0',
     paidPlatformFees: item.paid_platform_fees ?? '0',
+    canEdit: item.can_edit === true,
+    companyName: item.company_name ?? '',
   }
 }
 
@@ -382,6 +482,10 @@ const BookingsPage = () => {
     item: BookingItem,
     sourceIndex: number,
   ) => {
+    if (!bookingCanEdit(item)) {
+      e.preventDefault()
+      return
+    }
     const target = e.target as HTMLElement
     if (target.closest('button, [data-no-drag]')) {
       e.preventDefault()
@@ -490,6 +594,10 @@ const BookingsPage = () => {
     item: BookingItem,
     sourceIndex: number,
   ) => {
+    if (!bookingCanEdit(item)) {
+      e.preventDefault()
+      return
+    }
     e.dataTransfer.effectAllowed = 'move'
     try {
       e.dataTransfer.setData('text/plain', String(item.id))
@@ -639,16 +747,25 @@ const BookingsPage = () => {
     }
   }
 
-  const itemsByColumn = useMemo(() => {
+  const { itemsByColumn, foreignUnmatchedItems } = useMemo(() => {
     const map = new Map<number, BookingItem[]>()
+    const unmatched: BookingItem[] = []
     columns.forEach((c) => map.set(c.id, []))
     items.forEach((it) => {
-      const bucket = map.get(it.status)
-      if (bucket) {
-        bucket.push(it)
+      if (bookingHasLocalStatusColumn(it, columns)) {
+        map.get(it.status)!.push(it)
+        return
+      }
+      const columnId = bookingColumnIdForItem(it, columns)
+      if (columnId != null) {
+        map.get(columnId)!.push(it)
+        return
+      }
+      if (bookingIsFromOtherCompany(it)) {
+        unmatched.push(it)
       }
     })
-    return map
+    return { itemsByColumn: map, foreignUnmatchedItems: unmatched }
   }, [items, columns])
 
   // --- Drag handlers -------------------------------------------------------
@@ -658,6 +775,10 @@ const BookingsPage = () => {
     item: BookingItem,
     indexInColumn: number,
   ) => {
+    if (!bookingCanEdit(item)) {
+      e.preventDefault()
+      return
+    }
     e.dataTransfer.effectAllowed = 'move'
     try {
       e.dataTransfer.setData('text/plain', String(item.id))
@@ -909,6 +1030,7 @@ const BookingsPage = () => {
       fields: [],
       notes: '',
       totalAmount: '',
+      canEdit: true,
     })
   }
 
@@ -990,6 +1112,9 @@ const BookingsPage = () => {
   const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
+      return
+    }
+    if (itemModal.mode === 'edit' && itemModal.canEdit === false) {
       return
     }
     const submitEvent = e.nativeEvent as SubmitEvent
@@ -1141,6 +1266,7 @@ const BookingsPage = () => {
   }
 
   const handleDeleteItem = async (item: BookingItem) => {
+    if (!bookingCanEdit(item)) return
     if (!window.confirm(`Delete card "${item.title}"?`)) {
       return
     }
@@ -1309,7 +1435,7 @@ const BookingsPage = () => {
                 className={`kanban-card${
                   isDragging ? ' kanban-card--dragging' : ''
                 }`}
-                draggable={!isSearching}
+                draggable={!isSearching && bookingCanEdit(it)}
                 onDragStart={(e) => handleItemDragStart(e, it, idx)}
                 onDragEnd={handleDragEnd}
                 onClick={() => openEditItem(it)}
@@ -1330,6 +1456,9 @@ const BookingsPage = () => {
                     />
                   </div>
                   <p className="kanban-card-title mb-1">{it.title}</p>
+                  {bookingUsesForeignStatus(it, columns) && (
+                    <BookingForeignStatusNote item={it} />
+                  )}
                   <p className="kanban-card-event-date mb-1">
                     <i className="bi bi-calendar-event me-1" aria-hidden="true" />
                     {formatBookingEventDate(it)}
@@ -1337,22 +1466,124 @@ const BookingsPage = () => {
                   {it.notes && (
                     <p className="kanban-card-notes mb-0">{it.notes}</p>
                   )}
+                  <BookingOwnerCompanyLabel
+                    item={it}
+                    className="kanban-card-created-by"
+                  />
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-link p-0 kanban-card-delete"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleDeleteItem(it)
-                  }}
-                  aria-label={`Delete card ${it.title}`}
-                  title="Delete card"
-                >
-                  <i className="bi bi-x-lg" />
-                </button>
+                {bookingCanEdit(it) && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link p-0 kanban-card-delete"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteItem(it)
+                    }}
+                    aria-label={`Delete card ${it.title}`}
+                    title="Delete card"
+                  >
+                    <i className="bi bi-x-lg" />
+                  </button>
+                )}
               </div>
             )
           })}
+        </div>
+      </section>
+    )
+  }
+
+  const renderForeignUnmatchedColumn = () => {
+    if (foreignUnmatchedItems.length === 0) {
+      return null
+    }
+    const columnItems = foreignUnmatchedItems.filter(
+      (it) => matchesSearch(it) || drag?.itemId === it.id,
+    )
+    const count = columnItems.length
+    const stripColor = '#6c757d'
+
+    return (
+      <section
+        key="foreign-status-unmatched"
+        className="kanban-column kanban-column--foreign-status"
+      >
+        <header
+          className="kanban-column-header kanban-column-header--foreign-status"
+          style={{ borderTopColor: stripColor }}
+        >
+          <div className="kanban-column-title-row">
+            <div className="kanban-column-title-wrap">
+              <span
+                className="kanban-column-swatch"
+                style={{ backgroundColor: stripColor }}
+                aria-hidden="true"
+              />
+              <h6 className="kanban-column-title mb-0">
+                {FOREIGN_UNMATCHED_COLUMN_TITLE}
+              </h6>
+              <span
+                className="kanban-column-count badge text-bg-light"
+                title={`${count} card${count === 1 ? '' : 's'}`}
+              >
+                {count}
+              </span>
+            </div>
+          </div>
+          <p className="kanban-column-description kanban-column-description--foreign mb-0">
+            All bookings here are from another company
+          </p>
+        </header>
+        <div className="kanban-column-cards">
+          {columnItems.length === 0 && (
+            <p className="kanban-empty mb-0">No bookings in this status.</p>
+          )}
+          {columnItems.map((it) => (
+            <div
+              key={it.id}
+              data-card-id={it.id}
+              className="kanban-card"
+              onClick={() => openEditItem(it)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  openEditItem(it)
+                }
+              }}
+            >
+              <span
+                className="kanban-card-strip"
+                style={{ backgroundColor: stripColor }}
+                aria-hidden="true"
+              />
+              <div className="kanban-card-body">
+                <div className="kanban-card-header">
+                  <p className="kanban-card-booking-id mb-0">
+                    {formatBookingId(it)}
+                  </p>
+                  <BookingPaymentStatusPill
+                    item={it}
+                    className="kanban-card-payment-status"
+                  />
+                </div>
+                <p className="kanban-card-title mb-1">{it.title}</p>
+                <BookingForeignStatusNote item={it} />
+                <p className="kanban-card-event-date mb-1">
+                  <i className="bi bi-calendar-event me-1" aria-hidden="true" />
+                  {formatBookingEventDate(it)}
+                </p>
+                {it.notes && (
+                  <p className="kanban-card-notes mb-0">{it.notes}</p>
+                )}
+                <BookingOwnerCompanyLabel
+                  item={it}
+                  className="kanban-card-created-by"
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     )
@@ -1497,6 +1728,7 @@ const BookingsPage = () => {
             onPointerUp={endBoardPan}
             onPointerCancel={endBoardPan}
           >
+            {renderForeignUnmatchedColumn()}
             {columns.map(renderColumn)}
             {renderAddColumnSlot()}
           </div>
@@ -1556,10 +1788,13 @@ const BookingsPage = () => {
                   )
                 }
                 const item = entry.item
-                const column = columns.find((c) => c.id === item.status)
-                const accent = column?.color ?? '#1f3a5f'
+                const column = bookingCardColumnForItem(item, columns)
+                const usesForeignStatus = bookingUsesForeignStatus(item, columns)
+                const accent =
+                  usesForeignStatus && !column
+                    ? '#6c757d'
+                    : (column?.color ?? '#1f3a5f')
                 const iconClass = bookingCardIconClass(item)
-                const subtitle = (column?.title ?? 'Booking').trim()
                 const suppliers = bookingCardSuppliersFromFieldValues(
                   item.field_values,
                 )
@@ -1571,7 +1806,7 @@ const BookingsPage = () => {
                   key={item.id}
                   data-card-grid-id={item.id}
                   className={`booking-card${isDragging ? ' is-dragging' : ''}`}
-                  draggable={!isSearching}
+                  draggable={!isSearching && bookingCanEdit(item)}
                   onDragStart={(e) => handleCardDragStart(e, item, entry.index)}
                   onDragEnd={handleCardDragEnd}
                   onClick={() => openEditItem(item)}
@@ -1601,24 +1836,35 @@ const BookingsPage = () => {
                         {formatBookingId(item)}
                       </p>
                       <p className="booking-card-title mb-0">{item.title}</p>
-                      <p className="booking-card-subtitle mb-0">{subtitle}</p>
+                      {usesForeignStatus ? (
+                        <BookingForeignStatusNote
+                          item={item}
+                          className="booking-card-foreign-status"
+                        />
+                      ) : (
+                        <p className="booking-card-subtitle mb-0">
+                          {(column?.title ?? 'Booking').trim()}
+                        </p>
+                      )}
                       <BookingPaymentStatusPill
                         item={item}
                         className="booking-card-payment-status mt-1"
                       />
                     </div>
-                    <button
-                      type="button"
-                      className="booking-card-trash"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteItem(item)
-                      }}
-                      aria-label={`Delete ${item.title}`}
-                      title="Delete booking"
-                    >
-                      <i className="bi bi-trash" />
-                    </button>
+                    {bookingCanEdit(item) && (
+                      <button
+                        type="button"
+                        className="booking-card-trash"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteItem(item)
+                        }}
+                        aria-label={`Delete ${item.title}`}
+                        title="Delete booking"
+                      >
+                        <i className="bi bi-trash" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="booking-card-meta">
@@ -1678,6 +1924,10 @@ const BookingsPage = () => {
                       )}
                     </span>
                   </div>
+                  <BookingOwnerCompanyLabel
+                    item={item}
+                    className="booking-card-created-by"
+                  />
                 </article>
                 )
               })
@@ -1696,7 +1946,6 @@ const BookingsPage = () => {
                     <th>Booking ID</th>
                     <th>Booking</th>
                     <th>Status</th>
-                    <th>Status</th>
                     <th>Notes</th>
                     <th>Payment</th>
                     <th>Price</th>
@@ -1711,7 +1960,7 @@ const BookingsPage = () => {
                 >
                   {filteredItems.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="bookings-list-empty">
+                      <td colSpan={9} className="bookings-list-empty">
                         {isSearching
                           ? `No bookings match "${search}".`
                           : columns.length === 0
@@ -1743,20 +1992,29 @@ const BookingsPage = () => {
                       if (row.kind === 'placeholder') {
                         return (
                           <tr key={row.key} className="bookings-list-placeholder" aria-hidden="true">
-                            <td colSpan={10} />
+                            <td colSpan={9} />
                           </tr>
                         )
                       }
                       const item = row.item
-                      const column = columns.find((c) => c.id === item.status)
+                      const column = bookingCardColumnForItem(item, columns)
+                      const usesForeignStatus = bookingUsesForeignStatus(
+                        item,
+                        columns,
+                      )
                       const isDragging = listDrag?.itemId === item.id
-                      const pillColor = column?.color ?? '#1f3a5f'
-                      const statusLabel = (column?.title ?? '—').trim()
+                      const pillColor =
+                        usesForeignStatus && !column
+                          ? '#6c757d'
+                          : (column?.color ?? '#1f3a5f')
+                      const statusLabel = usesForeignStatus
+                        ? bookingForeignStatusTitle(item)
+                        : (column?.title ?? '—').trim()
                       return (
                         <tr
                           key={item.id}
                           data-row-id={item.id}
-                          draggable={!isSearching}
+                          draggable={!isSearching && bookingCanEdit(item)}
                           onDragStart={(e) => handleRowDragStart(e, item, row.index)}
                           onDragEnd={handleRowDragEnd}
                           className={`bookings-list-row${isDragging ? ' is-dragging' : ''}`}
@@ -1765,17 +2023,32 @@ const BookingsPage = () => {
                             <i className="bi bi-arrows-move" />
                           </td>
                           <td className="bookings-list-id">{formatBookingId(item)}</td>
-                          <td className="bookings-list-name">{item.title}</td>
-                          <td className="bookings-list-position">
-                            {column?.title ?? '—'}
+                          <td className="bookings-list-name">
+                            <div className="bookings-list-name-cell">
+                              <span className="bookings-list-name-title">{item.title}</span>
+                              <BookingOwnerCompanyLabel
+                                item={item}
+                                className="bookings-list-created-by"
+                              />
+                            </div>
                           </td>
-                          <td>
-                            <span
-                              className="bookings-list-pill"
-                              style={{ color: pillColor, borderColor: pillColor }}
-                            >
-                              {statusLabel}
-                            </span>
+                          <td className="bookings-list-status">
+                            <div className="bookings-list-status-cell">
+                              <span
+                                className="bookings-list-pill"
+                                style={{
+                                  color: pillColor,
+                                  borderColor: pillColor,
+                                }}
+                              >
+                                {statusLabel}
+                              </span>
+                              {usesForeignStatus && (
+                                <span className="bookings-list-status-note">
+                                  Status from another company
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="bookings-list-notes">
                             {item.notes || '—'}
@@ -1794,18 +2067,20 @@ const BookingsPage = () => {
                             {formatBookingCardDate(item.date_of_event)}
                           </td>
                           <td className="bookings-list-actions">
-                            <button
-                              type="button"
-                              className="bookings-list-action bookings-list-action--delete"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteItem(item)
-                              }}
-                              aria-label={`Delete ${item.title}`}
-                              title="Delete"
-                            >
-                              <i className="bi bi-trash" />
-                            </button>
+                            {bookingCanEdit(item) && (
+                              <button
+                                type="button"
+                                className="bookings-list-action bookings-list-action--delete"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteItem(item)
+                                }}
+                                aria-label={`Delete ${item.title}`}
+                                title="Delete"
+                              >
+                                <i className="bi bi-trash" />
+                              </button>
+                            )}
                             <button
                               type="button"
                               className="bookings-list-action bookings-list-action--edit"
@@ -1850,7 +2125,9 @@ const BookingsPage = () => {
               : []
           }
           onChange={setItemModal}
-          onDeleteGroup={handleDeleteBookingGroup}
+          onDeleteGroup={
+            itemModal.canEdit !== false ? handleDeleteBookingGroup : undefined
+          }
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}
           onSendToCalendar={

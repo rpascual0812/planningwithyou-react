@@ -70,6 +70,8 @@ export type BookingItemRecord = {
   id: number
   unique_id: string
   status: number
+  /** Tenant status label; used when ``status`` id is from another account. */
+  status_title?: string
   contact: number | null
   title: string
   date_of_event: string | null
@@ -89,6 +91,9 @@ export type BookingItemRecord = {
   pdf_url: string
   created_at: string
   updated_at: string
+  company: number
+  company_name?: string
+  can_edit: boolean
 }
 
 /* ── Statuses ── */

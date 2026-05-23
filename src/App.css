@@ -2005,6 +2005,27 @@ body,
   font-size: 0.72rem;
 }
 
+.booking-owner-company {
+  color: #5b6671;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.booking-owner-company__label {
+  font-weight: 600;
+  color: var(--brand-navy);
+}
+
+.booking-owner-company__name {
+  font-weight: 500;
+}
+
+.booking-card-created-by {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--brand-border);
+}
+
 .booking-card-footer {
   display: flex;
   align-items: center;
@@ -2152,9 +2173,9 @@ body,
   font-weight: 500;
 }
 
-.bookings-list-position {
-  font-weight: 600;
-  color: var(--brand-navy);
+.bookings-list-status {
+  white-space: normal;
+  min-width: 8rem;
 }
 
 .bookings-list-pill {
@@ -2503,6 +2524,85 @@ body,
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.booking-foreign-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.25rem;
+  background: rgba(108, 117, 125, 0.1);
+  border: 1px solid rgba(108, 117, 125, 0.22);
+}
+
+.booking-foreign-status__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--brand-navy);
+  line-height: 1.3;
+}
+
+.booking-foreign-status__note {
+  font-size: 0.68rem;
+  color: #6c757d;
+  line-height: 1.25;
+}
+
+.booking-card-foreign-status {
+  margin-top: 0.15rem;
+  margin-bottom: 0.25rem;
+}
+
+.bookings-list-status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bookings-list-status-note {
+  font-size: 0.68rem;
+  color: #6c757d;
+  font-style: italic;
+  line-height: 1.25;
+}
+
+.kanban-column--foreign-status {
+  background: rgba(108, 117, 125, 0.04);
+}
+
+.kanban-column-header--foreign-status .kanban-column-actions {
+  display: none;
+}
+
+.kanban-column-description--foreign {
+  color: #6c757d;
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
+.kanban-card-created-by {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--brand-border);
+}
+
+.bookings-list-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.bookings-list-name-title {
+  font-weight: 600;
+  color: var(--brand-navy);
+}
+
+.bookings-list-created-by {
+  font-size: 0.75rem;
 }
 
 .kanban-card-delete {
@@ -7410,8 +7510,74 @@ body,
   z-index: 1330;
 }
 
+.booking-edit-modal__fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+/* View-only: keep field-group accordions interactive; block other edits */
+.booking-edit-modal__fieldset.is-view-only input:not(.booking-fields-group-toggle),
+.booking-edit-modal__fieldset.is-view-only textarea,
+.booking-edit-modal__fieldset.is-view-only select {
+  pointer-events: none;
+}
+
+.booking-edit-modal__fieldset.is-view-only button:not(.booking-fields-group-toggle) {
+  pointer-events: none;
+}
+
 .booking-payments-modal.modal {
   z-index: 1340;
+}
+
+.modal-backdrop.company-kyb-modal--stacked {
+  z-index: 1350;
+}
+
+.modal.company-kyb-modal--stacked {
+  z-index: 1360;
+}
+
+.kyb-document-display__preview {
+  border: 1px solid var(--brand-border);
+  border-radius: 0.375rem;
+  overflow: hidden;
+  background: #f8f9fa;
+}
+
+.kyb-document-display__image {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+}
+
+.kyb-document-display__pdf {
+  display: block;
+  width: 100%;
+  min-height: 360px;
+  border: 0;
+  background: #fff;
+}
+
+.admin-kyb-readonly-text {
+  font-family: inherit;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.booking-payments-kyb-gate__icon {
+  font-size: 2.5rem;
+  color: #c9a227;
+}
+
+.booking-payments-kyb-gate__icon .bi {
+  line-height: 1;
 }
 
 .booking-payments-table-card {
