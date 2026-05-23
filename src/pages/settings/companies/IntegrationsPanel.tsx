@@ -307,7 +307,7 @@ const IntegrationsPanel = () => {
                       type="password"
                       className="form-control form-control-sm"
                       autoComplete="off"
-                      placeholder="sk_live_… or sk_test_…"
+                      placeholder="sk_live_…"
                       value={secretKey}
                       onChange={(e) => setSecretKey(e.target.value)}
                     />
@@ -329,10 +329,7 @@ const IntegrationsPanel = () => {
                       value={webhookSecret}
                       onChange={(e) => setWebhookSecret(e.target.value)}
                     />
-                    <div className="form-text">
-                      Point your PayMongo webhook to{' '}
-                      <span className="font-monospace">/api/webhooks/paymongo/</span>
-                    </div>
+                    
                   </div>
                 </div>
 
