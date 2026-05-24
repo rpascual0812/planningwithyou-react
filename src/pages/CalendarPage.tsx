@@ -197,15 +197,6 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     [calendarEvents, statusById, contactById, bookingById],
   )
 
-  const loadStatuses = useCallback(async () => {
-    try {
-      const rows = await fetchCalendarStatuses()
-      setStatuses([...rows].sort((a, b) => a.sort_order - b.sort_order || a.id - b.id))
-    } catch {
-      setStatuses([])
-    }
-  }, [])
-
   const loadEvents = useCallback(async (start?: string, end?: string) => {
     setLoadingEvents(true)
     try {
@@ -236,30 +227,23 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
       return sortedStatuses
     } catch {
       showErrorToast('Could not load appointment options.')
-      return statuses
+      return []
     } finally {
       setLoadingOptions(false)
     }
   }, [])
 
-  const loadReferenceData = useCallback(async () => {
-    try {
-      const [contactRows, bookingRows] = await Promise.all([
-        fetchContacts(),
-        fetchBookingItems(),
-      ])
-      setContacts(contactRows)
-      setBookings(bookingRows)
-    } catch {
-      setContacts([])
-      setBookings([])
-    }
-  }, [])
+  useEffect(() => {
+    void loadModalOptions()
+  }, [loadModalOptions])
 
   useEffect(() => {
-    void loadStatuses()
-    void loadReferenceData()
-  }, [loadStatuses, loadReferenceData])
+    setEditModal((prev) => {
+      if (!prev || prev.eventId !== null || prev.statusId != null) return prev
+      if (statuses.length === 0) return prev
+      return { ...prev, statusId: statuses[0].id }
+    })
+  }, [statuses])
 
   const clearEditParam = () => {
     setSearchParams(
@@ -327,10 +311,10 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
       clearEditParam()
       return
     }
-    void (async () => {
-      await loadModalOptions()
-      setEditModal(formFromCalendarRecord(ev))
-    })()
+    setEditModal(formFromCalendarRecord(ev))
+    if (contacts.length === 0 || statuses.length === 0) {
+      void loadModalOptions()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, calendarEvents])
 
@@ -461,11 +445,10 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     setPopover(null)
   }
 
-  const openCreateModal = async (start: Date, end?: Date) => {
+  const openCreateModal = (start: Date, end?: Date) => {
     dismissPopoverImmediately()
     setModalError(null)
-    const statusRows = await loadModalOptions()
-    const defaultStatusId = statusRows[0]?.id ?? null
+    const defaultStatusId = statuses[0]?.id ?? null
     const endDate = end ?? new Date(start.getTime() + 60 * 60 * 1000)
     setEditModal({
       ...EMPTY_APPOINTMENT_FORM,
@@ -473,6 +456,9 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
       endValue: formatLocalDateTime(endDate),
       statusId: defaultStatusId,
     })
+    if (contacts.length === 0 || statuses.length === 0) {
+      void loadModalOptions()
+    }
   }
 
   const handleDateClick = (arg: DateClickArg) => {
@@ -483,7 +469,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     void openCreateModal(new Date())
   }
 
-  const handleEventClick = async (info: EventClickArg) => {
+  const handleEventClick = (info: EventClickArg) => {
     info.jsEvent.preventDefault()
     dismissPopoverImmediately()
     const eventId = Number(info.event.id)
@@ -491,9 +477,11 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     const record = calendarEvents.find((e) => e.id === eventId)
     if (!record) return
     setModalError(null)
-    await loadModalOptions()
     setEditModal(formFromCalendarRecord(record))
     writeEditParam(eventId)
+    if (contacts.length === 0 || statuses.length === 0) {
+      void loadModalOptions()
+    }
   }
 
   const persistEventTimes = async (
