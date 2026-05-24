@@ -1,5 +1,6 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 import { parseApiList } from './parseApiList'
+import type { PackageItemRecord } from './packages'
 
 export type SupplierOptionRecord = {
   id: number
@@ -20,6 +21,8 @@ export type SupplierTierOptionRecord = {
   tax: string | null
   price: string | null
   required_downpayment_amount: string | null
+  package_id: number | null
+  package_version_id: number | null
 }
 
 export type FetchSupplierOptionsParams = {
@@ -84,4 +87,36 @@ export async function fetchTiersForSupplier(
   if (!res.ok) throw new Error('Failed to load tiers')
   const data: unknown = await res.json()
   return parseApiList<SupplierTierOptionRecord>(data)
+}
+
+export type BookingSupplierPackageRecord = {
+  id: number
+  tier: number
+  tier_name: string
+  description: string
+  total_price: string
+  required_downpayment_amount: string
+  items: PackageItemRecord[]
+}
+
+export async function fetchBookingSupplierPackage(params: {
+  companyId: number
+  tierId: number
+  packageVersionId?: number | null
+}): Promise<BookingSupplierPackageRecord | null> {
+  const search = new URLSearchParams({
+    company_id: String(params.companyId),
+    tier_id: String(params.tierId),
+  })
+  if (params.packageVersionId != null) {
+    search.set('package_version_id', String(params.packageVersionId))
+  }
+  const res = await apiFetch(
+    buildApiUrl(`/api/booking-supplier-package/?${search.toString()}`),
+    { headers: authHeaders() },
+  )
+  if (!res.ok) throw new Error('Failed to load package items')
+  const data: unknown = await res.json()
+  if (data == null) return null
+  return data as BookingSupplierPackageRecord
 }

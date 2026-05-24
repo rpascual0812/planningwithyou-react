@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type IntegrationId =
   | 'gmail'
@@ -11,13 +11,44 @@ type IntegrationId =
   | 'yahoo-calendar'
   | 'facebook-messenger'
 
+type IntegrationPurpose = 'email' | 'calendar' | 'messaging'
+
 type Integration = {
   id: IntegrationId
   name: string
   description: string
   iconClass: string
   color: string
+  purpose: IntegrationPurpose
 }
+
+type IntegrationGroup = {
+  id: IntegrationPurpose
+  title: string
+  description: string
+  iconClass: string
+}
+
+const INTEGRATION_GROUPS: IntegrationGroup[] = [
+  {
+    id: 'email',
+    title: 'Email',
+    description: 'Connect inboxes to send and receive messages from your account.',
+    iconClass: 'bi-envelope',
+  },
+  {
+    id: 'calendar',
+    title: 'Calendar',
+    description: 'Sync events, availability, and reminders with your calendars.',
+    iconClass: 'bi-calendar3',
+  },
+  {
+    id: 'messaging',
+    title: 'Messaging',
+    description: 'Receive and reply to conversations from messaging apps.',
+    iconClass: 'bi-chat-dots',
+  },
+]
 
 const INTEGRATIONS: Integration[] = [
   {
@@ -26,6 +57,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Connect Gmail to send and receive messages from your inbox.',
     iconClass: 'bi-envelope-fill',
     color: '#ea4335',
+    purpose: 'email',
   },
   {
     id: 'google-calendar',
@@ -33,6 +65,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Sync events and availability with Google Calendar.',
     iconClass: 'bi-calendar-event-fill',
     color: '#4285f4',
+    purpose: 'calendar',
   },
   {
     id: 'microsoft-outlook',
@@ -40,6 +73,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Connect Outlook to manage email in one place.',
     iconClass: 'bi-microsoft',
     color: '#0078d4',
+    purpose: 'email',
   },
   {
     id: 'microsoft-calendar',
@@ -47,6 +81,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Sync schedules and meetings with Microsoft Calendar.',
     iconClass: 'bi-calendar3-fill',
     color: '#0078d4',
+    purpose: 'calendar',
   },
   {
     id: 'apple-email',
@@ -54,6 +89,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Connect Apple Mail to manage messages from your account.',
     iconClass: 'bi-apple',
     color: '#555555',
+    purpose: 'email',
   },
   {
     id: 'apple-calendar',
@@ -61,6 +97,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Sync events and reminders with Apple Calendar.',
     iconClass: 'bi-calendar2-week-fill',
     color: '#555555',
+    purpose: 'calendar',
   },
   {
     id: 'yahoo-email',
@@ -68,6 +105,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Connect Yahoo Mail to send and receive messages.',
     iconClass: 'bi-envelope-at-fill',
     color: '#6001d2',
+    purpose: 'email',
   },
   {
     id: 'yahoo-calendar',
@@ -75,6 +113,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Sync events and availability with Yahoo Calendar.',
     iconClass: 'bi-calendar-check-fill',
     color: '#6001d2',
+    purpose: 'calendar',
   },
   {
     id: 'facebook-messenger',
@@ -82,6 +121,7 @@ const INTEGRATIONS: Integration[] = [
     description: 'Connect Messenger to receive and reply to conversations.',
     iconClass: 'bi-messenger',
     color: '#0084ff',
+    purpose: 'messaging',
   },
 ]
 
@@ -91,6 +131,45 @@ const renderIntegrationIcon = (integration: Integration) => (
     style={{ color: integration.color }}
     aria-hidden="true"
   />
+)
+
+type IntegrationCardProps = {
+  integration: Integration
+  enabled: boolean
+  onToggle: () => void
+  onView: () => void
+}
+
+const IntegrationCard = ({
+  integration,
+  enabled,
+  onToggle,
+  onView,
+}: IntegrationCardProps) => (
+  <li className="connection-card">
+    <header className="connection-card-head">
+      <span className="connection-icon" aria-hidden="true">
+        {renderIntegrationIcon(integration)}
+      </span>
+      <span className="connection-name">{integration.name}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-label={`Toggle ${integration.name} integration`}
+        className={`settings-switch${enabled ? ' is-on' : ''}`}
+        onClick={onToggle}
+      >
+        <span className="settings-switch-thumb" aria-hidden="true" />
+      </button>
+    </header>
+    <p className="connection-desc">{integration.description}</p>
+    <footer className="connection-card-foot">
+      <button type="button" className="connection-link" onClick={onView}>
+        View integration
+      </button>
+    </footer>
+  </li>
 )
 
 const IntegrationsSettingsPage = () => {
@@ -106,9 +185,30 @@ const IntegrationsSettingsPage = () => {
   )
   const [selectedIntegration, setSelectedIntegration] =
     useState<Integration | null>(null)
+  const [openGroups, setOpenGroups] = useState<Record<IntegrationPurpose, boolean>>({
+    email: true,
+    calendar: false,
+    messaging: false,
+  })
+
+  const integrationsByPurpose = useMemo(() => {
+    const map: Record<IntegrationPurpose, Integration[]> = {
+      email: [],
+      calendar: [],
+      messaging: [],
+    }
+    for (const integration of INTEGRATIONS) {
+      map[integration.purpose].push(integration)
+    }
+    return map
+  }, [])
 
   const toggleIntegration = (id: IntegrationId) => {
     setIntegrations((prev) => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const toggleGroup = (id: IntegrationPurpose) => {
+    setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
   useEffect(() => {
@@ -126,52 +226,57 @@ const IntegrationsSettingsPage = () => {
   }, [selectedIntegration])
 
   return (
-    <>
-      <ul className="connection-grid">
-        {INTEGRATIONS.map((integration) => {
-          const enabled = integrations[integration.id]
-          return (
-            <li key={integration.id} className="connection-card">
-              <header className="connection-card-head">
-                <span className="connection-icon" aria-hidden="true">
-                  {renderIntegrationIcon(integration)}
-                </span>
-                <span className="connection-name">{integration.name}</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={enabled}
-                  aria-label={`Toggle ${integration.name} integration`}
-                  className={`settings-switch${enabled ? ' is-on' : ''}`}
-                  onClick={() => toggleIntegration(integration.id)}
-                >
-                  <span className="settings-switch-thumb" aria-hidden="true" />
-                </button>
-              </header>
-              <p className="connection-desc">{integration.description}</p>
-              <footer className="connection-card-foot">
-                <button
-                  type="button"
-                  className="connection-link"
-                  onClick={() => setSelectedIntegration(integration)}
-                >
-                  View integration
-                </button>
-              </footer>
-            </li>
-          )
-        })}
-      </ul>
+    <div className="account-settings integrations-settings">
+    <ul className="faq-list">
+      {INTEGRATION_GROUPS.map((group) => {
+        const isOpen = openGroups[group.id]
+        const groupIntegrations = integrationsByPurpose[group.id]
+        return (
+          <li key={group.id} className={`faq-item${isOpen ? ' is-open' : ''}`}>
+            <button
+              type="button"
+              className="faq-toggle"
+              aria-expanded={isOpen}
+              onClick={() => toggleGroup(group.id)}
+            >
+              <span className="faq-icon" aria-hidden="true">
+                <i className={`bi ${group.iconClass}`} />
+              </span>
+              <span className="faq-question">{group.title}</span>
+              <span className="faq-chevron" aria-hidden="true">
+                <i className="bi bi-chevron-down" />
+              </span>
+            </button>
+            {isOpen && (
+              <div className="faq-answer faq-answer--view">
+                <p className="integrations-group-desc">{group.description}</p>
+                <ul className="connection-grid">
+                  {groupIntegrations.map((integration) => (
+                    <IntegrationCard
+                      key={integration.id}
+                      integration={integration}
+                      enabled={integrations[integration.id]}
+                      onToggle={() => toggleIntegration(integration.id)}
+                      onView={() => setSelectedIntegration(integration)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </li>
+        )
+      })}
+    </ul>
 
-      {selectedIntegration && (
-        <IntegrationDetailsModal
-          integration={selectedIntegration}
-          enabled={integrations[selectedIntegration.id]}
-          onToggle={() => toggleIntegration(selectedIntegration.id)}
-          onClose={() => setSelectedIntegration(null)}
-        />
-      )}
-    </>
+    {selectedIntegration && (
+      <IntegrationDetailsModal
+        integration={selectedIntegration}
+        enabled={integrations[selectedIntegration.id]}
+        onToggle={() => toggleIntegration(selectedIntegration.id)}
+        onClose={() => setSelectedIntegration(null)}
+      />
+    )}
+    </div>
   )
 }
 

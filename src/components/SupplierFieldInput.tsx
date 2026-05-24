@@ -6,12 +6,15 @@ import {
   type SupplierFieldValue,
 } from '../lib/supplierFieldValue'
 import {
+  fetchBookingSupplierPackage,
   fetchSupplierBookingCapacity,
   fetchSupplierOptions,
   fetchTiersForSupplier,
+  type BookingSupplierPackageRecord,
   type SupplierOptionRecord,
   type SupplierTierOptionRecord,
 } from '../services/supplierField'
+import PackageItemsPopover from './PackageItemsPopover'
 import {
   fetchActiveSupplierTypes,
   type SupplierTypeRecord,
@@ -51,6 +54,7 @@ type SupplierFieldInputProps = {
   /** When editing a booking, exclude it from the daily capacity count. */
   excludeBookingId?: number | null
   tierLabel?: string
+  packageLabel?: string
   supplierLabel?: string
   supplierTypeLabel?: string
   size?: 'sm' | 'default'
@@ -63,6 +67,7 @@ export default function SupplierFieldInput({
   dateOfEvent = '',
   excludeBookingId = null,
   tierLabel = 'Tier',
+  packageLabel = 'Package',
   supplierLabel = 'Supplier',
   supplierTypeLabel = 'Supplier type',
   size = 'default',
@@ -81,6 +86,10 @@ export default function SupplierFieldInput({
   const [loadingTiers, setLoadingTiers] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [supplierMenuOpen, setSupplierMenuOpen] = useState(false)
+  const [packageDetail, setPackageDetail] = useState<BookingSupplierPackageRecord | null>(
+    null,
+  )
+  const [packageLoading, setPackageLoading] = useState(false)
   const supplierMenuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -183,6 +192,37 @@ export default function SupplierFieldInput({
       cancelled = true
     }
   }, [parsed.supplier_id])
+
+  const selectedTierOption =
+    parsed.tier_id != null ? tiers.find((t) => t.id === parsed.tier_id) : undefined
+
+  useEffect(() => {
+    const companyId = parsed.supplier_id
+    const tierId = parsed.tier_id
+    if (companyId == null || tierId == null) {
+      setPackageDetail(null)
+      return
+    }
+    let cancelled = false
+    setPackageLoading(true)
+    void fetchBookingSupplierPackage({
+      companyId,
+      tierId,
+      packageVersionId: selectedTierOption?.package_version_id ?? null,
+    })
+      .then((pkg) => {
+        if (!cancelled) setPackageDetail(pkg)
+      })
+      .catch(() => {
+        if (!cancelled) setPackageDetail(null)
+      })
+      .finally(() => {
+        if (!cancelled) setPackageLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [parsed.supplier_id, parsed.tier_id, selectedTierOption?.package_version_id])
 
   const emit = (
     next: SupplierFieldValue,
@@ -422,31 +462,43 @@ export default function SupplierFieldInput({
         )}
       </div>
       <div className="col-sm-6">
-        <label className={labelClass}>{tierLabel}</label>
-        <select
-          className={selectClass}
-          value={tierStillValid && parsed.tier_id != null ? parsed.tier_id : ''}
-          onChange={(e) => handleTierChange(e.target.value)}
-          required={required && parsed.supplier_id != null}
-          disabled={
-            parsed.supplier_id == null || loadingTiers || tiers.length === 0
-          }
-        >
-          <option value="">
-            {parsed.supplier_id == null
-              ? 'Select a supplier first'
-              : loadingTiers
-                ? 'Loading tiers...'
-                : tiers.length === 0
-                  ? 'No tiers for this supplier'
-                  : 'Select tier...'}
-          </option>
-          {tiers.map((tier) => (
-            <option key={tier.id} value={tier.id}>
-              {tier.name}
+        <label className={labelClass}>{packageLabel}</label>
+        <div className="d-flex align-items-stretch gap-1">
+          <select
+            className={`${selectClass} flex-grow-1 min-w-0`}
+            value={tierStillValid && parsed.tier_id != null ? parsed.tier_id : ''}
+            onChange={(e) => handleTierChange(e.target.value)}
+            required={required && parsed.supplier_id != null}
+            disabled={
+              parsed.supplier_id == null || loadingTiers || tiers.length === 0
+            }
+          >
+            <option value="">
+              {parsed.supplier_id == null
+                ? 'Select a supplier first'
+                : loadingTiers
+                  ? 'Loading packages...'
+                  : tiers.length === 0
+                    ? 'No packages for this supplier'
+                    : 'Select package...'}
             </option>
-          ))}
-        </select>
+            {tiers.map((tier) => (
+              <option key={tier.id} value={tier.id}>
+                {tier.name}
+              </option>
+            ))}
+          </select>
+          {parsed.tier_id != null && parsed.supplier_id != null && (
+            <PackageItemsPopover
+              tierName={
+                tiers.find((t) => t.id === parsed.tier_id)?.name ?? packageLabel
+              }
+              packageDescription={packageDetail?.description ?? ''}
+              items={packageDetail?.items ?? []}
+              loading={packageLoading}
+            />
+          )}
+        </div>
       </div>
       {loadError && (
         <div className="col-12">
