@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useAuthSession } from '../../context/AuthSessionContext'
 import { fetchCurrentAccount } from '../../services/accounts'
 import {
+  createSubscriptionCheckout,
+  fetchCurrentAccountSubscription,
   fetchSubscriptionPlans,
+  type AccountSubscriptionRecord,
   type SubscriptionPlanRecord,
 } from '../../services/subscriptions'
 import {
@@ -44,48 +49,22 @@ function firstSelectablePlanId(planList: SubscriptionPlan[]): string {
   return planList.find((p) => p.isSelectable)?.id ?? ''
 }
 
-type PaymentCard = {
-  id: string
-  last4: string
-  label: string
-  brand: 'visa' | 'mastercard'
+function subscriptionStatusLabel(status: AccountSubscriptionRecord['status']): string {
+  switch (status) {
+    case 'active':
+      return 'Active'
+    case 'pending':
+      return 'Pending payment'
+    case 'past_due':
+      return 'Past due'
+    case 'unpaid':
+      return 'Unpaid'
+    case 'cancelled':
+      return 'Cancelled'
+    default:
+      return status
+  }
 }
-
-const PAYMENT_CARD: PaymentCard = {
-  id: 'master-6790',
-  last4: '6790',
-  label: 'Master card',
-  brand: 'mastercard',
-}
-
-const VisaLogo = () => (
-  <svg viewBox="0 0 56 36" width="40" height="26" aria-hidden="true">
-    <rect width="56" height="36" rx="4" fill="#1a1f71" />
-    <text
-      x="50%"
-      y="64%"
-      textAnchor="middle"
-      fill="#ffffff"
-      fontSize="14"
-      fontWeight="900"
-      letterSpacing="1"
-      fontFamily="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
-      fontStyle="italic"
-    >
-      VISA
-    </text>
-  </svg>
-)
-
-const MastercardLogo = () => (
-  <svg viewBox="0 0 48 32" width="44" height="28" aria-hidden="true">
-    <circle cx="18" cy="16" r="11" fill="#eb001b" />
-    <circle cx="30" cy="16" r="11" fill="#f79e1b" opacity="0.92" />
-  </svg>
-)
-
-const renderCardBrand = (brand: PaymentCard['brand']) =>
-  brand === 'visa' ? <VisaLogo /> : <MastercardLogo />
 
 const MONTHS_PER_YEAR = 12
 const YEARLY_FREE_MONTHS = 2
@@ -167,10 +146,18 @@ function formatNextPaymentCharge(cycle: BillingCycle, from = new Date()): string
 }
 
 const SubscriptionSettingsPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { subscriptionPlan, syncAuthState } = useAuthSession()
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
   const [plansError, setPlansError] = useState<string | null>(null)
+  const [currentSubscription, setCurrentSubscription] =
+    useState<AccountSubscriptionRecord | null>(null)
+  const [currentSubscriptionLoading, setCurrentSubscriptionLoading] = useState(true)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
   const [currencyFormat, setCurrencyFormat] = useState<CurrencyFormatOptions>({
     currencyCode: 'USD',
     locale: 'en-US',
@@ -197,6 +184,38 @@ const SubscriptionSettingsPage = () => {
 
   const handleApplyDiscount = () => {
     setDiscountMessage('Discount code invalid')
+  }
+
+  const loadCurrentSubscription = useCallback(async () => {
+    setCurrentSubscriptionLoading(true)
+    try {
+      const row = await fetchCurrentAccountSubscription()
+      setCurrentSubscription(row)
+    } catch {
+      setCurrentSubscription(null)
+    } finally {
+      setCurrentSubscriptionLoading(false)
+    }
+  }, [])
+
+  const handlePayNow = async () => {
+    if (isFreePlan || checkoutLoading) return
+    setCheckoutError(null)
+    setCheckoutLoading(true)
+    try {
+      const result = await createSubscriptionCheckout({
+        plan: selectedPlanId,
+        billing_cycle: billingCycle,
+        team_seats: teamSeats,
+        discount_code: discountCode,
+      })
+      window.location.assign(result.checkout_url)
+    } catch (e) {
+      setCheckoutError(
+        e instanceof Error ? e.message : 'Failed to start subscription checkout',
+      )
+      setCheckoutLoading(false)
+    }
   }
 
   const loadPlans = useCallback(async () => {
@@ -231,6 +250,43 @@ const SubscriptionSettingsPage = () => {
   useEffect(() => {
     loadPlans()
   }, [loadPlans])
+
+  useEffect(() => {
+    void loadCurrentSubscription()
+  }, [loadCurrentSubscription])
+
+  useEffect(() => {
+    const result = searchParams.get('subscription')
+    if (result === 'success') {
+      setCheckoutNotice(
+        'Payment submitted. Your plan will update once PayMongo confirms the subscription.',
+      )
+      void loadCurrentSubscription()
+      syncAuthState()
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('subscription')
+          return next
+        },
+        { replace: true },
+      )
+    } else if (result === 'cancelled') {
+      setCheckoutNotice('Checkout was cancelled. You can try again when ready.')
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('subscription')
+          return next
+        },
+        { replace: true },
+      )
+    }
+  }, [loadCurrentSubscription, searchParams, setSearchParams, syncAuthState])
+
+  const activePlanSlug = currentSubscription?.status === 'active'
+    ? currentSubscription.plan
+    : subscriptionPlan
 
   const totals = useMemo(() => {
     const selectedPlan =
@@ -286,6 +342,37 @@ const SubscriptionSettingsPage = () => {
 
   return (
     <div className="sub-layout">
+      {(checkoutNotice || checkoutError) && (
+        <div className="sub-notices">
+          {checkoutNotice && (
+            <p className="sub-notice sub-notice--info">{checkoutNotice}</p>
+          )}
+          {checkoutError && (
+            <p className="sub-notice sub-notice--error">{checkoutError}</p>
+          )}
+        </div>
+      )}
+
+      {!currentSubscriptionLoading && currentSubscription && (
+        <section className="sub-current-plan">
+          <h6 className="sub-col-title">Current subscription</h6>
+          <p className="sub-current-plan-detail">
+            <strong>{currentSubscription.plan_name}</strong>
+            {' · '}
+            {currentSubscription.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'}
+            {' · '}
+            {subscriptionStatusLabel(currentSubscription.status)}
+            {currentSubscription.status === 'active' && activePlanSlug !== 'free' && (
+              <>
+                {' · '}
+                {currentSubscription.team_seats}{' '}
+                {currentSubscription.team_seats === 1 ? 'user' : 'users'}
+              </>
+            )}
+          </p>
+        </section>
+      )}
+
       <section className="sub-col">
         <header className="sub-col-head">
           <h6 className="sub-col-title">Choose plan</h6>
@@ -421,29 +508,21 @@ const SubscriptionSettingsPage = () => {
         )}
       </section>
 
-            <section className="sub-col">
+      <section className="sub-col">
         <header className="sub-col-head">
-          <h6 className="sub-col-title">Payment plan</h6>
+          <h6 className="sub-col-title">Payment</h6>
         </header>
 
-        <ul className="sub-card-list">
-          <li className="sub-card is-selected">
-            <div className="sub-card-row sub-card-row--static">
-              <div className="sub-card-meta">
-                <span className="sub-card-number">
-                  **** {PAYMENT_CARD.last4}
-                </span>
-                <span className="sub-card-label">{PAYMENT_CARD.label}</span>
-              </div>
-              <span className="sub-card-brand">
-                {renderCardBrand(PAYMENT_CARD.brand)}
-              </span>
-            </div>
-          </li>
-        </ul>
-        <button type="button" className="sub-add-card-btn">
-          Update Card
-        </button>
+        <div className="sub-paymongo-note">
+          <p className="mb-2">
+            Subscriptions are billed securely through PayMongo. You will be redirected
+            to complete card authorization; your payment method is saved for recurring
+            {billingCycle === 'monthly' ? ' monthly' : ' yearly'} charges.
+          </p>
+          <p className="text-muted small mb-0">
+            Supported methods include Visa, Mastercard, and Maya.
+          </p>
+        </div>
 
         <div className="sub-summary">
           <div className="sub-discount">
@@ -524,8 +603,13 @@ const SubscriptionSettingsPage = () => {
           </div>
 
           {!isFreePlan && (
-            <button type="button" className="sub-pay-btn">
-              PAY NOW
+            <button
+              type="button"
+              className="sub-pay-btn"
+              disabled={checkoutLoading}
+              onClick={() => void handlePayNow()}
+            >
+              {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
             </button>
           )}
         </div>

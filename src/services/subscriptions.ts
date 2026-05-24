@@ -16,6 +16,32 @@ export type SubscriptionPlanRecord = {
   sort_order: number
 }
 
+export type AccountSubscriptionRecord = {
+  uuid: string
+  plan: string
+  plan_name: string
+  billing_cycle: 'monthly' | 'yearly'
+  status: 'pending' | 'active' | 'past_due' | 'unpaid' | 'cancelled'
+  team_seats: number
+  start_date: string
+  end_date: string | null
+  base_price: string
+  total_per_users: string
+  total_price: string
+  discount_code: string
+}
+
+export type SubscriptionCheckoutResponse = {
+  checkout_url: string
+  account_subscription_uuid: string
+  paymongo_subscription_id: string
+  success_url: string
+  cancel_url: string
+  amount: string
+  billing_cycle: 'monthly' | 'yearly'
+  plan: string
+}
+
 export async function fetchSubscriptionPlans(
   billingCycle: 'monthly' | 'yearly',
 ): Promise<SubscriptionPlanRecord[]> {
@@ -25,5 +51,46 @@ export async function fetchSubscriptionPlans(
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load subscription plans')
+  return res.json()
+}
+
+export async function fetchCurrentAccountSubscription(): Promise<AccountSubscriptionRecord | null> {
+  const res = await apiFetch(buildApiUrl('/api/account-subscription/current/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load account subscription')
+  const data: unknown = await res.json()
+  if (data == null) return null
+  return data as AccountSubscriptionRecord
+}
+
+export type SubscriptionCheckoutPayload = {
+  plan: string
+  billing_cycle: 'monthly' | 'yearly'
+  team_seats?: number
+  discount_code?: string
+}
+
+export async function createSubscriptionCheckout(
+  payload: SubscriptionCheckoutPayload,
+): Promise<SubscriptionCheckoutResponse> {
+  const res = await apiFetch(buildApiUrl('/api/subscriptions/checkout/'), {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    let detail = 'Failed to start subscription checkout'
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
   return res.json()
 }
