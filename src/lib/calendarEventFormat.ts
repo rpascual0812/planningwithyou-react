@@ -79,11 +79,17 @@ export function calendarRecordToEventInput(
     borderColor: status?.background_color,
     textColor: status?.text_color,
     extendedProps: {
+      statusTitle: status?.title ?? '',
       statusTextColor: status?.text_color,
       statusBackgroundColor: status?.background_color,
       contactFirstName: contact?.first_name ?? '',
       contactLastName: contact?.last_name ?? '',
+      contactEmail: contact?.email ?? '',
+      contactPhone: '',
       bookingTitle: booking?.title?.trim() ?? '',
+      bookingUniqueId: booking?.unique_id ?? '',
+      repeatType: ev.repeat_type ?? '',
+      repeatEnd: ev.repeat_end ?? '',
     },
   }
 }

@@ -20,6 +20,12 @@ import AppointmentEditModal, {
   EMPTY_APPOINTMENT_FORM,
   type AppointmentFormState,
 } from '../components/AppointmentEditModal'
+import AppointmentHoverPopover, {
+  formatAppointmentDuration,
+  repeatLabelForType,
+  type AppointmentHoverDetails,
+} from '../components/AppointmentHoverPopover'
+import { contactDefaultPhone, contactDisplayName } from '../lib/contactDisplay'
 import {
   appointmentPayloadFromForm,
   calendarRecordToEventInput,
@@ -49,17 +55,6 @@ type CalendarPageProps = {
   isSidebarCollapsed: boolean
 }
 
-type AppointmentDetails = {
-  title: string
-  start: string
-  end: string
-  contactFirstName?: string
-  contactLastName?: string
-  bookingTitle?: string
-  textColor?: string
-  backgroundColor?: string
-}
-
 type AnchorRect = {
   top: number
   left: number
@@ -71,8 +66,8 @@ type AnchorRect = {
 
 const GAP = 8
 const VIEW_PADDING = 8
-const POPOVER_ESTIMATE_W = 300
-const POPOVER_ESTIMATE_H = 280
+const POPOVER_ESTIMATE_W = 320
+const POPOVER_ESTIMATE_H = 340
 const HOVER_HIDE_DELAY_MS = 150
 
 function formFromCalendarRecord(ev: CalendarEventRecord): AppointmentFormState {
@@ -165,7 +160,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
   const [modalError, setModalError] = useState<string | null>(null)
 
   const [popover, setPopover] = useState<{
-    details: AppointmentDetails
+    details: AppointmentHoverDetails
     anchor: AnchorRect
     position: { top: number; left: number }
   } | null>(null)
@@ -385,34 +380,116 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     return employees[dayOffset] ?? `Employee ${dayOffset + 1}`
   }
 
+  const buildHoverDetails = useCallback(
+    (event: EventApi): AppointmentHoverDetails | null => {
+      const eventId = Number(event.id)
+      if (!eventId) return null
+      const record = calendarEvents.find((item) => item.id === eventId)
+      const props = event.extendedProps as {
+        statusTitle?: string
+        statusTextColor?: string
+        statusBackgroundColor?: string
+        contactFirstName?: string
+        contactLastName?: string
+        contactEmail?: string
+        contactPhone?: string
+        bookingTitle?: string
+        bookingUniqueId?: string
+        repeatType?: string
+        repeatEnd?: string
+      }
+
+      const startDate = event.start ?? null
+      const endDate = event.end ?? startDate
+      const startLabel = startDate
+        ? startDate.toLocaleString(undefined, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : '—'
+      const endLabel = endDate
+        ? endDate.toLocaleString(undefined, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : '—'
+
+      let contactName: string | undefined
+      let contactEmail: string | undefined
+      let contactPhone: string | undefined
+      if (record?.contact != null) {
+        const contact = contactById.get(record.contact)
+        if (contact) {
+          contactName = contactDisplayName(contact)
+          contactEmail = contact.email?.trim() || undefined
+          const phone = contactDefaultPhone(contact)
+          contactPhone = phone?.number?.trim() || undefined
+        }
+      } else {
+        const legacyName = [props.contactFirstName, props.contactLastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim()
+        contactName = legacyName || undefined
+        contactEmail = props.contactEmail?.trim() || undefined
+        contactPhone = props.contactPhone?.trim() || undefined
+      }
+
+      let bookingLabel: string | undefined
+      if (record?.booking != null) {
+        const booking = bookingById.get(record.booking)
+        if (booking) {
+          const title = booking.title?.trim() || 'Untitled'
+          bookingLabel = `${booking.unique_id} — ${title}`
+        }
+      } else if (props.bookingUniqueId || props.bookingTitle) {
+        bookingLabel = props.bookingUniqueId
+          ? `${props.bookingUniqueId} — ${props.bookingTitle || 'Booking'}`
+          : props.bookingTitle
+      }
+
+      const status = record ? statusById.get(record.status) : undefined
+      const repeatLabel = repeatLabelForType(
+        record?.repeat_type ?? props.repeatType ?? null,
+        record?.repeat_end ?? props.repeatEnd ?? null,
+      )
+
+      return {
+        eventId,
+        title: event.title?.trim() || 'Untitled',
+        startLabel,
+        endLabel,
+        durationLabel:
+          startDate && endDate
+            ? formatAppointmentDuration(startDate, endDate)
+            : '—',
+        statusTitle: status?.title ?? props.statusTitle,
+        statusBackgroundColor: status?.background_color ?? props.statusBackgroundColor,
+        statusTextColor: status?.text_color ?? props.statusTextColor,
+        contactName,
+        contactEmail,
+        contactPhone,
+        bookingLabel,
+        repeatLabel,
+      }
+    },
+    [calendarEvents, contactById, bookingById, statusById],
+  )
+
   const openPopoverForEvent = (arg: EventHoveringArg) => {
     clearHidePopoverTimer()
     const { event, el } = arg
-    const start = event.start
-      ? event.start.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-      : 'N/A'
-    const end = event.end
-      ? event.end.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-      : 'N/A'
-    const props = event.extendedProps as {
-      statusTextColor?: string
-      statusBackgroundColor?: string
-      contactFirstName?: string
-      contactLastName?: string
-      bookingTitle?: string
-    }
+    const details = buildHoverDetails(event)
+    if (!details) return
     const anchor = toAnchorRect(el.getBoundingClientRect())
     setPopover({
-      details: {
-        title: event.title,
-        start,
-        end,
-        contactFirstName: props.contactFirstName,
-        contactLastName: props.contactLastName,
-        bookingTitle: props.bookingTitle,
-        textColor: props.statusTextColor,
-        backgroundColor: props.statusBackgroundColor,
-      },
+      details,
       anchor,
       position: computePopoverPosition(
         anchor,
@@ -662,52 +739,13 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
       </div>
 
       {popover && (
-        <div
+        <AppointmentHoverPopover
           ref={popoverRef}
-          className="appointment-popover"
+          details={popover.details}
           style={{ top: popover.position.top, left: popover.position.left }}
           onMouseEnter={handlePopoverMouseEnter}
           onMouseLeave={handlePopoverMouseLeave}
-        >
-          <div
-            className="card shadow-sm"
-            role="status"
-            aria-label="Appointment details"
-          >
-            <div
-              className="card-body"
-              style={{
-                ...(popover.details.backgroundColor
-                  ? { backgroundColor: popover.details.backgroundColor }
-                  : {}),
-                ...(popover.details.textColor ? { color: popover.details.textColor } : {}),
-              }}
-            >
-              <p className="mb-2">
-                <strong>Title:</strong> {popover.details.title}
-              </p>
-              {(popover.details.contactFirstName || popover.details.contactLastName) && (
-                <p className="mb-2">
-                  <strong>Contact:</strong>{' '}
-                  {[popover.details.contactFirstName, popover.details.contactLastName]
-                    .filter(Boolean)
-                    .join(' ')}
-                </p>
-              )}
-              {popover.details.bookingTitle && (
-                <p className="mb-2">
-                  <strong>Booking:</strong> {popover.details.bookingTitle}
-                </p>
-              )}
-              <p className="mb-2">
-                <strong>Start:</strong> {popover.details.start}
-              </p>
-              <p className="mb-0">
-                <strong>End:</strong> {popover.details.end}
-              </p>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {editModal && (
