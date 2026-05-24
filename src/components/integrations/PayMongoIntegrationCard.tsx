@@ -1,7 +1,7 @@
 export const PAYMONGO_INTEGRATION = {
   id: 'paymongo' as const,
   name: 'PayMongo',
-  description: 'Connect PayMongo to accept payments from your customers.',
+  description: 'Connect PayMongo to start accepting payments from your customers and receive funds directly in your bank account.',
   iconClass: 'bi-credit-card-fill',
   color: '#dcf38c',
 }
