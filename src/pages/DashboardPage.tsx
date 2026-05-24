@@ -47,13 +47,7 @@ const DashboardPage = () => {
     <div className="app-content dashboard-page">
       <div className="container-fluid">
         <header className="dash-toolbar">
-          <div>
-            <h1 className="dash-toolbar__title">Dashboard</h1>
-            <p className="dash-toolbar__subtitle">
-              Reports and charts per company — bookings, collections, payouts, and
-              calendar.
-            </p>
-          </div>
+          
           {companies.length > 1 && (
             <label className="dash-toolbar__select-wrap">
               <span className="visually-hidden">Company</span>
