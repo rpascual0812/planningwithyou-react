@@ -3,7 +3,6 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 export type AccountRecord = {
   id: number
   name: string
-  status: string
   is_active: boolean
   contact_person: string
   contact_email: string
@@ -24,7 +23,6 @@ export type AccountRecord = {
 
 export type AccountPayload = {
   name?: string
-  status?: string
   is_active?: boolean
   contact_person?: string
   contact_email?: string

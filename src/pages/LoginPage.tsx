@@ -1,7 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
-import { loginWithJwt } from '../services/auth'
+import {
+  getLoginLockoutRemainingSeconds,
+  loginAttemptsRemaining,
+  MAX_LOGIN_FAILURES,
+} from '../lib/loginThrottle'
+import PasswordInput from '../components/PasswordInput'
+import { loginWithJwt, LoginThrottledError } from '../services/auth'
 
 const LoginPage = () => {
   const navigate = useNavigate()
@@ -11,25 +17,47 @@ const LoginPage = () => {
   const [remember, setRemember] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lockoutSeconds, setLockoutSeconds] = useState(0)
+
+  useEffect(() => {
+    const tick = () => {
+      setLockoutSeconds(getLoginLockoutRemainingSeconds(email))
+    }
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [email])
+
+  const loginBlocked = lockoutSeconds > 0
+  const attemptsLeft = loginAttemptsRemaining(email)
 
   const handleSubmit: NonNullable<React.ComponentProps<'form'>['onSubmit']> =
     async (e) => {
-    e.preventDefault()
-    setError(null)
-    setIsSubmitting(true)
-    try {
-      await loginWithJwt({ email, password, remember })
-      syncAuthState()
-      navigate('/', { replace: true })
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to log in. Please try again.',
-      )
-    } finally {
-      setIsSubmitting(false)
-    }
+      e.preventDefault()
+      if (loginBlocked) {
+        setError(
+          new LoginThrottledError(lockoutSeconds).message,
+        )
+        return
+      }
+      setError(null)
+      setIsSubmitting(true)
+      try {
+        await loginWithJwt({ email, password, remember })
+        syncAuthState()
+        navigate('/', { replace: true })
+      } catch (err) {
+        if (err instanceof LoginThrottledError) {
+          setLockoutSeconds(err.remainingSeconds)
+        }
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Unable to log in. Please try again.',
+        )
+      } finally {
+        setIsSubmitting(false)
+      }
     }
 
   return (
@@ -84,7 +112,7 @@ const LoginPage = () => {
                 }}
                 autoComplete="email"
                 required
-                disabled={isSubmitting}
+                disabled={isSubmitting || loginBlocked}
               />
               <small className="auth-hint">
                 We'll never share your email with anyone else.
@@ -93,16 +121,15 @@ const LoginPage = () => {
 
             <label className="auth-field">
               <span className="auth-label">Password</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value)
+                onChange={(value) => {
+                  setPassword(value)
                   setError(null)
                 }}
                 autoComplete="current-password"
                 required
-                disabled={isSubmitting}
+                disabled={isSubmitting || loginBlocked}
               />
             </label>
 
@@ -111,14 +138,27 @@ const LoginPage = () => {
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || loginBlocked}
               />
               <span>remember me</span>
             </label>
 
-            {error && (
+            {loginBlocked && (
+              <p className="auth-error" role="alert">
+                Too many failed login attempts. Try again in{' '}
+                {lockoutSeconds >= 60
+                  ? `${Math.ceil(lockoutSeconds / 60)} minute${Math.ceil(lockoutSeconds / 60) === 1 ? '' : 's'}`
+                  : `${lockoutSeconds} second${lockoutSeconds === 1 ? '' : 's'}`}
+                .
+              </p>
+            )}
+
+            {error && !loginBlocked && (
               <p className="auth-error" role="alert">
                 {error}
+                {attemptsLeft > 0 && attemptsLeft < MAX_LOGIN_FAILURES && (
+                  <> ({attemptsLeft} attempt{attemptsLeft === 1 ? '' : 's'} remaining)</>
+                )}
               </p>
             )}
 
@@ -128,8 +168,16 @@ const LoginPage = () => {
               </Link>
             </p>
 
-            <button type="submit" className="auth-button" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in...' : 'Continue'}
+            <button
+              type="submit"
+              className="auth-button"
+              disabled={isSubmitting || loginBlocked}
+            >
+              {loginBlocked
+                ? 'Login temporarily locked'
+                : isSubmitting
+                  ? 'Signing in...'
+                  : 'Continue'}
             </button>
           </form>
 

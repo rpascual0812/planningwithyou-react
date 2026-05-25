@@ -4620,6 +4620,49 @@ body,
   box-shadow: 0 0 0 0.2rem rgba(31, 58, 95, 0.14);
 }
 
+.auth-password-input {
+  position: relative;
+  width: 100%;
+}
+
+.auth-password-input input {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.55rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #98a2ad;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.auth-password-toggle:hover:not(:disabled) {
+  color: var(--brand-navy);
+}
+
+.auth-password-toggle:focus-visible {
+  outline: 2px solid rgba(31, 58, 95, 0.35);
+  outline-offset: 1px;
+}
+
+.auth-password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .searchable-select {
   position: relative;
 }

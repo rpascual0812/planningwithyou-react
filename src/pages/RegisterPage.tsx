@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import PasswordInput from '../components/PasswordInput'
 import SearchableSelect from '../components/SearchableSelect'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { registerAccount } from '../services/register'
@@ -213,25 +214,25 @@ const RegisterPage = () => {
 
             <label className="auth-field">
               <span className="auth-label">Password</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
                 autoComplete="new-password"
                 required
                 minLength={6}
+                disabled={isSubmitting}
               />
             </label>
 
             <label className="auth-field">
               <span className="auth-label">Confirm Password</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
+                onChange={setConfirm}
                 autoComplete="new-password"
                 required
                 minLength={6}
+                disabled={isSubmitting}
               />
             </label>
 

@@ -1,3 +1,12 @@
+import {
+  assertLoginAllowed,
+  clearLoginThrottle,
+  LoginThrottledError,
+  recordLoginFailure,
+} from '../lib/loginThrottle'
+
+export { LoginThrottledError }
+
 type LoginPayload = {
   email: string
   password: string
@@ -141,6 +150,8 @@ export async function loginWithJwt({
   password,
   remember,
 }: LoginPayload): Promise<DjangoJwtResponse> {
+  assertLoginAllowed(email)
+
   const response = await fetch(buildApiUrl(JWT_LOGIN_PATH ?? '/api/token/'), {
     method: 'POST',
     headers: {
@@ -162,14 +173,19 @@ export async function loginWithJwt({
   }
 
   if (!response.ok) {
+    if (response.status === 400 || response.status === 401) {
+      recordLoginFailure(email)
+    }
     throw new Error(getErrorMessage(data))
   }
 
   const tokens = data as Partial<DjangoJwtResponse>
   if (!tokens.access) {
+    recordLoginFailure(email)
     throw new Error('Login succeeded but no access token was returned.')
   }
 
+  clearLoginThrottle(email)
   const jwtTokens = tokens as DjangoJwtResponse
   persistTokens(jwtTokens, remember)
   broadcastAuthMessage({ type: 'login' })
