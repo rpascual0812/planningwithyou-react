@@ -1,10 +1,16 @@
-import { useState, type SubmitEvent } from 'react'
+import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+
+import SearchableSelect from '../components/SearchableSelect'
+import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/supplierTypes'
 
 const RegisterPage = () => {
   const navigate = useNavigate()
   const [companyName, setCompanyName] = useState('')
-  const [companyType, setCompanyType] = useState('')
+  const [supplierTypeId, setSupplierTypeId] = useState('')
+  const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
+  const [typesLoading, setTypesLoading] = useState(true)
+  const [typesError, setTypesError] = useState<string | null>(null)
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -15,8 +21,43 @@ const RegisterPage = () => {
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    let cancelled = false
+    setTypesLoading(true)
+    setTypesError(null)
+    void fetchPublicSupplierTypes()
+      .then((rows) => {
+        if (!cancelled) setSupplierTypes(rows)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSupplierTypes([])
+          setTypesError('Could not load company types. Refresh the page to try again.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setTypesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const companyTypeOptions = useMemo(
+    () =>
+      supplierTypes.map((type) => ({
+        value: String(type.id),
+        label: type.name,
+      })),
+    [supplierTypes],
+  )
+
   const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!supplierTypeId) {
+      setError('Please choose a company type.')
+      return
+    }
     if (password !== confirm) {
       setError('Passwords do not match.')
       return
@@ -55,11 +96,11 @@ const RegisterPage = () => {
 
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
-          <img 
-                src="/src/assets/images/logo.png"
-                alt="Planning With You"
-                width="84"
-              />
+          <img
+            src="/src/assets/images/logo.png"
+            alt="Planning With You"
+            width="84"
+          />
         </div>
 
         <div className="auth-card">
@@ -75,24 +116,27 @@ const RegisterPage = () => {
                 type="text"
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                autoComplete="company-name"
+                autoComplete="organization"
                 required
               />
             </label>
 
-            <label className="auth-field">
-              <span className="auth-label">Company type</span>
-              <select
-                value={companyType}
-                onChange={(e) => setCompanyType(e.target.value)}
-                autoComplete="company-type"
-                required
-              >
-                <option value="">Choose…</option>
-                <option value="individual">Individual</option>
-                <option value="company">Company</option>
-              </select>
-            </label>
+            <SearchableSelect
+              label="Company type"
+              value={supplierTypeId}
+              onChange={setSupplierTypeId}
+              options={companyTypeOptions}
+              placeholder="Choose company type…"
+              searchPlaceholder="Search company types…"
+              required
+              disabled={Boolean(typesError)}
+              loading={typesLoading}
+              emptyMessage="No company types match your search"
+              hint={
+                typesError ??
+                'Select the supplier category that best describes your business.'
+              }
+            />
 
             <label className="auth-field">
               <span className="auth-label">First name</span>
@@ -100,7 +144,7 @@ const RegisterPage = () => {
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                autoComplete="name"
+                autoComplete="given-name"
                 required
               />
             </label>
@@ -111,7 +155,7 @@ const RegisterPage = () => {
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                autoComplete="name"
+                autoComplete="family-name"
                 required
               />
             </label>
@@ -133,10 +177,10 @@ const RegisterPage = () => {
             <label className="auth-field">
               <span className="auth-label">Mobile number</span>
               <input
-                type="text"
+                type="tel"
                 value={mobile}
                 onChange={(e) => setMobile(e.target.value)}
-                autoComplete="email"
+                autoComplete="tel"
                 required
               />
               <small className="auth-hint">
@@ -168,8 +212,6 @@ const RegisterPage = () => {
               />
             </label>
 
-            
-
             <label className="auth-remember">
               <input
                 type="checkbox"
@@ -185,7 +227,7 @@ const RegisterPage = () => {
               </p>
             )}
 
-            <button type="submit" className="auth-button">
+            <button type="submit" className="auth-button" disabled={typesLoading}>
               Create Account
             </button>
           </form>
@@ -193,30 +235,6 @@ const RegisterPage = () => {
           <div className="auth-divider">
             <span>OR</span>
           </div>
-
-          {/* <div className="auth-social">
-            <button
-              type="button"
-              className="auth-social-btn auth-social-btn--facebook"
-              aria-label="Continue with Facebook"
-            >
-              <i className="bi bi-facebook" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="auth-social-btn auth-social-btn--google"
-              aria-label="Continue with Google"
-            >
-              <i className="bi bi-google" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="auth-social-btn auth-social-btn--apple"
-              aria-label="Continue with Apple"
-            >
-              <i className="bi bi-apple" aria-hidden="true" />
-            </button>
-          </div> */}
 
           <p className="auth-switch">
             Already have an account?{' '}

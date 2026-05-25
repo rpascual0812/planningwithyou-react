@@ -20,3 +20,17 @@ export async function fetchActiveSupplierTypes(
   if (!res.ok) throw new Error('Failed to load supplier types')
   return res.json()
 }
+
+/** Registration and other public flows (no auth). */
+export async function fetchPublicSupplierTypes(
+  search = '',
+): Promise<SupplierTypeRecord[]> {
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  const qs = params.toString() ? `?${params.toString()}` : ''
+  const res = await apiFetch(buildApiUrl(`/api/public/supplier-types/${qs}`), {
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error('Failed to load company types')
+  return res.json()
+}
