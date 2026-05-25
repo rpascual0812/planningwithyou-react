@@ -10,6 +10,8 @@ export type UserRecord = {
   last_name: string
   is_active: boolean
   is_admin: boolean
+  /** ``subscriptions.plan`` via user.account → account_subscriptions → subscriptions. */
+  subscription_plan?: string
   last_login: string | null
   created_at: string
   updated_at: string
@@ -23,6 +25,7 @@ export type UserPayload = {
   last_name: string
   is_active: boolean
   is_admin: boolean
+  company?: number
 }
 
 export async function fetchMe(): Promise<UserRecord> {
@@ -33,8 +36,28 @@ export async function fetchMe(): Promise<UserRecord> {
   return res.json()
 }
 
-export async function fetchUsers(search = ''): Promise<UserRecord[]> {
-  const qs = search ? `?search=${encodeURIComponent(search)}` : ''
+export type UserSeatUsage = {
+  active_users_count: number
+  team_seats: number
+  at_seat_limit: boolean
+}
+
+export async function fetchUserSeatUsage(): Promise<UserSeatUsage> {
+  const res = await apiFetch(buildApiUrl('/api/users/seat-usage/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load user seat usage')
+  return res.json()
+}
+
+export async function fetchUsers(
+  search = '',
+  companyId?: number | null,
+): Promise<UserRecord[]> {
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  if (companyId != null) params.set('company_id', String(companyId))
+  const qs = params.toString() ? `?${params.toString()}` : ''
   const res = await apiFetch(buildApiUrl(`/api/users/${qs}`), {
     headers: authHeaders(),
   })

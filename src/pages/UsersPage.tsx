@@ -1,16 +1,30 @@
-import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type SubmitEvent,
+} from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
+import { validateEmailAddress } from '../lib/formValidators'
+import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
 import {
   fetchUsers,
+  fetchUserSeatUsage,
   createUser,
   updateUser,
   deleteUser,
   type UserRecord,
   type UserPayload,
+  type UserSeatUsage,
 } from '../services/users'
 
 const EDIT_PARAM = 'edit'
+
+const SEAT_LIMIT_MESSAGE =
+  'You have already reached the maximum number of allowed users. ' +
+  'Update your plan under Account Settings > Subscription to add more users.'
 
 const AVATAR_COLORS = [
   '#9c6cd0', '#6b7785', '#52b585', '#5a8edb',
@@ -43,11 +57,33 @@ const EMPTY_FORM: UserPayload = {
   is_admin: false,
 }
 
+function pickDefaultCompanyId(
+  companies: CompanyRecord[],
+  userCompanyId: number | null | undefined,
+): number | null {
+  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
+    return userCompanyId
+  }
+  if (companies.length === 0) return null
+  const main = companies.find((c) => c.is_main)
+  return main?.id ?? companies[0].id
+}
+
 const UsersPage = () => {
   const { currentUser, subscriptionPlan } = useAuthSession()
   const canManageAdmin = currentUser?.is_admin === true
-  const canAddUser = subscriptionPlan != null && subscriptionPlan !== 'free'
+  const isAccountAdmin = currentUser?.is_admin === true
+  const [seatUsage, setSeatUsage] = useState<UserSeatUsage | null>(null)
+  const [seatUsageLoading, setSeatUsageLoading] = useState(true)
+  const atSeatLimit = seatUsage?.at_seat_limit === true
+  const canAddUser =
+    subscriptionPlan != null &&
+    subscriptionPlan !== 'free' &&
+    !atSeatLimit
   const [searchParams, setSearchParams] = useSearchParams()
+  const [companies, setCompanies] = useState<CompanyRecord[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(true)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -91,11 +127,61 @@ const UsersPage = () => {
     }
   }, [search])
 
-  const loadUsers = useCallback(async (q = '') => {
+  const loadSeatUsage = useCallback(async () => {
+    setSeatUsageLoading(true)
+    try {
+      const usage = await fetchUserSeatUsage()
+      setSeatUsage(usage)
+    } catch {
+      setSeatUsage(null)
+    } finally {
+      setSeatUsageLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadSeatUsage()
+  }, [loadSeatUsage])
+
+  useEffect(() => {
+    let cancelled = false
+    setCompaniesLoading(true)
+    void fetchActiveCompanies()
+      .then((companyRows) => {
+        if (cancelled) return
+        setCompanies(companyRows)
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load companies')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCompaniesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (companies.length === 0) return
+    setSelectedCompanyId((prev) => {
+      if (prev != null && companies.some((c) => c.id === prev)) return prev
+      return pickDefaultCompanyId(companies, currentUser?.company ?? null)
+    })
+  }, [companies, currentUser?.company])
+
+  const loadUsers = useCallback(async (q = '', companyId: number | null = null) => {
+    if (companyId == null) {
+      setUsers([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchUsers(q)
+      const data = await fetchUsers(q, companyId)
       setUsers(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load users')
@@ -105,8 +191,8 @@ const UsersPage = () => {
   }, [])
 
   useEffect(() => {
-    loadUsers(debouncedSearch)
-  }, [debouncedSearch, loadUsers])
+    void loadUsers(debouncedSearch, selectedCompanyId)
+  }, [debouncedSearch, selectedCompanyId, loadUsers])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -145,6 +231,8 @@ const UsersPage = () => {
 
   // Add / Edit modal helpers
   const openAdd = () => {
+    if (!canAddUser) return
+    if (atSeatLimit) return
     clearEditParam()
     setEditingUser(null)
     setForm(EMPTY_FORM)
@@ -167,16 +255,42 @@ const UsersPage = () => {
     canManageAdmin ? form : { ...form, is_admin: false }
 
   const handleSave = async () => {
+    if (!editingUser && !canAddUser) {
+      if (atSeatLimit) {
+        setFormError(SEAT_LIMIT_MESSAGE)
+      } else {
+        setFormError('Adding users requires a paid subscription plan.')
+      }
+      return
+    }
+    const isReactivating =
+      editingUser != null && !editingUser.is_active && form.is_active
+    if (isReactivating && atSeatLimit) {
+      setFormError(SEAT_LIMIT_MESSAGE)
+      return
+    }
+    const emailValidationError = validateEmailAddress(form.email)
+    if (emailValidationError) {
+      setFormError(emailValidationError)
+      return
+    }
     setFormError(null)
     setSaving(true)
     const payload = payloadForSave()
     try {
       if (editingUser) {
         await updateUser(editingUser.id, payload)
-        await loadUsers(debouncedSearch)
+        await loadUsers(debouncedSearch, selectedCompanyId)
+        await loadSeatUsage()
       } else {
-        const created = await createUser(payload)
-        await loadUsers(debouncedSearch)
+        const email = payload.email.trim()
+        const created = await createUser({
+          ...payload,
+          username: email,
+          company: selectedCompanyId ?? undefined,
+        })
+        await loadUsers(debouncedSearch, selectedCompanyId)
+        await loadSeatUsage()
         writeEditParam(created.id)
       }
     } catch (e) {
@@ -193,7 +307,8 @@ const UsersPage = () => {
     try {
       await deleteUser(deleteTarget.id)
       setDeleteTarget(null)
-      await loadUsers(debouncedSearch)
+      await loadUsers(debouncedSearch, selectedCompanyId)
+      await loadSeatUsage()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Delete failed')
       setDeleteTarget(null)
@@ -228,6 +343,65 @@ const UsersPage = () => {
     <div className="app-content">
       <div className="container-fluid">
         <div className="users-table-card">
+          <div className="row g-2 align-items-end mb-0 px-2 pt-2 pb-2 border-bottom">
+            <div className="col-sm-8 col-md-4">
+              <label className="form-label mb-1" htmlFor="users-company">
+                Company
+              </label>
+              <select
+                id="users-company"
+                className="form-select form-select-sm"
+                value={selectedCompanyId ?? ''}
+                disabled={
+                  companiesLoading ||
+                  companies.length === 0 ||
+                  (!isAccountAdmin && companies.length <= 1)
+                }
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setSelectedCompanyId(raw === '' ? null : Number(raw))
+                }}
+              >
+                {companies.length === 0 ? (
+                  <option value="">No active companies</option>
+                ) : (
+                  companies.map((company) => (
+                    <option
+                      key={company.id}
+                      value={company.id}
+                      disabled={
+                        !isAccountAdmin &&
+                        selectedCompanyId != null &&
+                        company.id !== selectedCompanyId
+                      }
+                    >
+                      {company.name}
+                      {company.is_main ? ' (main)' : ''}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+          </div>
+          {atSeatLimit && subscriptionPlan !== 'free' && (
+            <div
+              className="alert alert-warning py-2 mx-2 mt-2 mb-0"
+              role="status"
+            >
+              You have already reached the maximum number of allowed users
+              {seatUsage != null && (
+                <>
+                  {' '}
+                  ({seatUsage.active_users_count} of {seatUsage.team_seats})
+                </>
+              )}
+              . To add more users, update your plan in{' '}
+              <Link to="/settings?tab=subscription">
+                Account Settings &gt; Subscription
+              </Link>
+              .
+            </div>
+          )}
           <div className="users-table-toolbar">
             <div className="users-search">
               <i className="bi bi-search" aria-hidden="true" />
@@ -254,11 +428,22 @@ const UsersPage = () => {
               <span className="users-search-count">
                 {users.length} user{users.length !== 1 && 's'}
               </span>
-              {canAddUser && (
+              {subscriptionPlan !== 'free' && (
                 <button
                   type="button"
                   className="btn users-btn-add"
                   onClick={openAdd}
+                  disabled={
+                    !canAddUser ||
+                    selectedCompanyId == null ||
+                    companiesLoading ||
+                    seatUsageLoading
+                  }
+                  title={
+                    atSeatLimit
+                      ? 'Maximum users reached for your subscription'
+                      : undefined
+                  }
                 >
                   <i className="bi bi-plus-lg" /> Add User
                 </button>
@@ -419,9 +604,13 @@ const UserFormModal = ({
   onClose,
 }: UserFormModalProps) => {
   const title = editing ? 'Edit User' : 'Add User'
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const nextEmailError = validateEmailAddress(form.email)
+    setEmailError(nextEmailError)
+    if (nextEmailError) return
     onSave()
   }
 
@@ -480,24 +669,25 @@ const UserFormModal = ({
                       onChange={(e) => setField('last_name', e.target.value)}
                     />
                   </div>
-                  <div className="col-sm-6">
-                    <label className="form-label">Username *</label>
-                    <input
-                      className="form-control"
-                      value={form.username}
-                      onChange={(e) => setField('username', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="col-sm-6">
+                  <div className="col-12">
                     <label className="form-label">Email *</label>
                     <input
                       type="email"
-                      className="form-control"
+                      className={`form-control${emailError ? ' is-invalid' : ''}`}
                       value={form.email}
-                      onChange={(e) => setField('email', e.target.value)}
+                      onChange={(e) => {
+                        setField('email', e.target.value)
+                        if (emailError) {
+                          setEmailError(validateEmailAddress(e.target.value))
+                        }
+                      }}
+                      onBlur={() => setEmailError(validateEmailAddress(form.email))}
                       required
+                      aria-invalid={emailError ? true : undefined}
                     />
+                    {emailError && (
+                      <div className="invalid-feedback d-block">{emailError}</div>
+                    )}
                   </div>
                   <div className="col-sm-6">
                     <div className="form-check form-switch mt-1">

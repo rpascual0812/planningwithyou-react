@@ -4620,6 +4620,15 @@ body,
   box-shadow: 0 0 0 0.2rem rgba(31, 58, 95, 0.14);
 }
 
+.auth-field input.is-invalid {
+  border-color: #dc3545;
+}
+
+.auth-field input.is-invalid:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.2);
+}
+
 .auth-password-input {
   position: relative;
   width: 100%;

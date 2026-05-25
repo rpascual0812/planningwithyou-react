@@ -3,6 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import PasswordInput from '../components/PasswordInput'
 import SearchableSelect from '../components/SearchableSelect'
+import {
+  formatMobileNumberInternational,
+  validateEmailAddress,
+  validateMobileNumber,
+} from '../lib/formValidators'
 import { registerAccount } from '../services/register'
 import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/supplierTypes'
 
@@ -22,6 +27,8 @@ const RegisterPage = () => {
   const [confirm, setConfirm] = useState('')
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [mobileError, setMobileError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
 
@@ -70,6 +77,19 @@ const RegisterPage = () => {
       setError('Please accept the Terms of use & Conditions.')
       return
     }
+    const nextEmailError = validateEmailAddress(email)
+    const nextMobileError = validateMobileNumber(mobile)
+    setEmailError(nextEmailError)
+    setMobileError(nextMobileError)
+    if (nextEmailError || nextMobileError) {
+      setError(null)
+      return
+    }
+    const formattedMobile = formatMobileNumberInternational(mobile)
+    if (!formattedMobile) {
+      setMobileError('Please enter a valid mobile number (e.g. +63 912 345 6789).')
+      return
+    }
     setError(null)
     setIsSubmitting(true)
     try {
@@ -79,7 +99,7 @@ const RegisterPage = () => {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: email.trim(),
-        mobile_number: mobile.trim(),
+        mobile_number: formattedMobile,
         password,
       })
       setRegisteredEmail(result.email)
@@ -238,13 +258,25 @@ const RegisterPage = () => {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (emailError) setEmailError(validateEmailAddress(e.target.value))
+                }}
+                onBlur={() => setEmailError(validateEmailAddress(email))}
                 autoComplete="email"
                 required
+                aria-invalid={emailError ? true : undefined}
+                className={emailError ? 'is-invalid' : undefined}
               />
-              <small className="auth-hint">
-                We'll never share your email with anyone.
-              </small>
+              {emailError ? (
+                <small className="auth-error" role="alert">
+                  {emailError}
+                </small>
+              ) : (
+                <small className="auth-hint">
+                  We'll never share your email with anyone.
+                </small>
+              )}
             </label>
 
             <label className="auth-field">
@@ -252,13 +284,26 @@ const RegisterPage = () => {
               <input
                 type="tel"
                 value={mobile}
-                onChange={(e) => setMobile(e.target.value)}
+                onChange={(e) => {
+                  setMobile(e.target.value)
+                  if (mobileError) setMobileError(validateMobileNumber(e.target.value))
+                }}
+                onBlur={() => setMobileError(validateMobileNumber(mobile))}
                 autoComplete="tel"
+                placeholder="+63 912 345 6789"
                 required
+                aria-invalid={mobileError ? true : undefined}
+                className={mobileError ? 'is-invalid' : undefined}
               />
-              <small className="auth-hint">
-                We'll never share your mobile number with anyone.
-              </small>
+              {mobileError ? (
+                <small className="auth-error" role="alert">
+                  {mobileError}
+                </small>
+              ) : (
+                <small className="auth-hint">
+                  We'll never share your mobile number with anyone.
+                </small>
+              )}
             </label>
 
             <label className="auth-field">

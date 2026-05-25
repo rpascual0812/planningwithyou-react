@@ -13,7 +13,6 @@ import {
   startAuthSessionKeepAlive,
   subscribeToAuthSync,
 } from '../services/auth'
-import { fetchCurrentAccount } from '../services/accounts'
 import { fetchMe, type UserRecord } from '../services/users'
 
 type AuthSessionContextValue = {
@@ -56,12 +55,9 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     }
     setUserLoading(true)
     try {
-      const [user, account] = await Promise.all([
-        fetchMe(),
-        fetchCurrentAccount(),
-      ])
+      const user = await fetchMe()
       setCurrentUser(user)
-      setSubscriptionPlan(account.subscription_plan ?? 'free')
+      setSubscriptionPlan(user.subscription_plan ?? 'free')
     } catch {
       setCurrentUser(null)
       setSubscriptionPlan(null)
