@@ -26,6 +26,9 @@ type SearchableSelectProps = {
   emptyMessage?: string
   hint?: string
   wrapperClassName?: string
+  labelClassName?: string
+  /** Match Bootstrap `form-select-sm` density in toolbars. */
+  size?: 'sm' | 'md'
 }
 
 export default function SearchableSelect({
@@ -41,6 +44,8 @@ export default function SearchableSelect({
   emptyMessage = 'No matches',
   hint,
   wrapperClassName = 'auth-field',
+  labelClassName = 'auth-label',
+  size = 'md',
 }: SearchableSelectProps) {
   const listId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -108,7 +113,7 @@ export default function SearchableSelect({
 
   return (
     <div className={wrapperClassName} ref={rootRef}>
-      <span className="auth-label" id={`${listId}-label`}>
+      <span className={labelClassName} id={`${listId}-label`}>
         {label}
         {required && (
           <span className="searchable-select__required" aria-hidden="true">
@@ -118,7 +123,7 @@ export default function SearchableSelect({
         )}
       </span>
 
-      <div className="searchable-select">
+      <div className={`searchable-select${size === 'sm' ? ' searchable-select--sm' : ''}`}>
         <button
           type="button"
           className={`searchable-select__trigger${open ? ' is-open' : ''}`}

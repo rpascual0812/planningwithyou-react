@@ -4811,6 +4811,11 @@ body,
   position: relative;
 }
 
+.searchable-select--sm .searchable-select__trigger {
+  font-size: 0.875rem;
+  padding: 0.25rem 2rem 0.25rem 0.5rem;
+}
+
 .searchable-select__trigger {
   width: 100%;
   display: flex;
@@ -8077,7 +8082,7 @@ body,
   border: 1px solid var(--brand-border);
   border-radius: 0.5rem;
   box-shadow: 0 2px 8px rgba(31, 58, 95, 0.04);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .emails-table-scroll {

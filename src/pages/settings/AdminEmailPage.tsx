@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import SearchableSelect from '../../components/SearchableSelect'
 import { useSearchParams } from 'react-router-dom'
 import EmailSenderModal from '../../components/EmailSenderModal'
 import {
@@ -55,6 +56,17 @@ const AdminEmailPage = () => {
   const [resendError, setResendError] = useState<string | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const companyOptions = useMemo(
+    () => [
+      { value: '', label: 'All companies' },
+      ...companies.map((company) => ({
+        value: String(company.id),
+        label: company.name,
+      })),
+    ],
+    [companies],
+  )
 
   const writeEditParam = (id: number) => {
     setSearchParams((prev) => {
@@ -177,26 +189,22 @@ const AdminEmailPage = () => {
         <div className="emails-table-card">
           <div className="row g-2 align-items-end mb-3 px-2 pt-2">
             <div className="col-sm-8 col-md-4">
-              <label className="form-label mb-1" htmlFor="emails-company">
-                Company
-              </label>
-              <select
-                id="emails-company"
-                className="form-select form-select-sm"
-                value={companyFilterId ?? ''}
-                disabled={companiesLoading}
-                onChange={(e) => {
-                  const raw = e.target.value
+              <SearchableSelect
+                label="Company"
+                labelClassName="form-label mb-1"
+                wrapperClassName=""
+                size="sm"
+                value={companyFilterId != null ? String(companyFilterId) : ''}
+                onChange={(raw) => {
                   setCompanyFilterId(raw === '' ? null : Number(raw))
                 }}
-              >
-                <option value="">All companies</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
+                options={companyOptions}
+                placeholder="All companies"
+                searchPlaceholder="Search companies…"
+                emptyMessage="No companies match your search"
+                disabled={companiesLoading}
+                loading={companiesLoading}
+              />
             </div>
           </div>
           <div className="emails-table-toolbar">
