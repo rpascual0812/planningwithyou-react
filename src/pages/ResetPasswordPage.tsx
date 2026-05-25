@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 const generateUuid = (): string => {
@@ -28,7 +28,7 @@ const ResetPasswordPage = () => {
   const [submitted, setSubmitted] = useState(false)
   const [token, setToken] = useState<string | null>(null)
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     const resetToken = generateUuid()
     setToken(resetToken)

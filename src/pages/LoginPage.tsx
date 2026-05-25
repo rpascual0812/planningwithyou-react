@@ -137,7 +137,7 @@ const LoginPage = () => {
             <span>OR</span>
           </div>
 
-          <div className="auth-social">
+          {/* <div className="auth-social">
             <button
               type="button"
               className="auth-social-btn auth-social-btn--facebook"
@@ -159,7 +159,7 @@ const LoginPage = () => {
             >
               <i className="bi bi-apple" aria-hidden="true" />
             </button>
-          </div>
+          </div> */}
 
           <p className="auth-switch">
             Don't have an account?{' '}

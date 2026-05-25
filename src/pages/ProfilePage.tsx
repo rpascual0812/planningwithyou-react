@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import { fetchMe, updateUser, type UserRecord } from '../services/users'
 
 type SettingsNavItem = {
@@ -58,7 +58,7 @@ const ProfilePage = () => {
       .catch(() => {})
   }, [])
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!user) return
     setSaving(true)

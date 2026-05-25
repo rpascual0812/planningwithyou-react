@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react'
+import type { SubmitEvent } from 'react'
 
 export type StatusFormState = {
   mode: 'create' | 'edit'
@@ -23,7 +23,7 @@ type StatusEditModalProps = {
   form: StatusFormState
   onChange: (next: StatusFormState) => void
   onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+  onSubmit: (e: SubmitEvent<HTMLFormElement>) => void
 }
 
 const StatusEditModal = ({

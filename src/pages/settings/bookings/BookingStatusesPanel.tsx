@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type SubmitEvent, useCallback, useEffect, useState } from 'react'
 import StatusEditModal, {
   COLOR_SWATCHES,
   type StatusFormState,
@@ -64,7 +64,7 @@ const BookingStatusesPanel = () => {
     })
   }
 
-  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!statusModal) return
 

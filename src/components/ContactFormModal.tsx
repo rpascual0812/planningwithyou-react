@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type SubmitEvent } from 'react'
 import { parsePhoneNumberFromString } from 'libphonenumber-js'
 import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
 import type { ContactPayload, ContactRecord, PhoneNumber, Address } from '../services/contacts'
@@ -124,7 +124,7 @@ export default function ContactFormModal({
     setField('addresses', ensureSingleDefault(next))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     onSave()
   }

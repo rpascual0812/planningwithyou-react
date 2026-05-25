@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type SubmitEvent } from 'react'
 import type { MouseEvent } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
@@ -593,7 +593,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     clearEditParam()
   }
 
-  const handleEditSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleEditSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editModal) return
 

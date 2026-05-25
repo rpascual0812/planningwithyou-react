@@ -1,4 +1,4 @@
-import { type FormEvent } from 'react'
+import { type SubmitEvent } from 'react'
 
 import { contactDisplayName } from '../lib/contactDisplay'
 import {
@@ -43,7 +43,7 @@ type AppointmentEditModalProps = {
   error?: string | null
   onChange: (next: AppointmentFormState) => void
   onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+  onSubmit: (e: SubmitEvent<HTMLFormElement>) => void
   onDelete?: () => void
   deleting?: boolean
 }

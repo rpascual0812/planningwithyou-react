@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type { DragEvent, SubmitEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   type BookingStatusRecord,
@@ -931,7 +931,7 @@ const BookingsPage = () => {
     })
   }
 
-  const handleStatusSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!statusModal) {
       return
@@ -1083,7 +1083,7 @@ const BookingsPage = () => {
     setAppointmentModalError(null)
   }
 
-  const handleAppointmentSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleAppointmentSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!appointmentModal) return
 
@@ -1109,7 +1109,7 @@ const BookingsPage = () => {
     }
   }
 
-  const handleItemSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
       return
@@ -1117,8 +1117,7 @@ const BookingsPage = () => {
     if (itemModal.mode === 'edit' && itemModal.canEdit === false) {
       return
     }
-    const submitEvent = e.nativeEvent as SubmitEvent
-    const submitter = submitEvent.submitter as HTMLElement | null
+    const submitter = e.nativeEvent.submitter
     const closeAfterSave = submitter?.getAttribute('data-close-after') === 'true'
     const title = itemModal.title.trim() || 'Untitled'
     const notes = itemModal.notes

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 import DocumentsModal from '../../components/DocumentsModal'
@@ -248,7 +248,7 @@ const EmailTemplatesPanel = ({
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (userCompanyId == null) {
       setFormError('Your user account has no company; cannot save templates.')

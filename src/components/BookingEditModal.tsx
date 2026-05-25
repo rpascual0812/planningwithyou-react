@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
-import type { DragEvent, FormEvent } from 'react'
+import type { DragEvent, SubmitEvent } from 'react'
 import {
   FIELD_TYPE_OPTIONS,
   type FieldType,
@@ -11,7 +11,7 @@ import {
   mergeBookingFieldGroups,
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
-import type { BookingField } from '../lib/bookingFieldTypes'
+import type { BookingField, BookingFieldOption } from '../lib/bookingFieldTypes'
 import {
   bookingPriceSummaryRequiredDownpayment,
   bookingStoredTotalAmountHasValue,
@@ -129,7 +129,7 @@ type BookingEditModalProps = {
   onChange: (next: BookingFormState) => void
   onDeleteGroup?: (bookingId: number, groupId: number) => Promise<void>
   onClose: () => void
-  onSubmit: (e: FormEvent<HTMLFormElement>) => void | Promise<void>
+  onSubmit: (e: SubmitEvent<HTMLFormElement>) => void | Promise<void>
   onSendToCalendar?: () => void
 }
 
@@ -146,7 +146,7 @@ const EMPTY_FIELD: BookingField = {
   value: '',
 }
 
-const EMPTY_OPTION: BookingFieldOption = {
+const EMPTY_OPTION: BookingField['options'][number] = {
   label: '',
   price: null,
   sort_order: 0,
@@ -954,7 +954,7 @@ const BookingEditModal = ({
   const updateOption = (
     fieldIdx: number,
     optIdx: number,
-    patch: Partial<BookingFieldOption>,
+    patch: Partial<BookingField['options'][number]>,
   ) => {
     const updated = form.fields[fieldIdx].options.map((o, i) =>
       i === optIdx ? { ...o, ...patch } : o,

@@ -1,16 +1,17 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 const RegisterPage = () => {
   const navigate = useNavigate()
-  const [name, setName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (password !== confirm) {
       setError('Passwords do not match.')
@@ -65,11 +66,22 @@ const RegisterPage = () => {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <label className="auth-field">
-              <span className="auth-label">Full name</span>
+              <span className="auth-label">First name</span>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoComplete="name"
+                required
+              />
+            </label>
+
+            <label className="auth-field">
+              <span className="auth-label">Last name</span>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
                 autoComplete="name"
                 required
               />
@@ -137,7 +149,7 @@ const RegisterPage = () => {
             <span>OR</span>
           </div>
 
-          <div className="auth-social">
+          {/* <div className="auth-social">
             <button
               type="button"
               className="auth-social-btn auth-social-btn--facebook"
@@ -159,7 +171,7 @@ const RegisterPage = () => {
             >
               <i className="bi bi-apple" aria-hidden="true" />
             </button>
-          </div>
+          </div> */}
 
           <p className="auth-switch">
             Already have an account?{' '}

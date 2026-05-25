@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type SubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
@@ -31,7 +31,7 @@ const ResetPasswordConfirmPage = () => {
     return <Navigate to="/reset-password" replace />
   }
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (password.length < 8) {
       setError('Password must be at least 8 characters.')

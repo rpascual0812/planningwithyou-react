@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
 import {
@@ -420,7 +420,7 @@ const UserFormModal = ({
 }: UserFormModalProps) => {
   const title = editing ? 'Edit User' : 'Add User'
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     onSave()
   }
