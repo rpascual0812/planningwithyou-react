@@ -6,6 +6,7 @@ export type UserRecord = {
   company: number | null
   company_name?: string
   company_logo_url?: string
+  photo_url?: string
   username: string
   email: string
   first_name: string
@@ -80,6 +81,12 @@ export async function createUser(data: UserPayload): Promise<UserRecord> {
   return res.json()
 }
 
+function userPatchHeaders(multipart: boolean): Record<string, string> {
+  const headers = authHeaders()
+  if (multipart) delete headers['Content-Type']
+  return headers
+}
+
 export async function updateUser(
   id: number,
   data: Partial<UserPayload>,
@@ -92,6 +99,21 @@ export async function updateUser(
   if (!res.ok) {
     const body = await res.json().catch(() => null)
     throw new Error(extractError(body) || 'Failed to update user')
+  }
+  return res.json()
+}
+
+export async function uploadUserPhoto(id: number, photo: File): Promise<UserRecord> {
+  const fd = new FormData()
+  fd.append('photo', photo)
+  const res = await apiFetch(buildApiUrl(`/api/users/${id}/`), {
+    method: 'PATCH',
+    headers: userPatchHeaders(true),
+    body: fd,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(extractError(body) || 'Failed to upload profile photo')
   }
   return res.json()
 }

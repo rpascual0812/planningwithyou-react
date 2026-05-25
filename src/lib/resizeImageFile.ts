@@ -1,4 +1,5 @@
 const DEFAULT_MAX_WIDTH = 200
+const DEFAULT_SQUARE_SIZE = 200
 const JPEG_QUALITY = 0.92
 
 /**
@@ -48,7 +49,56 @@ export async function resizeImageFileToMaxWidth(
     })
 
     const ext = usePng ? 'png' : 'jpg'
-    const baseName = file.name.replace(/\.[^.]+$/, '') || 'logo'
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'image'
+    return new File([blob], `${baseName}.${ext}`, { type: mimeType, lastModified: Date.now() })
+  } finally {
+    bitmap.close()
+  }
+}
+
+/**
+ * Center-crop and scale an image to a square (e.g. 200×200 profile photo).
+ */
+export async function resizeImageFileToSquare(
+  file: File,
+  size = DEFAULT_SQUARE_SIZE,
+): Promise<File> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose an image file.')
+  }
+
+  const bitmap = await createImageBitmap(file)
+  try {
+    const cropSize = Math.min(bitmap.width, bitmap.height)
+    const sx = (bitmap.width - cropSize) / 2
+    const sy = (bitmap.height - cropSize) / 2
+
+    const usePng = file.type === 'image/png'
+    const mimeType = usePng ? 'image/png' : 'image/jpeg'
+
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
+      throw new Error('Could not process image.')
+    }
+    if (usePng) {
+      ctx.clearRect(0, 0, size, size)
+    }
+    ctx.drawImage(bitmap, sx, sy, cropSize, cropSize, 0, 0, size, size)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (result) =>
+          result ? resolve(result) : reject(new Error('Could not resize image.')),
+        mimeType,
+        usePng ? undefined : JPEG_QUALITY,
+      )
+    })
+
+    const ext = usePng ? 'png' : 'jpg'
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'photo'
     return new File([blob], `${baseName}.${ext}`, { type: mimeType, lastModified: Date.now() })
   } finally {
     bitmap.close()

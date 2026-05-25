@@ -1,5 +1,8 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
-import { fetchMe, updateUser, type UserRecord } from '../services/users'
+import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from 'react'
+import { UserAvatar } from '../components/UserAvatar'
+import { useAuthSession } from '../context/AuthSessionContext'
+import { resizeImageFileToSquare } from '../lib/resizeImageFile'
+import { fetchMe, updateUser, uploadUserPhoto, type UserRecord } from '../services/users'
 
 type SettingsNavItem = {
   id: string
@@ -9,24 +12,10 @@ type SettingsNavItem = {
 
 const SETTINGS_NAV: SettingsNavItem[] = [
   { id: 'profile', label: 'Profile', icon: 'bi-person-gear' },
-  { id: 'activity', label: 'Activity', icon: 'bi-clock-history' },
-  { id: 'security', label: 'Security', icon: 'bi-shield-check' },
-  { id: 'privacy', label: 'Privacy', icon: 'bi-lock' },
-  { id: 'notification', label: 'Notification', icon: 'bi-bell' },
-  { id: 'subscription', label: 'Subscription', icon: 'bi-credit-card' },
-  { id: 'connection', label: 'Connection', icon: 'bi-diagram-3' },
-  { id: 'delete', label: 'Delete', icon: 'bi-trash' },
 ]
 
 const TIME_SPENT = [52, 68, 83, 58, 72, 79, 70]
 const WEEK_DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-
-function getInitials(user: UserRecord): string {
-  const first = user.first_name?.[0] ?? ''
-  const last = user.last_name?.[0] ?? ''
-  if (first || last) return `${first}${last}`.toUpperCase()
-  return (user.username?.[0] ?? user.email?.[0] ?? '?').toUpperCase()
-}
 
 function getDisplayName(user: UserRecord): string {
   const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
@@ -34,7 +23,10 @@ function getDisplayName(user: UserRecord): string {
 }
 
 const ProfilePage = () => {
+  const { syncAuthState } = useAuthSession()
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const [user, setUser] = useState<UserRecord | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -58,6 +50,29 @@ const ProfilePage = () => {
       .catch(() => {})
   }, [])
 
+  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !user) return
+
+    setPhotoUploading(true)
+    setMessage(null)
+    try {
+      const resized = await resizeImageFileToSquare(file, 200)
+      const updated = await uploadUserPhoto(user.id, resized)
+      setUser(updated)
+      syncAuthState()
+      setMessage({ type: 'success', text: 'Profile photo updated.' })
+    } catch (err) {
+      setMessage({
+        type: 'danger',
+        text: err instanceof Error ? err.message : 'Photo upload failed',
+      })
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   const handleSave = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!user) return
@@ -66,6 +81,7 @@ const ProfilePage = () => {
     try {
       const updated = await updateUser(user.id, form)
       setUser(updated)
+      syncAuthState()
       setMessage({ type: 'success', text: 'Profile updated successfully.' })
     } catch (err) {
       setMessage({ type: 'danger', text: err instanceof Error ? err.message : 'Save failed' })
@@ -100,36 +116,7 @@ const ProfilePage = () => {
               </nav>
             </section>
 
-            <section className="profile-panel profile-time-card">
-              <h5 className="profile-panel-title">Time Spent</h5>
-              <div className="profile-chart" aria-label="Weekly time spent">
-                <div className="profile-chart-bars" aria-hidden="true">
-                  {TIME_SPENT.map((height, index) => (
-                    <span
-                      key={`${WEEK_DAYS[index]}-${index}`}
-                      className="profile-chart-bar"
-                      style={{ height: `${height}%` }}
-                    />
-                  ))}
-                  <svg className="profile-chart-line" viewBox="0 0 220 110">
-                    <polyline
-                      points="0,62 36,78 72,36 108,58 144,28 180,42 220,34"
-                      fill="none"
-                      stroke="#e4cf5f"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="220" cy="34" r="6" fill="#ffffff" stroke="#e4cf5f" strokeWidth="3" />
-                  </svg>
-                </div>
-                <div className="profile-chart-days">
-                  {WEEK_DAYS.map((day, index) => (
-                    <span key={`${day}-${index}`}>{day}</span>
-                  ))}
-                </div>
-              </div>
-            </section>
+            
           </aside>
 
           <main className="profile-main-card">
@@ -147,15 +134,28 @@ const ProfilePage = () => {
 
             <div className="profile-identity">
               <div className="profile-photo-wrap">
-                <span className="profile-photo profile-photo-initials">
-                  {user ? getInitials(user) : '?'}
-                </span>
+                <UserAvatar
+                  user={user}
+                  className="profile-photo"
+                  initialsClassName="profile-photo-initials"
+                  alt={user ? `${getDisplayName(user)} profile photo` : ''}
+                />
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="visually-hidden"
+                  onChange={handlePhotoChange}
+                  disabled={photoUploading || !user}
+                />
                 <button
                   type="button"
                   className="profile-photo-action"
                   aria-label="Change profile photo"
+                  disabled={photoUploading || !user}
+                  onClick={() => photoInputRef.current?.click()}
                 >
-                  <i className="bi bi-camera" />
+                  <i className={`bi ${photoUploading ? 'bi-arrow-repeat' : 'bi-camera'}`} />
                 </button>
               </div>
               <div className="profile-name-row">

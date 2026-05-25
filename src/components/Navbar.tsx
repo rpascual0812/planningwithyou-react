@@ -7,6 +7,7 @@ import {
   fetchActiveSystemNotifications,
   type ActiveSystemNotification,
 } from '../services/systemNotifications'
+import { UserAvatar } from './UserAvatar'
 import type { UserRecord } from '../services/users'
 
 type NavbarProps = {
@@ -15,13 +16,6 @@ type NavbarProps = {
 
 /** How long each notification stays visible before rotating to the next. */
 const NOTIFICATION_ROTATE_MS = 8000
-
-function getInitials(user: UserRecord): string {
-  const first = user.first_name?.[0] ?? ''
-  const last = user.last_name?.[0] ?? ''
-  if (first || last) return `${first}${last}`.toUpperCase()
-  return (user.username?.[0] ?? user.email?.[0] ?? '?').toUpperCase()
-}
 
 function getDisplayName(user: UserRecord): string {
   const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
@@ -121,14 +115,11 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               aria-label="User menu"
               aria-expanded="false"
             >
-              <span className="nav-profile-avatar">
-                <span
-                  className="nav-profile-avatar-fallback"
-                  aria-hidden="true"
-                >
-                  {user ? getInitials(user) : '?'}
-                </span>
-              </span>
+              <UserAvatar
+                user={user}
+                wrapperClassName="nav-profile-avatar"
+                initialsClassName="nav-profile-avatar-fallback"
+              />
               <span className="nav-profile-name d-none d-md-inline">
                 {user ? getDisplayName(user) : ''}
               </span>
@@ -136,14 +127,11 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
             </a>
             <div className="dropdown-menu dropdown-menu-end nav-profile-menu">
               <div className="dropdown-item-text nav-profile-header">
-                <span
-                  className="nav-profile-avatar nav-profile-avatar--lg"
-                  aria-hidden="true"
-                >
-                  <span className="nav-profile-avatar-fallback">
-                    {user ? getInitials(user) : '?'}
-                  </span>
-                </span>
+                <UserAvatar
+                  user={user}
+                  wrapperClassName="nav-profile-avatar nav-profile-avatar--lg"
+                  initialsClassName="nav-profile-avatar-fallback"
+                />
                 <div>
                   <div className="nav-profile-header-name">{user ? getDisplayName(user) : ''}</div>
                   <div className="nav-profile-header-email">{user?.email ?? ''}</div>
