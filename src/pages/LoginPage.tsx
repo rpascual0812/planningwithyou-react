@@ -12,7 +12,7 @@ import { loginWithJwt, LoginThrottledError } from '../services/auth'
 const LoginPage = () => {
   const navigate = useNavigate()
   const { syncAuthState } = useAuthSession()
-  const [email, setEmail] = useState('')
+  const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -21,15 +21,15 @@ const LoginPage = () => {
 
   useEffect(() => {
     const tick = () => {
-      setLockoutSeconds(getLoginLockoutRemainingSeconds(email))
+      setLockoutSeconds(getLoginLockoutRemainingSeconds(login))
     }
     tick()
     const id = window.setInterval(tick, 1000)
     return () => window.clearInterval(id)
-  }, [email])
+  }, [login])
 
   const loginBlocked = lockoutSeconds > 0
-  const attemptsLeft = loginAttemptsRemaining(email)
+  const attemptsLeft = loginAttemptsRemaining(login)
 
   const handleSubmit: NonNullable<React.ComponentProps<'form'>['onSubmit']> =
     async (e) => {
@@ -43,7 +43,7 @@ const LoginPage = () => {
       setError(null)
       setIsSubmitting(true)
       try {
-        await loginWithJwt({ email, password, remember })
+        await loginWithJwt({ login, password, remember })
         syncAuthState()
         navigate('/', { replace: true })
       } catch (err) {
@@ -102,21 +102,18 @@ const LoginPage = () => {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <label className="auth-field">
-              <span className="auth-label">Email address</span>
+              <span className="auth-label">Email or username</span>
               <input
-                type="email"
-                value={email}
+                type="text"
+                value={login}
                 onChange={(e) => {
-                  setEmail(e.target.value)
+                  setLogin(e.target.value)
                   setError(null)
                 }}
-                autoComplete="email"
+                autoComplete="username"
                 required
                 disabled={isSubmitting || loginBlocked}
               />
-              <small className="auth-hint">
-                We'll never share your email with anyone else.
-              </small>
             </label>
 
             <label className="auth-field">
