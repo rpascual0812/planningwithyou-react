@@ -34,7 +34,9 @@ const PUBLIC_AUTH_PATHS = new Set([
 
 function isPublicAuthPath(pathname: string): boolean {
   if (PUBLIC_AUTH_PATHS.has(pathname)) return true
-  return pathname.startsWith('/reset-password/')
+  if (pathname.startsWith('/reset-password/')) return true
+  if (pathname.startsWith('/verify-email/')) return true
+  return false
 }
 
 export function AuthSessionProvider({ children }: { children: ReactNode }) {

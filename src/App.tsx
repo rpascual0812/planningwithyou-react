@@ -31,6 +31,7 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const ResetPasswordConfirmPage = lazy(
   () => import('./pages/ResetPasswordConfirmPage'),
 )
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
 const PublicPayPage = lazy(() => import('./pages/PublicPayPage'))
 
 /** Matches AdminLTE 4's `sidebar-expand-lg` mobile breakpoint. */
@@ -279,6 +280,16 @@ function App() {
             fallback={<div className="auth-page auth-page--loading">Loading…</div>}
           >
             <ResetPasswordConfirmPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/verify-email/:token"
+        element={
+          <Suspense
+            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+          >
+            <VerifyEmailPage />
           </Suspense>
         }
       />

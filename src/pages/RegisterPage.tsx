@@ -3,13 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import PasswordInput from '../components/PasswordInput'
 import SearchableSelect from '../components/SearchableSelect'
-import { useAuthSession } from '../context/AuthSessionContext'
 import { registerAccount } from '../services/register'
 import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/supplierTypes'
 
 const RegisterPage = () => {
   const navigate = useNavigate()
-  const { syncAuthState } = useAuthSession()
   const [companyName, setCompanyName] = useState('')
   const [supplierTypeId, setSupplierTypeId] = useState('')
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
@@ -25,6 +23,7 @@ const RegisterPage = () => {
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -74,7 +73,7 @@ const RegisterPage = () => {
     setError(null)
     setIsSubmitting(true)
     try {
-      await registerAccount({
+      const result = await registerAccount({
         company_name: companyName.trim(),
         supplier_type_id: Number(supplierTypeId),
         first_name: firstName.trim(),
@@ -83,8 +82,7 @@ const RegisterPage = () => {
         mobile_number: mobile.trim(),
         password,
       })
-      syncAuthState()
-      navigate('/', { replace: true })
+      setRegisteredEmail(result.email)
     } catch (err) {
       setError(
         err instanceof Error
@@ -94,6 +92,57 @@ const RegisterPage = () => {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (registeredEmail) {
+    return (
+      <div className="auth-page">
+        <svg
+          className="auth-bg-waves"
+          viewBox="0 0 1440 320"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M0,220 C220,260 420,150 720,180 C980,205 1180,275 1440,235 L1440,320 L0,320 Z"
+            fill="rgba(82, 181, 133, 0.18)"
+          />
+          <path
+            d="M0,250 C260,210 480,290 760,240 C1020,196 1220,240 1440,260 L1440,320 L0,320 Z"
+            fill="rgba(31, 58, 95, 0.10)"
+          />
+          <path
+            d="M0,280 C240,250 440,310 720,290 C1000,272 1240,310 1440,290 L1440,320 L0,320 Z"
+            fill="rgba(82, 181, 133, 0.10)"
+          />
+        </svg>
+
+        <div className="auth-card-wrap">
+          <div className="auth-logo" aria-hidden="true">
+            <img
+              src="/src/assets/images/logo.png"
+              alt="Planning With You"
+              width="84"
+            />
+          </div>
+
+          <div className="auth-card">
+            <h2 className="auth-title">Check your email</h2>
+            <p className="auth-subtitle">
+              We sent a verification link to <strong>{registeredEmail}</strong>.
+              Open the link to verify your account; you will be signed in
+              automatically.
+            </p>
+            <p className="auth-switch">
+              Already verified?{' '}
+              <Link to="/login" className="auth-switch-link">
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

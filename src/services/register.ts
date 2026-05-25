@@ -1,5 +1,4 @@
 import { apiFetch, buildApiUrl } from './api'
-import { persistTokens } from './auth'
 
 export type RegisterPayload = {
   company_name: string
@@ -12,12 +11,9 @@ export type RegisterPayload = {
   password: string
 }
 
-type RegisterResponse = {
-  access: string
-  refresh?: string
-  account_id: number
-  company_id: number
-  user_id: number
+export type RegisterResponse = {
+  detail: string
+  email: string
 }
 
 function getErrorMessage(data: unknown): string {
@@ -39,7 +35,6 @@ function getErrorMessage(data: unknown): string {
 
 export async function registerAccount(
   payload: RegisterPayload,
-  remember = true,
 ): Promise<RegisterResponse> {
   const res = await apiFetch(buildApiUrl('/api/register/'), {
     method: 'POST',
@@ -60,16 +55,6 @@ export async function registerAccount(
   if (!res.ok) {
     throw new Error(getErrorMessage(data))
   }
-
-  const tokens = data as Partial<RegisterResponse>
-  if (!tokens.access) {
-    throw new Error('Registration succeeded but no access token was returned.')
-  }
-
-  persistTokens(
-    { access: tokens.access, refresh: tokens.refresh },
-    remember,
-  )
 
   return data as RegisterResponse
 }

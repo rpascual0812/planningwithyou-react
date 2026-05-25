@@ -15,6 +15,7 @@ export type EmailMergeVariableKey =
   | 'company_mobile_number'
   | 'company_address'
   | 'reset_url'
+  | 'verify_url'
   | 'lifetime'
   | 'payment_link'
 
@@ -41,6 +42,7 @@ export const EMAIL_MERGE_VARIABLES: readonly EmailMergeVariableDef[] = [
   { key: 'company_mobile_number', label: 'Company Mobile Number' },
   { key: 'company_address', label: 'Company Address' },
   { key: 'reset_url', label: 'Reset URL' },
+  { key: 'verify_url', label: 'Verification URL' },
   { key: 'lifetime', label: 'Link lifetime (hours)' },
   { key: 'payment_link', label: 'Payment link' },
 ]
