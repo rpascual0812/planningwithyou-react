@@ -3,9 +3,13 @@ import { Link, useNavigate } from 'react-router-dom'
 
 const RegisterPage = () => {
   const navigate = useNavigate()
+  const [companyName, setCompanyName] = useState('')
+  const [companyType, setCompanyType] = useState('')
+
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [mobile, setMobile] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [agree, setAgree] = useState(false)
@@ -66,6 +70,31 @@ const RegisterPage = () => {
 
           <form className="auth-form" onSubmit={handleSubmit}>
             <label className="auth-field">
+              <span className="auth-label">Company name</span>
+              <input
+                type="text"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                autoComplete="company-name"
+                required
+              />
+            </label>
+
+            <label className="auth-field">
+              <span className="auth-label">Company type</span>
+              <select
+                value={companyType}
+                onChange={(e) => setCompanyType(e.target.value)}
+                autoComplete="company-type"
+                required
+              >
+                <option value="">Choose…</option>
+                <option value="individual">Individual</option>
+                <option value="company">Company</option>
+              </select>
+            </label>
+
+            <label className="auth-field">
               <span className="auth-label">First name</span>
               <input
                 type="text"
@@ -97,7 +126,21 @@ const RegisterPage = () => {
                 required
               />
               <small className="auth-hint">
-                We'll never share your email with anyone else.
+                We'll never share your email with anyone.
+              </small>
+            </label>
+
+            <label className="auth-field">
+              <span className="auth-label">Mobile number</span>
+              <input
+                type="text"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
+                autoComplete="email"
+                required
+              />
+              <small className="auth-hint">
+                We'll never share your mobile number with anyone.
               </small>
             </label>
 
@@ -124,6 +167,8 @@ const RegisterPage = () => {
                 minLength={6}
               />
             </label>
+
+            
 
             <label className="auth-remember">
               <input
