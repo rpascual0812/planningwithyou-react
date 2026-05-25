@@ -61,7 +61,11 @@ async function isTokenInvalidResponse(res: Response): Promise<boolean> {
   const cloned = res.clone()
   try {
     const body = await cloned.json()
-    return body?.code === 'token_not_valid' || body?.code === 'user_not_found'
+    return (
+      body?.code === 'token_not_valid' ||
+      body?.code === 'user_not_found' ||
+      body?.code === 'session_replaced'
+    )
   } catch {
     return false
   }
