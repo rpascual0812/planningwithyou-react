@@ -8116,6 +8116,16 @@ body,
   z-index: 1360;
 }
 
+/* TinyMCE menus/dialogs mount in .tox-tinymce-aux on <body> (default z-index ~1300). */
+.tox-tinymce-aux {
+  z-index: 1410 !important;
+}
+
+.email-modal .modal-content,
+.email-modal .modal-body {
+  overflow: visible;
+}
+
 .email-subject-editor .tox-tinymce {
   border-radius: var(--bs-border-radius, 0.375rem);
 }

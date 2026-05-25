@@ -52,7 +52,8 @@ const EmailsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const [isAccountAdmin, setIsAccountAdmin] = useState(false)
 
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,7 +102,11 @@ const EmailsPage = () => {
       .then(([companyRows, user]) => {
         if (cancelled) return
         setCompanies(companyRows)
-        setUserCompanyId(pickDefaultCompanyId(companyRows, user.company))
+        setIsAccountAdmin(user.is_admin)
+        setSelectedCompanyId((prev) => {
+          if (prev != null && companyRows.some((c) => c.id === prev)) return prev
+          return pickDefaultCompanyId(companyRows, user.company)
+        })
       })
       .catch((e) => {
         if (!cancelled) {
@@ -116,27 +121,30 @@ const EmailsPage = () => {
     }
   }, [])
 
-  const loadEmails = useCallback(async (q = '', status = '') => {
-    if (userCompanyId == null) {
-      setEmails([])
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await fetchEmails(q, status)
-      setEmails(data)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load emails')
-    } finally {
-      setLoading(false)
-    }
-  }, [userCompanyId])
+  const loadEmails = useCallback(
+    async (q = '', status = '', companyId: number | null = null) => {
+      if (companyId == null) {
+        setEmails([])
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const data = await fetchEmails(q, status, companyId)
+        setEmails(data)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to load emails')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
-    loadEmails(debouncedSearch, statusFilter)
-  }, [debouncedSearch, statusFilter, userCompanyId, loadEmails])
+    void loadEmails(debouncedSearch, statusFilter, selectedCompanyId)
+  }, [debouncedSearch, statusFilter, selectedCompanyId, loadEmails])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -195,7 +203,7 @@ const EmailsPage = () => {
         await sendEmail(data)
       }
       closeModal()
-      await loadEmails(debouncedSearch, statusFilter)
+      await loadEmails(debouncedSearch, statusFilter, selectedCompanyId)
     } catch (e) {
       setResendError(e instanceof Error ? e.message : 'Send failed')
     } finally {
@@ -215,10 +223,16 @@ const EmailsPage = () => {
               <select
                 id="emails-company"
                 className="form-select form-select-sm"
-                value={userCompanyId ?? ''}
-                disabled={companiesLoading || companies.length === 0 || userCompanyId == null}
-                aria-readonly="true"
-                onChange={() => {}}
+                value={selectedCompanyId ?? ''}
+                disabled={
+                  companiesLoading ||
+                  companies.length === 0 ||
+                  (!isAccountAdmin && companies.length <= 1)
+                }
+                onChange={(e) => {
+                  const raw = e.target.value
+                  setSelectedCompanyId(raw === '' ? null : Number(raw))
+                }}
               >
                 {companies.length === 0 ? (
                   <option value="">No active companies</option>
@@ -227,7 +241,11 @@ const EmailsPage = () => {
                     <option
                       key={company.id}
                       value={company.id}
-                      disabled={userCompanyId != null && company.id !== userCompanyId}
+                      disabled={
+                        !isAccountAdmin &&
+                        selectedCompanyId != null &&
+                        company.id !== selectedCompanyId
+                      }
                     >
                       {company.name}
                       {company.is_main ? ' (main)' : ''}
@@ -279,7 +297,7 @@ const EmailsPage = () => {
                 type="button"
                 className="btn btn-sm btn-primary"
                 onClick={openCompose}
-                disabled={userCompanyId == null || companiesLoading}
+                disabled={selectedCompanyId == null || companiesLoading}
               >
                 <i className="bi bi-pencil-square me-1" />
                 Compose
@@ -351,7 +369,7 @@ const EmailsPage = () => {
                   {emails.length === 0 && !loading && (
                     <tr>
                       <td colSpan={9} className="emails-table-empty">
-                        {search || statusFilter
+                        {search || statusFilter || selectedCompanyId != null
                           ? 'No emails match your filters.'
                           : 'No emails recorded yet.'}
                       </td>
@@ -371,6 +389,7 @@ const EmailsPage = () => {
           sending={resending}
           onSend={handleSend}
           onClose={closeModal}
+          bookingTemplateCompanyId={selectedCompanyId}
         />
       )}
     </div>

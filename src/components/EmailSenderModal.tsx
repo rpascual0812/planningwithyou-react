@@ -7,10 +7,12 @@ import {
   findCompanyDefaultBookingTemplate,
   type EmailBookingTemplateRecord,
 } from '../services/emailBookingTemplates'
-import { fetchMe } from '../services/users'
+import { fetchCompanies, type CompanyRecord } from '../services/companies'
+import { fetchMe, type UserRecord } from '../services/users'
 import DocumentsModal from './DocumentsModal'
 import type { DocumentRecord } from '../services/documents'
-import { applyPaymentLinkPlaceholder } from '../lib/applyEmailMergeVariables'
+import { applyEmailMergeVariables } from '../lib/applyEmailMergeVariables'
+import { buildEmailMergeContext } from '../lib/emailMergeContext'
 import { hasMeaningfulEmailBody } from '../lib/emailBody'
 import {
   createEmailBodyEditorInit,
@@ -222,6 +224,8 @@ const EmailSenderModal = ({
   const initialSubjectRef = useRef(form.subject ?? '')
   const [docsMode, setDocsMode] = useState<'insert' | 'attach' | null>(null)
   const [defaultReplyTo, setDefaultReplyTo] = useState('')
+  const [currentUser, setCurrentUser] = useState<UserRecord | null>(null)
+  const [mergeCompany, setMergeCompany] = useState<CompanyRecord | null>(null)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [bookingTemplates, setBookingTemplates] = useState<EmailBookingTemplateRecord[]>([])
   const [bookingTemplatesLoading, setBookingTemplatesLoading] = useState(false)
@@ -257,15 +261,24 @@ const EmailSenderModal = ({
 
   useEffect(() => {
     let cancelled = false
-    fetchMe()
-      .then((user) => {
-        if (!cancelled) setDefaultReplyTo(user.email?.trim() ?? '')
+    Promise.all([fetchMe(), fetchCompanies()])
+      .then(([user, companies]) => {
+        if (cancelled) return
+        setCurrentUser(user)
+        setDefaultReplyTo(user.email?.trim() ?? '')
+        const companyId =
+          bookingTemplateCompanyId ?? user.company ?? null
+        const company =
+          companyId != null
+            ? companies.find((c) => c.id === companyId) ?? null
+            : null
+        setMergeCompany(company)
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [bookingTemplateCompanyId])
 
   useEffect(() => {
     if (!isCompose || !defaultReplyTo) return
@@ -401,16 +414,14 @@ const EmailSenderModal = ({
     }
     setValidationError(null)
     clearDraft(storageKey)
-    const url = (paymentLinkUrl ?? '').trim()
-    let payload: EmailPayload = { ...form, body }
-    if (url) {
-      payload = {
-        ...payload,
-        subject: applyPaymentLinkPlaceholder(payload.subject ?? '', url),
-        body: applyPaymentLinkPlaceholder(body, url),
-      }
-    }
-    onSend(payload)
+    const mergeContext = buildEmailMergeContext({
+      user: currentUser,
+      company: mergeCompany,
+      paymentLinkUrl: paymentLinkUrl ?? '',
+    })
+    const subject = applyEmailMergeVariables(form.subject ?? '', mergeContext)
+    const mergedBody = applyEmailMergeVariables(body, mergeContext)
+    onSend({ ...form, body: mergedBody, subject })
   }
 
   // Escape to close

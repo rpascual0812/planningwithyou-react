@@ -43,7 +43,8 @@ import {
   type ContactPayload,
   type ContactRecord,
 } from '../services/contacts'
-import { fetchMe } from '../services/users'
+import { fetchCompanies, type CompanyRecord } from '../services/companies'
+import { fetchMe, type UserRecord } from '../services/users'
 import {
   contactAddressLabel,
   contactDefaultAddress,
@@ -53,7 +54,8 @@ import {
   formatContactAddress,
 } from '../lib/contactDisplay'
 import EmailSenderModal from './EmailSenderModal'
-import { applyPaymentLinkPlaceholder } from '../lib/applyEmailMergeVariables'
+import { applyEmailMergeVariables } from '../lib/applyEmailMergeVariables'
+import { buildEmailMergeContext } from '../lib/emailMergeContext'
 import {
   fetchBookingPaymentLinks,
 } from '../services/bookingPaymentLinks'
@@ -223,6 +225,10 @@ const BookingEditModal = ({
   const [addContactError, setAddContactError] = useState<string | null>(null)
   const [addContactSaving, setAddContactSaving] = useState(false)
   const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+  const [emailMergeUser, setEmailMergeUser] = useState<UserRecord | null>(null)
+  const [emailMergeCompany, setEmailMergeCompany] = useState<CompanyRecord | null>(
+    null,
+  )
   const [paymentsModalOpen, setPaymentsModalOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailPaymentLinkMode, setEmailPaymentLinkMode] = useState(false)
@@ -270,9 +276,16 @@ const BookingEditModal = ({
 
   useEffect(() => {
     let cancelled = false
-    fetchMe()
-      .then((user) => {
-        if (!cancelled) setUserCompanyId(user.company)
+    Promise.all([fetchMe(), fetchCompanies()])
+      .then(([user, companies]) => {
+        if (cancelled) return
+        setUserCompanyId(user.company)
+        setEmailMergeUser(user)
+        const company =
+          user.company != null
+            ? companies.find((c) => c.id === user.company) ?? null
+            : null
+        setEmailMergeCompany(company)
       })
       .catch(() => {})
     return () => {
@@ -490,16 +503,8 @@ const BookingEditModal = ({
     setEmailSending(true)
     setEmailError(null)
     try {
-      let payload = data
-      const explicitPaymentUrl = (paymentLinkUrlForEmail ?? '').trim()
-      if (explicitPaymentUrl) {
-        payload = {
-          ...data,
-          subject: applyPaymentLinkPlaceholder(data.subject, explicitPaymentUrl),
-          body: applyPaymentLinkPlaceholder(data.body, explicitPaymentUrl),
-        }
-      } else if (form.id != null) {
-        let paymentUrl = ''
+      let paymentUrl = (paymentLinkUrlForEmail ?? '').trim()
+      if (!paymentUrl && form.id != null) {
         try {
           const { links: paymentLinks } = await fetchBookingPaymentLinks(form.id)
           const pending = paymentLinks.find((l) => l.status === 'pending')
@@ -507,13 +512,16 @@ const BookingEditModal = ({
         } catch {
           paymentUrl = ''
         }
-        if (paymentUrl) {
-          payload = {
-            ...data,
-            subject: applyPaymentLinkPlaceholder(data.subject, paymentUrl),
-            body: applyPaymentLinkPlaceholder(data.body, paymentUrl),
-          }
-        }
+      }
+      const mergeContext = buildEmailMergeContext({
+        user: emailMergeUser,
+        company: emailMergeCompany,
+        paymentLinkUrl: paymentUrl,
+      })
+      const payload: EmailPayload = {
+        ...data,
+        subject: applyEmailMergeVariables(data.subject ?? '', mergeContext),
+        body: applyEmailMergeVariables(data.body ?? '', mergeContext),
       }
       await sendEmail(payload)
       setEmailModalOpen(false)

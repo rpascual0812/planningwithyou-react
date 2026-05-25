@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import SearchableSelect from '../components/SearchableSelect'
+import { useAuthSession } from '../context/AuthSessionContext'
+import { registerAccount } from '../services/register'
 import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/supplierTypes'
 
 const RegisterPage = () => {
   const navigate = useNavigate()
+  const { syncAuthState } = useAuthSession()
   const [companyName, setCompanyName] = useState('')
   const [supplierTypeId, setSupplierTypeId] = useState('')
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
@@ -20,6 +23,7 @@ const RegisterPage = () => {
   const [confirm, setConfirm] = useState('')
   const [agree, setAgree] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -52,7 +56,7 @@ const RegisterPage = () => {
     [supplierTypes],
   )
 
-  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!supplierTypeId) {
       setError('Please choose a company type.')
@@ -67,9 +71,28 @@ const RegisterPage = () => {
       return
     }
     setError(null)
-    // Demo only – no backend; treat a valid form as a successful signup
-    // and drop the user into the dashboard.
-    navigate('/', { replace: true })
+    setIsSubmitting(true)
+    try {
+      await registerAccount({
+        company_name: companyName.trim(),
+        supplier_type_id: Number(supplierTypeId),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        email: email.trim(),
+        mobile_number: mobile.trim(),
+        password,
+      })
+      syncAuthState()
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Registration failed. Please try again.',
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -227,8 +250,12 @@ const RegisterPage = () => {
               </p>
             )}
 
-            <button type="submit" className="auth-button" disabled={typesLoading}>
-              Create Account
+            <button
+              type="submit"
+              className="auth-button"
+              disabled={typesLoading || isSubmitting}
+            >
+              {isSubmitting ? 'Creating account…' : 'Create Account'}
             </button>
           </form>
 
