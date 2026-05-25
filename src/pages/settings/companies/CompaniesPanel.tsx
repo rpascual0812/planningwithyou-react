@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuthSession } from '../../../context/AuthSessionContext'
+import { resizeImageFileToMaxWidth } from '../../../lib/resizeImageFile'
 import { fetchSecuredFileBlobUrl } from '../../../lib/securedFileUrl'
 import {
   createCompany,
@@ -68,6 +69,7 @@ const CompaniesPanel = () => {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [logoDisplayUrl, setLogoDisplayUrl] = useState('')
+  const [logoResizing, setLogoResizing] = useState(false)
 
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
   const [supplierTypesLoading, setSupplierTypesLoading] = useState(true)
@@ -163,6 +165,25 @@ const CompaniesPanel = () => {
     setLogoFile(null)
     setLogoPreview(null)
     setLogoDisplayUrl('')
+    setLogoResizing(false)
+  }
+
+  const handleLogoFileChange = async (file: File | undefined) => {
+    if (!file) {
+      setLogoFile(null)
+      return
+    }
+    setLogoResizing(true)
+    setFormError(null)
+    try {
+      const resized = await resizeImageFileToMaxWidth(file, 200)
+      setLogoFile(resized)
+    } catch (e) {
+      setLogoFile(null)
+      setFormError(e instanceof Error ? e.message : 'Could not process logo image')
+    } finally {
+      setLogoResizing(false)
+    }
   }
 
   const openAdd = () => {
@@ -407,9 +428,16 @@ const CompaniesPanel = () => {
                 </div>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label">Logo</label>
+                    <label className="form-label">
+                      Logo{' '}
+                      <span className="text-muted small">
+                        (resized to 200px wide; height scales automatically)
+                      </span>
+                    </label>
                     <div className="account-info-control account-info-control--logo">
-                      {logoDisplayUrl ? (
+                      {logoResizing ? (
+                        <span className="text-muted small">Resizing image…</span>
+                      ) : logoDisplayUrl ? (
                         <img
                           src={logoDisplayUrl}
                           alt=""
@@ -422,7 +450,12 @@ const CompaniesPanel = () => {
                         type="file"
                         accept="image/*"
                         className="form-control form-control-sm mt-2"
-                        onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+                        disabled={logoResizing || saving}
+                        onChange={(e) => {
+                          const picked = e.target.files?.[0]
+                          void handleLogoFileChange(picked)
+                          e.target.value = ''
+                        }}
                       />
                     </div>
                   </div>

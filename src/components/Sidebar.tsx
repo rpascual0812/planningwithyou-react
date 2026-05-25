@@ -1,9 +1,46 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import defaultBrandLogo from '../assets/images/logo.png'
 import { useAuthSession } from '../context/AuthSessionContext'
+import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
 
 const Sidebar = () => {
   const { currentUser } = useAuthSession()
   const showAdmin = currentUser?.is_admin === true
+  const [companyLogoSrc, setCompanyLogoSrc] = useState<string | null>(null)
+
+  const companyLogoUrl = (currentUser?.company_logo_url ?? '').trim()
+  const companyName = (currentUser?.company_name ?? '').trim()
+  const brandTitle = companyName || 'Planning With You'
+
+  useEffect(() => {
+    if (!companyLogoUrl) {
+      setCompanyLogoSrc(null)
+      return
+    }
+    let cancelled = false
+    let objectUrl: string | null = null
+    void fetchSecuredFileBlobUrl(companyLogoUrl)
+      .then((url) => {
+        if (cancelled) {
+          URL.revokeObjectURL(url)
+          return
+        }
+        objectUrl = url
+        setCompanyLogoSrc(url)
+      })
+      .catch(() => {
+        if (!cancelled) setCompanyLogoSrc(null)
+      })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [companyLogoUrl])
+
+  const brandImageSrc = companyLogoSrc ?? defaultBrandLogo
+  const hasCompanyLogo = Boolean(companyLogoSrc)
+
   const linkClassName = ({ isActive }: { isActive: boolean }) =>
     `nav-link${isActive ? ' active' : ''}`
 
@@ -11,12 +48,7 @@ const Sidebar = () => {
     <aside className="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
       <div className="sidebar-brand">
         <NavLink to="/" className="brand-link">
-          <span className="brand-mark" aria-hidden="true">
-            <img src="/src/assets/images/logo.png" alt="Planning With You" width="32" />
-          </span>
-          <span className="brand-text-wrap">
-            <span className="brand-text">Planning With You</span>
-          </span>
+        <img src={brandImageSrc} alt="" width={200} height={70} />
         </NavLink>
       </div>
 

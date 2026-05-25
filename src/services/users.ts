@@ -4,6 +4,8 @@ export type UserRecord = {
   id: number
   account: number | null
   company: number | null
+  company_name?: string
+  company_logo_url?: string
   username: string
   email: string
   first_name: string
