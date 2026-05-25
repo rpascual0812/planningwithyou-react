@@ -31,7 +31,15 @@ export type AccountSubscriptionRecord = {
   discount_code: string
 }
 
+export type SubscriptionCheckoutKind =
+  | 'full_subscription'
+  | 'seat_upgrade_proration'
+  | 'seat_upgrade_applied'
+  | 'seat_reduction_only'
+  | 'plan_change_only'
+
 export type SubscriptionCheckoutResponse = {
+  checkout_kind: SubscriptionCheckoutKind
   checkout_url: string
   account_subscription_uuid: string
   paymongo_subscription_id: string
@@ -40,6 +48,7 @@ export type SubscriptionCheckoutResponse = {
   amount: string
   billing_cycle: 'monthly' | 'yearly'
   plan: string
+  team_seats: number
 }
 
 export async function fetchSubscriptionPlans(
@@ -69,6 +78,42 @@ export type SubscriptionCheckoutPayload = {
   billing_cycle: 'monthly' | 'yearly'
   team_seats?: number
   discount_code?: string
+}
+
+export type SubscriptionCheckoutPreview = {
+  checkout_kind: SubscriptionCheckoutKind
+  amount_due_now: string
+  is_one_time_payment: boolean
+  next_billing_amount: string
+  next_billing_date: string | null
+  plan: string
+  billing_cycle: 'monthly' | 'yearly'
+  team_seats: number
+  additional_seats: number
+}
+
+export async function previewSubscriptionCheckout(
+  payload: SubscriptionCheckoutPayload,
+): Promise<SubscriptionCheckoutPreview> {
+  const res = await apiFetch(buildApiUrl('/api/subscriptions/checkout/preview/'), {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    let detail = 'Failed to load checkout preview'
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
+  return res.json()
 }
 
 export async function createSubscriptionCheckout(

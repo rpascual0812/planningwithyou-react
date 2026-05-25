@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import Swal from 'sweetalert2'
 import { useAuthSession } from '../../context/AuthSessionContext'
 import { fetchCurrentAccount } from '../../services/accounts'
 import {
   createSubscriptionCheckout,
   fetchCurrentAccountSubscription,
   fetchSubscriptionPlans,
+  previewSubscriptionCheckout,
   type AccountSubscriptionRecord,
+  type SubscriptionCheckoutPreview,
   type SubscriptionPlanRecord,
 } from '../../services/subscriptions'
 import {
@@ -137,17 +140,113 @@ function getNextPaymentDate(cycle: BillingCycle, from = new Date()): Date {
   return cycle === 'yearly' ? addYears(from, 1) : addMonths(from, 1)
 }
 
-function formatNextPaymentCharge(cycle: BillingCycle, from = new Date()): string {
-  const next = getNextPaymentDate(cycle, from)
-  const day = next.getDate()
-  const month = next.toLocaleString('en-US', { month: 'long' })
-  const year = next.getFullYear()
+function formatChargeDate(date: Date): string {
+  const day = date.getDate()
+  const month = date.toLocaleString('en-US', { month: 'long' })
+  const year = date.getFullYear()
   return `${day}${getOrdinalSuffix(day)} of ${month} ${year}`
+}
+
+function formatNextPaymentCharge(cycle: BillingCycle, from = new Date()): string {
+  return formatChargeDate(getNextPaymentDate(cycle, from))
+}
+
+function formatAccountSubscriptionEndDate(iso: string): string {
+  const parsed = new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(parsed.getTime())) return iso
+  return formatChargeDate(parsed)
+}
+
+function formatBillingDate(iso: string | null): string {
+  if (!iso) return 'your next billing date'
+  const parsed = new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(parsed.getTime())) return iso
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function buildCheckoutConfirmHtml(
+  preview: SubscriptionCheckoutPreview,
+  formatPrice: (amount: number) => string,
+): string {
+  const dueNow = formatPrice(Number(preview.amount_due_now))
+  const nextBill = formatPrice(Number(preview.next_billing_amount))
+  const nextDate = formatBillingDate(preview.next_billing_date)
+  const cycleLabel = preview.billing_cycle === 'monthly' ? 'month' : 'year'
+
+  if (preview.checkout_kind === 'full_subscription') {
+    return (
+      '<div class="text-start">' +
+      `<p class="mb-2">You will pay <strong>${dueNow}</strong> now to start your subscription.</p>` +
+      `<p class="mb-0">Your recurring charge will be <strong>${nextBill}</strong> per ${cycleLabel} ` +
+      `(next billing on <strong>${nextDate}</strong>).</p>` +
+      '</div>'
+    )
+  }
+
+  if (preview.checkout_kind === 'seat_upgrade_proration') {
+    const seatsLabel =
+      preview.additional_seats === 1 ? '1 additional user' : `${preview.additional_seats} additional users`
+    return (
+      '<div class="text-start">' +
+      `<p class="mb-2"><strong>Due today (one-time payment only):</strong> ${dueNow}</p>` +
+      `<p class="mb-2">This one-time charge covers ${seatsLabel}, prorated from today through <strong>${nextDate}</strong>.</p>` +
+      `<p class="mb-0"><strong>Next billing cycle (${nextDate}):</strong> ${nextBill}</p>` +
+      '</div>'
+    )
+  }
+
+  if (preview.checkout_kind === 'seat_upgrade_applied') {
+    return (
+      '<div class="text-start">' +
+      '<p class="mb-2">No payment is due today.</p>' +
+      `<p class="mb-0">Allowed users will be updated. Your next bill on <strong>${nextDate}</strong> will be <strong>${nextBill}</strong>.</p>` +
+      '</div>'
+    )
+  }
+
+  if (preview.checkout_kind === 'seat_reduction_only') {
+    return (
+      '<div class="text-start">' +
+      '<p class="mb-2">No payment is due today.</p>' +
+      `<p class="mb-0">Allowed users will be reduced. Your next bill on <strong>${nextDate}</strong> will be <strong>${nextBill}</strong>.</p>` +
+      '</div>'
+    )
+  }
+
+  if (preview.checkout_kind === 'plan_change_only') {
+    return (
+      '<div class="text-start">' +
+      '<p class="mb-2">No payment is due today.</p>' +
+      `<p class="mb-0">Your plan will be updated now. Your recurring charge on <strong>${nextDate}</strong> will be <strong>${nextBill}</strong> per ${cycleLabel}.</p>` +
+      '</div>'
+    )
+  }
+
+  return (
+    '<div class="text-start">' +
+    `<p class="mb-0">Amount due now: <strong>${dueNow}</strong>. Next billing: <strong>${nextBill}</strong> on ${nextDate}.</p>` +
+    '</div>'
+  )
+}
+
+function checkoutConfirmButtonText(preview: SubscriptionCheckoutPreview): string {
+  if (
+    preview.checkout_kind === 'seat_reduction_only' ||
+    preview.checkout_kind === 'seat_upgrade_applied' ||
+    preview.checkout_kind === 'plan_change_only'
+  ) {
+    return 'Apply changes'
+  }
+  return 'Continue to PayMongo'
 }
 
 const SubscriptionSettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { subscriptionPlan, syncAuthState } = useAuthSession()
+  const { syncAuthState } = useAuthSession()
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
@@ -164,8 +263,15 @@ const SubscriptionSettingsPage = () => {
   })
   const [selectedPlanId, setSelectedPlanId] = useState<string>('')
   const [teamSeats, setTeamSeats] = useState<number>(1)
-  const [discountCode, setDiscountCode] = useState<string>('')
+  const [discountCode, setDiscountCode] = useState('')
   const [discountMessage, setDiscountMessage] = useState<string | null>(null)
+  const [selectionReady, setSelectionReady] = useState(false)
+  const [initialSelection, setInitialSelection] = useState<{
+    billingCycle: BillingCycle
+    selectedPlanId: string
+    teamSeats: number
+  } | null>(null)
+  const lastAppliedSubscriptionKeyRef = useRef('')
 
   const formatPrice = useCallback(
     (amount: number) => formatCurrency(amount, currencyFormat),
@@ -180,6 +286,7 @@ const SubscriptionSettingsPage = () => {
     if (!plan.isSelectable) return
     setSelectedPlanId(plan.id)
     setTeamSeats(1)
+    setCheckoutError(null)
   }
 
   const handleApplyDiscount = () => {
@@ -188,6 +295,8 @@ const SubscriptionSettingsPage = () => {
 
   const loadCurrentSubscription = useCallback(async () => {
     setCurrentSubscriptionLoading(true)
+    setSelectionReady(false)
+    setInitialSelection(null)
     try {
       const row = await fetchCurrentAccountSubscription()
       setCurrentSubscription(row)
@@ -198,28 +307,104 @@ const SubscriptionSettingsPage = () => {
     }
   }, [])
 
-  const handlePayNow = async () => {
-    if (isFreePlan || checkoutLoading) return
+  const subscriptionHasChanges = useMemo(() => {
+    if (isFreePlan || !selectionReady || !initialSelection) return false
+    return (
+      billingCycle !== initialSelection.billingCycle ||
+      selectedPlanId !== initialSelection.selectedPlanId ||
+      teamSeats !== initialSelection.teamSeats
+    )
+  }, [
+    billingCycle,
+    initialSelection,
+    isFreePlan,
+    selectionReady,
+    selectedPlanId,
+    teamSeats,
+  ])
+
+  const payNowClickable =
+    selectionReady &&
+    subscriptionHasChanges &&
+    !checkoutLoading &&
+    !currentSubscriptionLoading &&
+    !plansLoading
+  const payNowDisabled = !payNowClickable
+
+  const executeCheckout = useCallback(async () => {
     setCheckoutError(null)
     setCheckoutLoading(true)
     try {
+      const trimmedDiscount = discountCode.trim()
       const result = await createSubscriptionCheckout({
         plan: selectedPlanId,
         billing_cycle: billingCycle,
         team_seats: teamSeats,
-        discount_code: discountCode,
+        ...(trimmedDiscount ? { discount_code: trimmedDiscount } : {}),
       })
-      window.location.assign(result.checkout_url)
+      if (result.checkout_url) {
+        window.location.assign(result.checkout_url)
+        return
+      }
+      if (result.checkout_kind === 'seat_reduction_only') {
+        setCheckoutNotice('Allowed users updated. Your next bill will reflect the lower seat count.')
+      } else if (result.checkout_kind === 'seat_upgrade_applied') {
+        setCheckoutNotice('Additional users applied. No prorated charge was required.')
+      } else if (result.checkout_kind === 'plan_change_only') {
+        setCheckoutNotice('Plan updated. Your recurring billing amount has been updated for the next cycle.')
+      }
+      lastAppliedSubscriptionKeyRef.current = ''
+      setSelectionReady(false)
+      setInitialSelection(null)
+      await loadCurrentSubscription()
+      syncAuthState()
     } catch (e) {
       setCheckoutError(
         e instanceof Error ? e.message : 'Failed to start subscription checkout',
       )
+    } finally {
       setCheckoutLoading(false)
+    }
+  }, [
+    billingCycle,
+    discountCode,
+    loadCurrentSubscription,
+    selectedPlanId,
+    syncAuthState,
+    teamSeats,
+  ])
+
+  const handlePayNow = async () => {
+    if (isFreePlan || !payNowClickable) return
+    setCheckoutError(null)
+    try {
+      const preview = await previewSubscriptionCheckout({
+        plan: selectedPlanId,
+        billing_cycle: billingCycle,
+        team_seats: teamSeats,
+      })
+      const confirmed = await Swal.fire({
+        title: 'Confirm subscription payment',
+        html: buildCheckoutConfirmHtml(preview, formatPrice),
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: checkoutConfirmButtonText(preview),
+        cancelButtonText: 'Cancel',
+        focusCancel: true,
+        reverseButtons: true,
+      })
+      if (!confirmed.isConfirmed) return
+      await executeCheckout()
+    } catch (e) {
+      setCheckoutError(
+        e instanceof Error ? e.message : 'Failed to prepare subscription checkout',
+      )
     }
   }
 
   const loadPlans = useCallback(async () => {
     setPlansLoading(true)
+    setSelectionReady(false)
     setPlansError(null)
     try {
       const [account, data] = await Promise.all([
@@ -255,12 +440,84 @@ const SubscriptionSettingsPage = () => {
     void loadCurrentSubscription()
   }, [loadCurrentSubscription])
 
+  const accountSubscriptionKey = currentSubscription
+    ? [
+        currentSubscription.uuid,
+        currentSubscription.status,
+        currentSubscription.plan,
+        currentSubscription.billing_cycle,
+        currentSubscription.team_seats,
+      ].join(':')
+    : ''
+
+  useEffect(() => {
+    if (currentSubscriptionLoading || plansLoading) {
+      setSelectionReady(false)
+      return
+    }
+
+    if (!currentSubscription) {
+      setInitialSelection({ billingCycle, selectedPlanId, teamSeats })
+      setSelectionReady(true)
+      return
+    }
+
+    if (lastAppliedSubscriptionKeyRef.current === accountSubscriptionKey && selectionReady) {
+      return
+    }
+
+    if (billingCycle !== currentSubscription.billing_cycle) {
+      setSelectionReady(false)
+      setBillingCycle(currentSubscription.billing_cycle)
+      return
+    }
+
+    if (
+      plans.length > 0 &&
+      !plans.some((p) => p.id === currentSubscription.plan)
+    ) {
+      setSelectionReady(false)
+      return
+    }
+
+    const syncedSeats = Math.max(1, currentSubscription.team_seats)
+    setTeamSeats(syncedSeats)
+    if (
+      plans.length === 0 ||
+      plans.some((p) => p.id === currentSubscription.plan)
+    ) {
+      setSelectedPlanId(currentSubscription.plan)
+    }
+    setDiscountCode('')
+    setDiscountMessage(null)
+    lastAppliedSubscriptionKeyRef.current = accountSubscriptionKey
+    setInitialSelection({
+      billingCycle: currentSubscription.billing_cycle,
+      selectedPlanId: currentSubscription.plan,
+      teamSeats: syncedSeats,
+    })
+    setSelectionReady(true)
+  }, [
+    accountSubscriptionKey,
+    billingCycle,
+    currentSubscription,
+    currentSubscriptionLoading,
+    plans,
+    plansLoading,
+    selectedPlanId,
+    selectionReady,
+    teamSeats,
+  ])
+
   useEffect(() => {
     const result = searchParams.get('subscription')
     if (result === 'success') {
       setCheckoutNotice(
         'Payment submitted. Your plan will update once PayMongo confirms the subscription.',
       )
+      lastAppliedSubscriptionKeyRef.current = ''
+      setSelectionReady(false)
+      setInitialSelection(null)
       void loadCurrentSubscription()
       syncAuthState()
       setSearchParams(
@@ -283,10 +540,6 @@ const SubscriptionSettingsPage = () => {
       )
     }
   }, [loadCurrentSubscription, searchParams, setSearchParams, syncAuthState])
-
-  const activePlanSlug = currentSubscription?.status === 'active'
-    ? currentSubscription.plan
-    : subscriptionPlan
 
   const totals = useMemo(() => {
     const selectedPlan =
@@ -337,19 +590,17 @@ const SubscriptionSettingsPage = () => {
     if (isFreePlan) {
       return 'No upcoming charges on the Free plan'
     }
-    return `Next payment will charge on the ${formatNextPaymentCharge(billingCycle)}`
-  }, [billingCycle, isFreePlan])
+    const chargeDateLabel = currentSubscription?.end_date
+      ? formatAccountSubscriptionEndDate(currentSubscription.end_date)
+      : formatNextPaymentCharge(billingCycle)
+    return `Next payment will charge on the ${chargeDateLabel}`
+  }, [billingCycle, currentSubscription?.end_date, isFreePlan])
 
   return (
     <div className="sub-layout">
-      {(checkoutNotice || checkoutError) && (
+      {checkoutNotice && (
         <div className="sub-notices">
-          {checkoutNotice && (
-            <p className="sub-notice sub-notice--info">{checkoutNotice}</p>
-          )}
-          {checkoutError && (
-            <p className="sub-notice sub-notice--error">{checkoutError}</p>
-          )}
+          <p className="sub-notice sub-notice--info">{checkoutNotice}</p>
         </div>
       )}
 
@@ -362,13 +613,9 @@ const SubscriptionSettingsPage = () => {
             {currentSubscription.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'}
             {' · '}
             {subscriptionStatusLabel(currentSubscription.status)}
-            {currentSubscription.status === 'active' && activePlanSlug !== 'free' && (
-              <>
-                {' · '}
-                {currentSubscription.team_seats}{' '}
-                {currentSubscription.team_seats === 1 ? 'user' : 'users'}
-              </>
-            )}
+            {' · '}
+            {currentSubscription.team_seats}{' '}
+            allowed {currentSubscription.team_seats === 1 ? 'user' : 'users'}
           </p>
         </section>
       )}
@@ -384,7 +631,10 @@ const SubscriptionSettingsPage = () => {
                 role="tab"
                 aria-selected={billingCycle === cycle}
                 className={`sub-pill${billingCycle === cycle ? ' is-active' : ''}`}
-                onClick={() => setBillingCycle(cycle)}
+                onClick={() => {
+                  setBillingCycle(cycle)
+                  setCheckoutError(null)
+                }}
               >
                 {cycle === 'monthly' ? 'Monthly' : 'Yearly'}
               </button>
@@ -467,15 +717,15 @@ const SubscriptionSettingsPage = () => {
                 {plan.hasTeamStepper && isSelected && (
                   <div className="sub-plan-team">
                     <div className="sub-plan-team-text">
-                      <strong>Team Accounts</strong>
+                      <strong>Allowed Users</strong>
                       <span>{plan.teamStepperHint}</span>
                     </div>
-                    <div className="sub-stepper" role="group" aria-label="Team seats">
+                    <div className="sub-stepper" role="group" aria-label="Allowed users">
                       <button
                         type="button"
                         className="sub-stepper-btn"
                         onClick={() => setTeamSeats(Math.max(1, teamSeats - 1))}
-                        aria-label="Decrease team seats"
+                        aria-label="Decrease allowed users"
                       >
                         -
                       </button>
@@ -488,13 +738,13 @@ const SubscriptionSettingsPage = () => {
                           const next = Number(e.target.value)
                           if (Number.isFinite(next)) setTeamSeats(Math.max(1, next))
                         }}
-                        aria-label="Team seats"
+                        aria-label="Allowed users"
                       />
                       <button
                         type="button"
                         className="sub-stepper-btn"
                         onClick={() => setTeamSeats(teamSeats + 1)}
-                        aria-label="Increase team seats"
+                        aria-label="Increase allowed users"
                       >
                         +
                       </button>
@@ -537,6 +787,7 @@ const SubscriptionSettingsPage = () => {
                   setDiscountMessage(null)
                 }}
                 placeholder="Enter code"
+                autoComplete="off"
               />
               <button
                 type="button"
@@ -603,14 +854,32 @@ const SubscriptionSettingsPage = () => {
           </div>
 
           {!isFreePlan && (
-            <button
-              type="button"
-              className="sub-pay-btn"
-              disabled={checkoutLoading}
-              onClick={() => void handlePayNow()}
-            >
-              {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
-            </button>
+            <>
+              <button
+                type="button"
+                className={`sub-pay-btn${payNowDisabled ? ' is-disabled' : ''}`}
+                disabled={payNowDisabled}
+                aria-disabled={payNowDisabled}
+                title={
+                  !selectionReady
+                    ? 'Loading subscription details…'
+                    : !subscriptionHasChanges
+                      ? 'Change billing cycle, plan, or allowed users to pay'
+                      : undefined
+                }
+                onClick={() => {
+                  if (!payNowClickable) return
+                  void handlePayNow()
+                }}
+              >
+                {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
+              </button>
+              {checkoutError && (
+                <p className="sub-pay-error" role="alert">
+                  {checkoutError}
+                </p>
+              )}
+            </>
           )}
         </div>
       </section>
