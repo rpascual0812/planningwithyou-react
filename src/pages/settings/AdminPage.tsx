@@ -3,18 +3,20 @@ import { useSearchParams } from 'react-router-dom'
 import AdminEmailPage from './AdminEmailPage'
 import AdminKYBPage from './AdminKYBPage'
 import AdminPayoutPage from './AdminPayoutPage'
+import AdminSystemNotificationsPage from './AdminSystemNotificationsPage'
 import AdminSupportPage from './AdminSupportPage'
 import type { AdminNavItem, AdminSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<AdminSection>([
-  'kyb', 'emails', 'payouts', 'support',
+  'kyb', 'emails', 'payouts', 'notifications', 'support',
 ])
 
 const NAV_ITEMS: AdminNavItem[] = [
   { id: 'kyb', label: 'Company Verification', icon: 'bi-buildings' },
   { id: 'emails', label: 'Emails', icon: 'bi-envelope' },
   { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
+  { id: 'notifications', label: 'System Notifications', icon: 'bi-megaphone' },
   { id: 'support', label: 'Support', icon: 'bi-chat-dots' },
 ]
 
@@ -92,6 +94,8 @@ const ActiveAdminPage = ({
       return <AdminEmailPage />
     case 'payouts':
       return <AdminPayoutPage />
+    case 'notifications':
+      return <AdminSystemNotificationsPage />
     case 'support':
     return null
     //   return <AdminSupportPage />

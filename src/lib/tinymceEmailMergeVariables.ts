@@ -4,28 +4,13 @@ import {
   EMAIL_MERGE_VARIABLES,
   emailMergeVariableToken,
 } from '../constants/emailMergeVariables'
+import { TINYMCE_OSS_PLUGINS, TINYMCE_SELF_HOSTED_FREE_INIT } from './tinymceFreeEditor'
 
 const MENU_BUTTON_ID = 'emailmergevars'
 const DOCUMENTS_BUTTON_ID = 'documents'
 
-export const EMAIL_BODY_EDITOR_PLUGINS = [
-  'advlist',
-  'autolink',
-  'lists',
-  'link',
-  'charmap',
-  'preview',
-  'anchor',
-  'searchreplace',
-  'visualblocks',
-  'code',
-  'fullscreen',
-  'insertdatetime',
-  'media',
-  'table',
-  'help',
-  'wordcount',
-] as const
+/** OSS plugins only (`media` omitted — not needed without image upload). */
+export const EMAIL_BODY_EDITOR_PLUGINS = [...TINYMCE_OSS_PLUGINS] as const
 
 export const EMAIL_BODY_EDITOR_TOOLBAR =
   'undo redo | blocks | bold italic forecolor | ' +
@@ -79,13 +64,12 @@ export type EmailBodyEditorInitOptions = {
 export function createEmailBodyEditorInit(options: EmailBodyEditorInitOptions) {
   const height = options.height ?? 350
   return {
+    ...TINYMCE_SELF_HOSTED_FREE_INIT,
     height,
     menubar: false,
     toolbar_mode: 'wrap' as const,
     plugins: [...EMAIL_BODY_EDITOR_PLUGINS],
     toolbar: EMAIL_BODY_EDITOR_TOOLBAR,
-    branding: false,
-    promotion: false,
     content_style: EMAIL_BODY_CONTENT_STYLE,
     setup: (editor: Editor) => {
       registerEmailDocumentsToolbar(editor, options.onOpenDocuments)
@@ -98,14 +82,13 @@ export const EMAIL_MERGE_VARS_TOOLBAR_ITEM = MENU_BUTTON_ID
 
 /** Subject line: only the merge-variables menu; no other toolbar controls. */
 export const SUBJECT_VARIABLES_ONLY_EDITOR_INIT = {
+  ...TINYMCE_SELF_HOSTED_FREE_INIT,
   height: 52,
   menubar: false,
   toolbar_mode: 'wrap' as const,
   toolbar: MENU_BUTTON_ID,
   plugins: [] as string[],
   statusbar: false,
-  branding: false,
-  promotion: false,
   resize: false,
   paste_as_text: true,
   content_style:

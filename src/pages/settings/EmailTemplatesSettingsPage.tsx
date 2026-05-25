@@ -6,6 +6,7 @@ import {
   createEmailBodyEditorInit,
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
 } from '../../lib/tinymceEmailMergeVariables'
+import { TINYMCE_EDITOR_SHARED_PROPS } from '../../lib/tinymceFreeEditor'
 import type { DocumentRecord } from '../../services/documents'
 import {
   createEmailBookingTemplate,
@@ -421,9 +422,8 @@ const EmailTemplatesPanel = ({
                     <span className="form-label d-block mb-2">Subject</span>
                     <div className="email-subject-editor">
                       <Editor
+                        {...TINYMCE_EDITOR_SHARED_PROPS}
                         key={`subject-${typeLabel}-${bodyEditorKey}`}
-                        tinymceScriptSrc="/tinymce/tinymce.min.js"
-                        licenseKey="gpl"
                         initialValue={initialSubjectRef.current}
                         onEditorChange={(_html, ed) => {
                           setField('subject', ed.getContent({ format: 'text' }))
@@ -435,9 +435,8 @@ const EmailTemplatesPanel = ({
                   <div className="mb-3">
                     <span className="form-label d-block mb-2">Body</span>
                     <Editor
+                      {...TINYMCE_EDITOR_SHARED_PROPS}
                       key={`body-${typeLabel}-${bodyEditorKey}`}
-                      tinymceScriptSrc="/tinymce/tinymce.min.js"
-                      licenseKey="gpl"
                       onInit={(_evt, editor) => {
                         bodyEditorRef.current = editor
                       }}

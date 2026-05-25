@@ -18,6 +18,7 @@ export type AdminSection =
   | 'kyb'
   | 'emails'
   | 'payouts'
+  | 'notifications'
   | 'support'
 
 export type AdminNavItem = {

@@ -1,11 +1,20 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { logout } from '../services/auth'
+import { htmlToPlainText } from '../lib/emailBody'
+import {
+  fetchActiveSystemNotifications,
+  type ActiveSystemNotification,
+} from '../services/systemNotifications'
 import type { UserRecord } from '../services/users'
 
 type NavbarProps = {
   onToggleSidebar: () => void
 }
+
+/** How long each notification stays visible before rotating to the next. */
+const NOTIFICATION_ROTATE_MS = 8000
 
 function getInitials(user: UserRecord): string {
   const first = user.first_name?.[0] ?? ''
@@ -22,47 +31,88 @@ function getDisplayName(user: UserRecord): string {
 const Navbar = ({ onToggleSidebar }: NavbarProps) => {
   const { currentUser: user } = useAuthSession()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [notifications, setNotifications] = useState<ActiveSystemNotification[]>([])
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const rows = await fetchActiveSystemNotifications()
+      setNotifications(rows)
+    } catch {
+      setNotifications([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadNotifications()
+    const interval = window.setInterval(() => {
+      void loadNotifications()
+    }, 5 * 60 * 1000)
+    return () => window.clearInterval(interval)
+  }, [loadNotifications, location.pathname])
+
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [notifications])
+
+  useEffect(() => {
+    if (notifications.length <= 1) return
+    const timer = window.setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % notifications.length)
+    }, NOTIFICATION_ROTATE_MS)
+    return () => window.clearInterval(timer)
+  }, [notifications])
+
+  const safeIndex =
+    notifications.length > 0 ? activeIndex % notifications.length : 0
+  const currentNotification =
+    notifications.length > 0 ? notifications[safeIndex] : null
 
   return (
     <nav className="app-header navbar navbar-expand bg-body">
-      <div className="container-fluid">
-        <ul className="navbar-nav">
-          <li className="nav-item">
-            <button
-              type="button"
-              className="nav-link border-0 bg-transparent"
-              onClick={onToggleSidebar}
-              aria-label="Toggle sidebar"
+      <div className="container-fluid app-header-inner">
+        <button
+          type="button"
+          className="app-header-toggle nav-link border-0 bg-transparent"
+          onClick={onToggleSidebar}
+          aria-label="Toggle sidebar"
+        >
+          <i className="bi bi-list" />
+        </button>
+
+        {currentNotification && (
+          <div
+            className="app-header-notifications"
+            role="region"
+            aria-label="System notifications"
+            aria-live="polite"
+          >
+            <div
+              key={currentNotification.id}
+              className="app-header-notification"
+              title={htmlToPlainText(currentNotification.message)}
             >
-              <i className="bi bi-list" />
-            </button>
-          </li>
-          <li className="nav-item d-none d-md-block">
-            <a href="#" className="nav-link">
-              Dashboard
-            </a>
-          </li>
-        </ul>
-
-        <ul className="navbar-nav ms-auto">
-          <li className="nav-item dropdown">
-            <a className="nav-link" data-bs-toggle="dropdown" href="#">
-              <i className="bi bi-bell-fill" />
-              <span className="navbar-badge badge text-bg-warning">3</span>
-            </a>
-            <div className="dropdown-menu dropdown-menu-lg dropdown-menu-end">
-              <span className="dropdown-item dropdown-header">3 Notifications</span>
-              <div className="dropdown-divider" />
-              <a href="#" className="dropdown-item">
-                <i className="bi bi-envelope me-2" /> 1 new message
-              </a>
-              <div className="dropdown-divider" />
-              <a href="#" className="dropdown-item">
-                <i className="bi bi-people me-2" /> 2 new connections
-              </a>
+              <i className="bi bi-megaphone-fill app-header-notification-icon" aria-hidden />
+              <span className="app-header-notification-title">
+                {currentNotification.title}
+              </span>
+              <span className="app-header-notification-sep" aria-hidden>
+                —
+              </span>
+              <span className="app-header-notification-message">
+                {htmlToPlainText(currentNotification.message)}
+              </span>
+              {notifications.length > 1 && (
+                <span className="app-header-notification-index" aria-hidden>
+                  {safeIndex + 1}/{notifications.length}
+                </span>
+              )}
             </div>
-          </li>
+          </div>
+        )}
 
+        <ul className="navbar-nav app-header-actions">
           <li className="nav-item dropdown nav-profile-item">
             <a
               className="nav-link nav-profile-toggle"

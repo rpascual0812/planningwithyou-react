@@ -18,6 +18,7 @@ import {
   createEmailBodyEditorInit,
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
 } from '../lib/tinymceEmailMergeVariables'
+import { TINYMCE_EDITOR_SHARED_PROPS } from '../lib/tinymceFreeEditor'
 
 /* ------------------------------------------------------------------ */
 /*  Inline email-list input (input + add button + tag list)            */
@@ -560,9 +561,8 @@ const EmailSenderModal = ({
                   <label className="form-label">Subject</label>
                   <div className="email-subject-editor">
                     <Editor
+                      {...TINYMCE_EDITOR_SHARED_PROPS}
                       key={`subject-${editorKey}`}
-                      tinymceScriptSrc="/tinymce/tinymce.min.js"
-                      licenseKey="gpl"
                       initialValue={initialSubjectRef.current}
                       onEditorChange={(_html, ed) => {
                         const text = ed
@@ -580,9 +580,8 @@ const EmailSenderModal = ({
               <div>
                 <label className="form-label">Body</label>
                 <Editor
+                  {...TINYMCE_EDITOR_SHARED_PROPS}
                   key={editorKey}
-                  tinymceScriptSrc="/tinymce/tinymce.min.js"
-                  licenseKey="gpl"
                   onInit={(_evt, editor) => {
                     editorRef.current = editor
                   }}
