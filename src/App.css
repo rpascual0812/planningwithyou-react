@@ -6506,6 +6506,42 @@ body,
   outline: none;
 }
 
+.auth-legal-links {
+  margin-top: 1rem;
+}
+
+.legal-document-page {
+  min-height: 100vh;
+  background: var(--auth-bg, #f4f6f8);
+}
+
+.legal-document-card {
+  max-width: 48rem;
+  background: #fff;
+  border-radius: 0.75rem;
+  padding: 1.5rem 1.75rem 2rem;
+  box-shadow: 0 8px 24px rgba(31, 58, 95, 0.08);
+}
+
+.legal-document-back {
+  color: #5b6671;
+  text-decoration: none;
+}
+
+.legal-document-back:hover {
+  color: var(--brand-navy);
+}
+
+.legal-document-body {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #2c3e50;
+}
+
+.legal-document-body p:last-child {
+  margin-bottom: 0;
+}
+
 @media (max-width: 575.98px) {
   .auth-card {
     padding: 1.2rem 1.25rem 1.4rem;

@@ -1,5 +1,6 @@
 import { useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import AuthLegalLinks from '../components/AuthLegalLinks'
 
 const generateUuid = (): string => {
   const c =
@@ -120,9 +121,7 @@ const ResetPasswordPage = () => {
             </Link>
           </p>
 
-          <a href="#" className="auth-terms">
-            Terms of use &amp; Conditions
-          </a>
+          <AuthLegalLinks />
         </div>
       </div>
     </div>

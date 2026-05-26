@@ -1,5 +1,6 @@
 import { useMemo, useState, type SubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import AuthLegalLinks from '../components/AuthLegalLinks'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
@@ -172,9 +173,7 @@ const ResetPasswordConfirmPage = () => {
             </Link>
           </p>
 
-          <a href="#" className="auth-terms">
-            Terms of use &amp; Conditions
-          </a>
+          <AuthLegalLinks />
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import AuthLegalLinks from '../components/AuthLegalLinks'
 import PasswordInput from '../components/PasswordInput'
 import SearchableSelect from '../components/SearchableSelect'
 import {
@@ -10,6 +11,7 @@ import {
 } from '../lib/formValidators'
 import { registerAccount } from '../services/register'
 import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/supplierTypes'
+import { LEGAL_DOCUMENT_ROUTES } from '../services/systemLegal'
 
 const RegisterPage = () => {
   const navigate = useNavigate()
@@ -336,7 +338,17 @@ const RegisterPage = () => {
                 checked={agree}
                 onChange={(e) => setAgree(e.target.checked)}
               />
-              <span>I agree to the Terms of use &amp; Conditions</span>
+              <span>
+                I agree to the{' '}
+                <Link
+                  to={LEGAL_DOCUMENT_ROUTES.terms_condition.path}
+                  className="auth-switch-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Terms &amp; Conditions
+                </Link>
+              </span>
             </label>
 
             {error && (
@@ -365,9 +377,7 @@ const RegisterPage = () => {
             </Link>
           </p>
 
-          <a href="#" className="auth-terms">
-            Terms of use &amp; Conditions
-          </a>
+          <AuthLegalLinks />
         </div>
       </div>
     </div>

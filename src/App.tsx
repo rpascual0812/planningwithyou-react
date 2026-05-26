@@ -37,6 +37,7 @@ const ResetPasswordConfirmPage = lazy(
 )
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
 const PublicPayPage = lazy(() => import('./pages/PublicPayPage'))
+const LegalDocumentPage = lazy(() => import('./pages/LegalDocumentPage'))
 
 /** Matches AdminLTE 4's `sidebar-expand-lg` mobile breakpoint. */
 const MOBILE_MEDIA_QUERY = '(max-width: 991.98px)'
@@ -365,6 +366,36 @@ function App() {
             }
           >
             <PublicPayPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/legal/privacy-policy"
+        element={
+          <Suspense
+            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+          >
+            <LegalDocumentPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/legal/terms-and-conditions"
+        element={
+          <Suspense
+            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+          >
+            <LegalDocumentPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/legal/terms-of-use"
+        element={
+          <Suspense
+            fallback={<div className="auth-page auth-page--loading">Loading…</div>}
+          >
+            <LegalDocumentPage />
           </Suspense>
         }
       />

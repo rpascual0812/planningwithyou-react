@@ -6,6 +6,7 @@ import {
   loginAttemptsRemaining,
   MAX_LOGIN_FAILURES,
 } from '../lib/loginThrottle'
+import AuthLegalLinks from '../components/AuthLegalLinks'
 import PasswordInput from '../components/PasswordInput'
 import { loginWithJwt, LoginThrottledError } from '../services/auth'
 
@@ -213,9 +214,7 @@ const LoginPage = () => {
             </Link>
           </p>
 
-          <a href="#" className="auth-terms">
-            Terms of use &amp; Conditions
-          </a>
+          <AuthLegalLinks />
         </div>
       </div>
     </div>
