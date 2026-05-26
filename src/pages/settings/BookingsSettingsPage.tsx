@@ -12,7 +12,10 @@ import {
   type FieldOption,
   type FieldType,
 } from '../../services/formTemplates'
+import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
+import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
 import { fetchActiveCompanies, type CompanyRecord } from '../../services/companies'
+import { historyPaths } from '../../services/history'
 import { fetchMe } from '../../services/users'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
 import BookingStatusesPanel from './bookings/BookingStatusesPanel'
@@ -447,6 +450,7 @@ const FormTemplatesPanel = () => {
   )
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
 
   const [deleteTarget, setDeleteTarget] = useState<FormTemplateRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -567,6 +571,7 @@ const FormTemplatesPanel = () => {
     try {
       if (editing) {
         await updateFormTemplate(editing.id, payload)
+        setHistoryRefresh((k) => k + 1)
       } else {
         const created = await createFormTemplate({
           ...payload,
@@ -715,6 +720,7 @@ const FormTemplatesPanel = () => {
           template={editing}
           error={formError}
           saving={saving}
+          historyRefreshKey={historyRefresh}
           onSave={handleSave}
           onClose={closeModal}
         />
@@ -785,6 +791,7 @@ type TemplateFormModalProps = {
   template: FormTemplateRecord | null
   error: string | null
   saving: boolean
+  historyRefreshKey?: number
   onSave: (payload: FormTemplatePayload) => void
   onClose: () => void
 }
@@ -793,6 +800,7 @@ const TemplateFormModal = ({
   template,
   error,
   saving,
+  historyRefreshKey = 0,
   onSave,
   onClose,
 }: TemplateFormModalProps) => {
@@ -966,6 +974,7 @@ const TemplateFormModal = ({
 
   /* -- validation + submit -- */
   const [localError, setLocalError] = useState<string | null>(null)
+  const [tab, setTab] = useState<'details' | 'history'>('details')
 
   const handleSubmit = () => {
     setLocalError(null)
@@ -1027,6 +1036,18 @@ const TemplateFormModal = ({
             </div>
 
             <div className="modal-body">
+              <EditModalHistoryTabs
+                tab={tab}
+                onTab={setTab}
+                showHistory={isEdit && template != null}
+              />
+              {tab === 'history' && template ? (
+                <ResourceHistoryPanel
+                  historyPath={historyPaths.formTemplate(template.id)}
+                  refreshKey={historyRefreshKey}
+                />
+              ) : (
+                <>
               {displayError && (
                 <div className="alert alert-danger py-2">{displayError}</div>
               )}
@@ -1295,6 +1316,8 @@ const TemplateFormModal = ({
                   )}
                 </div>
               ))}
+                </>
+              )}
             </div>
 
             <div className="modal-footer">

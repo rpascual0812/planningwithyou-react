@@ -1,4 +1,7 @@
-import type { SubmitEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
+import EditModalHistoryTabs from './EditModalHistoryTabs'
+import ResourceHistoryPanel from './ResourceHistoryPanel'
+import { historyPaths } from '../services/history'
 
 export type StatusFormState = {
   mode: 'create' | 'edit'
@@ -24,6 +27,7 @@ type StatusEditModalProps = {
   onChange: (next: StatusFormState) => void
   onClose: () => void
   onSubmit: (e: SubmitEvent<HTMLFormElement>) => void
+  historyRefreshKey?: number
 }
 
 const StatusEditModal = ({
@@ -31,7 +35,11 @@ const StatusEditModal = ({
   onChange,
   onClose,
   onSubmit,
+  historyRefreshKey = 0,
 }: StatusEditModalProps) => {
+  const [tab, setTab] = useState<'details' | 'history'>('details')
+  const showHistory = form.mode === 'edit' && form.id != null
+
   return (
     <>
       <div
@@ -61,6 +69,18 @@ const StatusEditModal = ({
                 />
               </div>
               <div className="modal-body">
+                <EditModalHistoryTabs
+                  tab={tab}
+                  onTab={setTab}
+                  showHistory={showHistory}
+                />
+                {tab === 'history' && showHistory && form.id != null ? (
+                  <ResourceHistoryPanel
+                    historyPath={historyPaths.bookingStatus(form.id)}
+                    refreshKey={historyRefreshKey}
+                  />
+                ) : (
+                <>
                 <div className="mb-3">
                   <label htmlFor="status-title" className="form-label">
                     Title
@@ -121,6 +141,8 @@ const StatusEditModal = ({
                     />
                   </div>
                 </div>
+                </>
+                )}
               </div>
               <div className="modal-footer">
                 <button

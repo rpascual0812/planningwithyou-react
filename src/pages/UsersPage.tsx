@@ -7,7 +7,10 @@ import {
 } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
+import EditModalHistoryTabs from '../components/EditModalHistoryTabs'
+import ResourceHistoryPanel from '../components/ResourceHistoryPanel'
 import { validateEmailAddress } from '../lib/formValidators'
+import { historyPaths } from '../services/history'
 import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
 import {
   fetchUsers,
@@ -95,6 +98,7 @@ const UsersPage = () => {
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null)
   const [form, setForm] = useState<UserPayload>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
   const [saving, setSaving] = useState(false)
 
   // Delete confirmation
@@ -280,6 +284,7 @@ const UsersPage = () => {
     try {
       if (editingUser) {
         await updateUser(editingUser.id, payload)
+        setHistoryRefresh((k) => k + 1)
         await loadUsers(debouncedSearch, selectedCompanyId)
         await loadSeatUsage()
       } else {
@@ -562,6 +567,7 @@ const UsersPage = () => {
           canManageAdmin={canManageAdmin}
           onSave={handleSave}
           onClose={closeModal}
+          historyRefreshKey={historyRefresh}
         />
       )}
 
@@ -591,6 +597,7 @@ type UserFormModalProps = {
   canManageAdmin: boolean
   onSave: () => void
   onClose: () => void
+  historyRefreshKey?: number
 }
 
 const UserFormModal = ({
@@ -602,9 +609,12 @@ const UserFormModal = ({
   canManageAdmin,
   onSave,
   onClose,
+  historyRefreshKey = 0,
 }: UserFormModalProps) => {
   const title = editing ? 'Edit User' : 'Add User'
   const [emailError, setEmailError] = useState<string | null>(null)
+  const [tab, setTab] = useState<'details' | 'history'>('details')
+  const showHistory = editing != null
 
   const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -641,6 +651,14 @@ const UserFormModal = ({
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
+                <EditModalHistoryTabs tab={tab} onTab={setTab} showHistory={showHistory} />
+                {tab === 'history' && editing ? (
+                  <ResourceHistoryPanel
+                    historyPath={historyPaths.user(editing.id)}
+                    refreshKey={historyRefreshKey}
+                  />
+                ) : (
+                <>
                 {error && (
                   <div className="alert alert-danger py-2" role="alert">
                     {error}
@@ -720,6 +738,8 @@ const UserFormModal = ({
                     </div>
                   )}
                 </div>
+                </>
+                )}
               </div>
               <div className="modal-footer">
                 <button

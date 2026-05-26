@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import EditModalHistoryTabs from '../../../components/EditModalHistoryTabs'
+import ResourceHistoryPanel from '../../../components/ResourceHistoryPanel'
 import { useAuthSession } from '../../../context/AuthSessionContext'
+import { historyPaths } from '../../../services/history'
 import { resizeImageFileToMaxWidth } from '../../../lib/resizeImageFile'
 import { fetchSecuredFileBlobUrl } from '../../../lib/securedFileUrl'
 import {
@@ -55,6 +58,8 @@ const CompaniesPanel = () => {
   const [error, setError] = useState<string | null>(null)
 
   const [showModal, setShowModal] = useState(false)
+  const [companyModalTab, setCompanyModalTab] = useState<'details' | 'history'>('details')
+  const [historyRefresh, setHistoryRefresh] = useState(0)
   const [editing, setEditing] = useState<CompanyRecord | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -224,6 +229,7 @@ const CompaniesPanel = () => {
   }
 
   const closeModal = () => {
+    setCompanyModalTab('details')
     setShowModal(false)
     setEditing(null)
     resetLogoState()
@@ -263,6 +269,7 @@ const CompaniesPanel = () => {
     try {
       if (editing) {
         await updateCompany(editing.id, payload)
+        setHistoryRefresh((k) => k + 1)
         showSuccessToast('Company updated.')
       } else {
         await createCompany(payload)
@@ -427,6 +434,18 @@ const CompaniesPanel = () => {
                   />
                 </div>
                 <div className="modal-body">
+                  <EditModalHistoryTabs
+                    tab={companyModalTab}
+                    onTab={setCompanyModalTab}
+                    showHistory={editing != null}
+                  />
+                  {companyModalTab === 'history' && editing ? (
+                    <ResourceHistoryPanel
+                      historyPath={historyPaths.company(editing.id)}
+                      refreshKey={historyRefresh}
+                    />
+                  ) : (
+                  <>
                   <div className="mb-3">
                     <label className="form-label">
                       Logo{' '}
@@ -677,6 +696,8 @@ const CompaniesPanel = () => {
                     <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">
                       {formError}
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
                 <div className="modal-footer">

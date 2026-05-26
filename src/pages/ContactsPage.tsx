@@ -49,6 +49,7 @@ const ContactsPage = () => {
   const [editingContact, setEditingContact] = useState<ContactRecord | null>(null)
   const [form, setForm] = useState<ContactPayload>({ ...EMPTY_CONTACT_FORM })
   const [formError, setFormError] = useState<string | null>(null)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
   const [saving, setSaving] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<ContactRecord | null>(null)
@@ -160,6 +161,7 @@ const ContactsPage = () => {
     try {
       if (editingContact) {
         await updateContact(editingContact.id, validated.payload)
+        setHistoryRefresh((k) => k + 1)
         await loadContacts(debouncedSearch)
       } else {
         const created = await createContact(validated.payload)
@@ -345,6 +347,7 @@ const ContactsPage = () => {
           saving={saving}
           onSave={handleSave}
           onClose={closeModal}
+          historyRefreshKey={historyRefresh}
         />
       )}
 

@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState, type SubmitEvent } from 'reac
 import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 import DocumentsModal from '../../components/DocumentsModal'
+import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
+import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
+import { historyPaths } from '../../services/history'
 import {
   createEmailBodyEditorInit,
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
@@ -65,6 +68,7 @@ type EmailTemplatesPanelConfig = {
     data: Partial<EmailTemplatePayload>,
   ) => Promise<EmailTemplateRecord>
   deleteTemplate: (id: number) => Promise<void>
+  historyPathForId: (id: number) => string
 }
 
 function formFromRecord(r: EmailTemplateRecord): EmailTemplateFormFields {
@@ -125,6 +129,7 @@ const EmailTemplatesPanel = ({
   createTemplate,
   updateTemplate,
   deleteTemplate,
+  historyPathForId,
 }: EmailTemplatesPanelConfig) => {
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
@@ -140,6 +145,8 @@ const EmailTemplatesPanel = ({
   const [form, setForm] = useState<EmailTemplateFormFields>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [modalTab, setModalTab] = useState<'details' | 'history'>('details')
+  const [historyRefresh, setHistoryRefresh] = useState(0)
 
   const [deleteTarget, setDeleteTarget] = useState<EmailTemplateRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -236,6 +243,7 @@ const EmailTemplatesPanel = ({
   }
 
   const closeModal = () => {
+    setModalTab('details')
     setEditing(null)
     setComposing(false)
     setForm(EMPTY_FORM)
@@ -263,6 +271,7 @@ const EmailTemplatesPanel = ({
         : toApiPayload(form, 'create', undefined, userCompanyId)
       if (editing) {
         await updateTemplate(editing.id, payload)
+        setHistoryRefresh((k) => k + 1)
       } else {
         await createTemplate(payload)
       }
@@ -405,6 +414,18 @@ const EmailTemplatesPanel = ({
                   <button type="button" className="btn-close" aria-label="Close" onClick={closeModal} />
                 </div>
                 <div className="modal-body">
+                  <EditModalHistoryTabs
+                    tab={modalTab}
+                    onTab={setModalTab}
+                    showHistory={editing != null}
+                  />
+                  {modalTab === 'history' && editing ? (
+                    <ResourceHistoryPanel
+                      historyPath={historyPathForId(editing.id)}
+                      refreshKey={historyRefresh}
+                    />
+                  ) : (
+                  <>
                   {formError && <div className="alert alert-danger py-2">{formError}</div>}
                   <div className="mb-3">
                     <label className="form-label" htmlFor={`et-title-${typeLabel}`}>
@@ -460,6 +481,8 @@ const EmailTemplatesPanel = ({
                       Active
                     </label>
                   </div>
+                  </>
+                  )}
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>
@@ -567,6 +590,7 @@ const USERS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
   createTemplate: createEmailUserTemplate,
   updateTemplate: updateEmailUserTemplate,
   deleteTemplate: deleteEmailUserTemplate,
+  historyPathForId: historyPaths.emailTemplateUsers,
 }
 
 const BOOKINGS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
@@ -576,6 +600,7 @@ const BOOKINGS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
   createTemplate: createEmailBookingTemplate,
   updateTemplate: updateEmailBookingTemplate,
   deleteTemplate: deleteEmailBookingTemplate,
+  historyPathForId: historyPaths.emailTemplateBookings,
 }
 
 const EmailTemplatesSettingsPage = () => {

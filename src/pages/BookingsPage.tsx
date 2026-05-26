@@ -391,6 +391,7 @@ const BookingsPage = () => {
   const [drag, setDrag] = useState<DragState | null>(null)
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
   const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
+  const [bookingHistoryRefresh, setBookingHistoryRefresh] = useState(0)
   const [appointmentModal, setAppointmentModal] = useState<AppointmentFormState | null>(null)
   const [appointmentContacts, setAppointmentContacts] = useState<ContactRecord[]>([])
   const [appointmentStatuses, setAppointmentStatuses] = useState<CalendarStatusRecord[]>([])
@@ -1251,6 +1252,7 @@ const BookingsPage = () => {
         }
       }
       clearBookingDraft(itemModal.id)
+      setBookingHistoryRefresh((k) => k + 1)
       showSuccessToast(
         itemModal.mode === 'create' ? 'Booking created.' : 'Booking saved.',
       )
@@ -2129,6 +2131,7 @@ const BookingsPage = () => {
           }
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}
+          historyRefreshKey={bookingHistoryRefresh}
           onSendToCalendar={
             itemModal.mode === 'edit' && itemModal.id != null
               ? () => void handleSendToCalendar()

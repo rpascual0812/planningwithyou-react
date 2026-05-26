@@ -1,4 +1,7 @@
 import { useEffect, useState, type SubmitEvent } from 'react'
+import EditModalHistoryTabs from './EditModalHistoryTabs'
+import ResourceHistoryPanel from './ResourceHistoryPanel'
+import { historyPaths } from '../services/history'
 import { parsePhoneNumberFromString } from 'libphonenumber-js'
 import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
 import type { ContactPayload, ContactRecord, PhoneNumber, Address } from '../services/contacts'
@@ -21,6 +24,7 @@ export type ContactFormModalProps = {
   saving: boolean
   onSave: () => void
   onClose: () => void
+  historyRefreshKey?: number
   /** Render above the booking modal when opened from Add/Edit booking. */
   elevated?: boolean
 }
@@ -33,9 +37,12 @@ export default function ContactFormModal({
   saving,
   onSave,
   onClose,
+  historyRefreshKey = 0,
   elevated = false,
 }: ContactFormModalProps) {
   const title = editing ? 'Edit Contact' : 'Add Contact'
+  const [tab, setTab] = useState<'details' | 'history'>('details')
+  const showHistory = editing != null
   const [phoneErrors, setPhoneErrors] = useState<Record<number, boolean>>({})
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
@@ -146,6 +153,14 @@ export default function ContactFormModal({
             </div>
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
+                <EditModalHistoryTabs tab={tab} onTab={setTab} showHistory={showHistory} />
+                {tab === 'history' && editing ? (
+                  <ResourceHistoryPanel
+                    historyPath={historyPaths.contact(editing.id)}
+                    refreshKey={historyRefreshKey}
+                  />
+                ) : (
+                <>
                 {error && (
                   <div className="alert alert-danger py-2" role="alert">{error}</div>
                 )}
@@ -411,6 +426,8 @@ export default function ContactFormModal({
                     </div>
                   ))}
                 </div>
+                </>
+                )}
               </div>
 
               <div className="modal-footer">

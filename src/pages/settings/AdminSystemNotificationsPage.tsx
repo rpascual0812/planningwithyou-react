@@ -15,7 +15,7 @@ import {
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
-  { value: 'active', label: 'Active today' },
+  { value: 'active', label: 'Active now' },
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'expired', label: 'Expired' },
 ]
@@ -27,23 +27,38 @@ const EMPTY_FORM: SystemNotificationPayload = {
   end_date: '',
 }
 
-function formatDate(iso: string): string {
-  const parsed = new Date(`${iso}T12:00:00`)
+function formatDateTime(iso: string): string {
+  const parsed = new Date(iso)
   if (Number.isNaN(parsed.getTime())) return iso
-  return parsed.toLocaleDateString(undefined, {
+  return parsed.toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   })
 }
 
+function toDatetimeLocalValue(iso: string): string {
+  if (!iso) return ''
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return iso.slice(0, 16)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+}
+
+function fromDatetimeLocalValue(value: string): string {
+  if (!value) return ''
+  return new Date(value).toISOString()
+}
+
 function statusLabel(row: SystemNotificationRecord): string {
-  const today = new Date()
-  today.setHours(12, 0, 0, 0)
-  const start = new Date(`${row.start_date}T12:00:00`)
-  const end = new Date(`${row.end_date}T12:00:00`)
-  if (end < today) return 'Expired'
-  if (start > today) return 'Scheduled'
+  const now = Date.now()
+  const start = new Date(row.start_date).getTime()
+  const end = new Date(row.end_date).getTime()
+  if (Number.isNaN(start) || Number.isNaN(end)) return 'Active'
+  if (end < now) return 'Expired'
+  if (start > now) return 'Scheduled'
   return 'Active'
 }
 
@@ -112,8 +127,8 @@ const AdminSystemNotificationsPage = () => {
     setForm({
       title: row.title,
       message: row.message,
-      start_date: row.start_date,
-      end_date: row.end_date,
+      start_date: toDatetimeLocalValue(row.start_date),
+      end_date: toDatetimeLocalValue(row.end_date),
     })
     setFormError(null)
     setMessageEditorKey((k) => k + 1)
@@ -133,11 +148,11 @@ const AdminSystemNotificationsPage = () => {
     const title = form.title.trim()
     const message = messageEditorRef.current?.getContent() ?? form.message
     if (!title || !hasMeaningfulEmailBody(message) || !form.start_date || !form.end_date) {
-      setFormError('Title, message, start date, and end date are required.')
+      setFormError('Title, message, start time, and end time are required.')
       return
     }
     if (form.end_date < form.start_date) {
-      setFormError('End date must be on or after the start date.')
+      setFormError('End time must be on or after the start time.')
       return
     }
     setSaving(true)
@@ -146,8 +161,8 @@ const AdminSystemNotificationsPage = () => {
       const payload: SystemNotificationPayload = {
         title,
         message,
-        start_date: form.start_date,
-        end_date: form.end_date,
+        start_date: fromDatetimeLocalValue(form.start_date),
+        end_date: fromDatetimeLocalValue(form.end_date),
       }
       if (editing) {
         await updateSystemNotification(editing.id, payload)
@@ -239,8 +254,8 @@ const AdminSystemNotificationsPage = () => {
                   <td className="sys-notif-admin-message" title={htmlToPlainText(row.message)}>
                     {htmlToPlainText(row.message) || '—'}
                   </td>
-                  <td>{formatDate(row.start_date)}</td>
-                  <td>{formatDate(row.end_date)}</td>
+                  <td>{formatDateTime(row.start_date)}</td>
+                  <td>{formatDateTime(row.end_date)}</td>
                   <td>
                     <span className={`sys-notif-status ${statusClass(row)}`}>
                       {statusLabel(row)}
@@ -338,11 +353,11 @@ const AdminSystemNotificationsPage = () => {
                 <div className="row g-3">
                   <div className="col-md-6">
                     <label className="form-label" htmlFor="sys-notif-start">
-                      Start date
+                      Start
                     </label>
                     <input
                       id="sys-notif-start"
-                      type="date"
+                      type="datetime-local"
                       className="form-control"
                       value={form.start_date}
                       onChange={(e) =>
@@ -353,11 +368,11 @@ const AdminSystemNotificationsPage = () => {
                   </div>
                   <div className="col-md-6">
                     <label className="form-label" htmlFor="sys-notif-end">
-                      End date
+                      End
                     </label>
                     <input
                       id="sys-notif-end"
-                      type="date"
+                      type="datetime-local"
                       className="form-control"
                       value={form.end_date}
                       onChange={(e) =>

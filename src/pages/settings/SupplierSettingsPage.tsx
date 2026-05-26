@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
+import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
+import { historyPaths } from '../../services/history'
 import {
   fetchCompanyTierPricing,
   updateCompanyTierPricing,
@@ -175,6 +178,8 @@ const SupplierSettingsPage = () => {
   const [tierPricing, setTierPricing] = useState<TierPricingFormRow[]>([])
   const [tierPricingLoading, setTierPricingLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [editModalTab, setEditModalTab] = useState<'details' | 'history'>('details')
+  const [historyRefresh, setHistoryRefresh] = useState(0)
 
   const loadTypes = useCallback(async () => {
     setTypesLoading(true)
@@ -290,6 +295,7 @@ const SupplierSettingsPage = () => {
   }
 
   const closeEdit = () => {
+    setEditModalTab('details')
     setEditTarget(null)
     setTierPricing([])
   }
@@ -325,6 +331,7 @@ const SupplierSettingsPage = () => {
         },
         { supplierDirectory: true },
       )
+      setHistoryRefresh((k) => k + 1)
       closeEdit()
       await loadCompanies()
     } catch (e) {
@@ -561,6 +568,18 @@ const SupplierSettingsPage = () => {
                   />
                 </div>
                 <div className="modal-body">
+                  <EditModalHistoryTabs
+                    tab={editModalTab}
+                    onTab={setEditModalTab}
+                    showHistory={editTarget != null}
+                  />
+                  {editModalTab === 'history' && editTarget ? (
+                    <ResourceHistoryPanel
+                      historyPath={historyPaths.supplierSetting(editTarget.id)}
+                      refreshKey={historyRefresh}
+                    />
+                  ) : (
+                  <>
                   <div className="mb-3">
                     <label className="form-label" htmlFor="edit-company-name">
                       Name
@@ -694,6 +713,8 @@ const SupplierSettingsPage = () => {
                     <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">
                       {companiesError}
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
                 <div className="modal-footer">

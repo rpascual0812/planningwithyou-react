@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import ResourceHistoryPanel from '../../../components/ResourceHistoryPanel'
 import {
   fetchCurrentAccount,
   updateAccount,
   type AccountRecord,
 } from '../../../services/accounts'
+import { historyPaths } from '../../../services/history'
 
 const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
 
@@ -19,6 +21,7 @@ const AccountInfoForm = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
 
   const applyAccount = useCallback((account: AccountRecord) => {
     setAccountId(account.id)
@@ -68,6 +71,7 @@ const AccountInfoForm = () => {
       })
       applyAccount(updated)
       setSuccess('Account saved.')
+      setHistoryRefresh((k) => k + 1)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save account')
     } finally {
@@ -80,6 +84,7 @@ const AccountInfoForm = () => {
   }
 
   return (
+    <>
     <form className="account-info-form" onSubmit={handleSubmit}>
       {error && <div className="alert alert-danger py-2">{error}</div>}
       {success && <div className="alert alert-success py-2">{success}</div>}
@@ -169,6 +174,17 @@ const AccountInfoForm = () => {
         </button>
       </div>
     </form>
+
+    {accountId != null && (
+      <div className="mt-4 pt-3 border-top">
+        <h3 className="h6 mb-3">Change history</h3>
+        <ResourceHistoryPanel
+          historyPath={historyPaths.account(accountId)}
+          refreshKey={historyRefresh}
+        />
+      </div>
+    )}
+    </>
   )
 }
 

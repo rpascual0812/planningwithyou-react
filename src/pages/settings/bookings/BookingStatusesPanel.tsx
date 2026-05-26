@@ -19,6 +19,7 @@ const BookingStatusesPanel = () => {
   const [error, setError] = useState<string | null>(null)
 
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
+  const [historyRefresh, setHistoryRefresh] = useState(0)
   const [saving, setSaving] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<BookingStatusRecord | null>(null)
@@ -84,6 +85,7 @@ const BookingStatusesPanel = () => {
       } else if (statusModal.id) {
         await updateBookingStatus(statusModal.id, { title, description, color })
         showSuccessToast('Status updated.')
+        setHistoryRefresh((k) => k + 1)
       }
       setStatusModal(null)
       await load()
@@ -242,6 +244,7 @@ const BookingStatusesPanel = () => {
           onChange={setStatusModal}
           onClose={() => !saving && setStatusModal(null)}
           onSubmit={(e) => void handleStatusSubmit(e)}
+          historyRefreshKey={historyRefresh}
         />
       )}
 

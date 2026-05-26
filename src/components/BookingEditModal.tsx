@@ -29,6 +29,7 @@ import {
   formatCurrency,
   type CurrencyFormatOptions,
 } from '../utils/currency'
+import BookingHistoryPanel from './BookingHistoryPanel'
 import BookingPaymentsModal from './BookingPaymentsModal'
 import ContactFormModal from './ContactFormModal'
 import SupplierFieldInput from './SupplierFieldInput'
@@ -133,6 +134,7 @@ type BookingEditModalProps = {
   onClose: () => void
   onSubmit: (e: SubmitEvent<HTMLFormElement>) => void | Promise<void>
   onSendToCalendar?: () => void
+  historyRefreshKey?: number
 }
 
 const EMPTY_FIELD: BookingField = {
@@ -203,8 +205,14 @@ const BookingEditModal = ({
   onClose,
   onSubmit,
   onSendToCalendar,
+  historyRefreshKey = 0,
 }: BookingEditModalProps) => {
   const viewOnly = form.mode === 'edit' && form.canEdit === false
+  const showHistoryTab = form.mode === 'edit' && form.id != null
+
+  useEffect(() => {
+    setModalTab('details')
+  }, [form.id, form.mode])
   const readOnlyFieldProps = viewOnly
     ? ({ readOnly: true, disabled: true } as const)
     : {}
@@ -229,6 +237,7 @@ const BookingEditModal = ({
   const [emailMergeCompany, setEmailMergeCompany] = useState<CompanyRecord | null>(
     null,
   )
+  const [modalTab, setModalTab] = useState<'details' | 'history'>('details')
   const [paymentsModalOpen, setPaymentsModalOpen] = useState(false)
   const [emailModalOpen, setEmailModalOpen] = useState(false)
   const [emailPaymentLinkMode, setEmailPaymentLinkMode] = useState(false)
@@ -1491,7 +1500,7 @@ const BookingEditModal = ({
                 />
               </div>
               <div className="modal-body">
-                {viewOnly && (
+                {viewOnly && modalTab === 'details' && (
                   <div className="alert alert-info py-2 small mb-3" role="status">
                     This booking belongs to{' '}
                     <span className="fw-semibold">
@@ -1500,6 +1509,38 @@ const BookingEditModal = ({
                     . You can view details and download the PDF only.
                   </div>
                 )}
+                {showHistoryTab && (
+                  <ul className="nav nav-tabs booking-edit-modal-tabs mb-3" role="tablist">
+                    <li className="nav-item" role="presentation">
+                      <button
+                        type="button"
+                        role="tab"
+                        className={`nav-link${modalTab === 'details' ? ' active' : ''}`}
+                        aria-selected={modalTab === 'details'}
+                        onClick={() => setModalTab('details')}
+                      >
+                        Details
+                      </button>
+                    </li>
+                    <li className="nav-item" role="presentation">
+                      <button
+                        type="button"
+                        role="tab"
+                        className={`nav-link${modalTab === 'history' ? ' active' : ''}`}
+                        aria-selected={modalTab === 'history'}
+                        onClick={() => setModalTab('history')}
+                      >
+                        History
+                      </button>
+                    </li>
+                  </ul>
+                )}
+                {modalTab === 'history' && showHistoryTab && form.id != null ? (
+                  <BookingHistoryPanel
+                    bookingId={form.id}
+                    refreshKey={historyRefreshKey}
+                  />
+                ) : (
                 <fieldset
                   className={`booking-edit-modal__fieldset${
                     viewOnly ? ' is-view-only' : ''
@@ -1870,10 +1911,15 @@ const BookingEditModal = ({
                   </div>
                 </div>
                 </fieldset>
+                )}
               </div>
               <div className="modal-footer booking-edit-modal-footer">
                 <div className="booking-edit-modal-footer__end">
-                {viewOnly && form.mode === 'edit' ? (
+                {modalTab === 'history' ? (
+                  <button type="button" className="btn btn-secondary" onClick={onClose}>
+                    Close
+                  </button>
+                ) : viewOnly && form.mode === 'edit' ? (
                   <>
                     <button
                       type="button"
