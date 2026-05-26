@@ -10,6 +10,7 @@ import { showErrorToast, showSuccessToast } from '../../utils/toast'
 type Props = {
   verificationId: number
   companyName: string
+  canApprove?: boolean
   onClose: () => void
   onApproved: () => void
 }
@@ -61,6 +62,7 @@ function KybReadOnlyText({
 const AdminKybReviewModal = ({
   verificationId,
   companyName,
+  canApprove = false,
   onClose,
   onApproved,
 }: Props) => {
@@ -294,16 +296,18 @@ const AdminKybReviewModal = ({
               >
                 Close
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => void handleApprove()}
-                disabled={
-                  approving || loading || record?.status === 'approved'
-                }
-              >
-                {approving ? 'Approving…' : 'Approve'}
-              </button>
+              {canApprove && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void handleApprove()}
+                  disabled={
+                    approving || loading || record?.status === 'approved'
+                  }
+                >
+                  {approving ? 'Approving…' : 'Approve'}
+                </button>
+              )}
             </div>
           </div>
         </div>

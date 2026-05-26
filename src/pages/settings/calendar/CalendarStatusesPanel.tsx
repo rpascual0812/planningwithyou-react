@@ -23,7 +23,7 @@ type StatusFormState = {
 }
 
 const CalendarStatusesPanel = () => {
-  const { canWrite: calendarWrite } = useFeatureAccess('calendar')
+  const { canWrite: calendarWrite } = useFeatureAccess('calendar_settings')
   const [statuses, setStatuses] = useState<CalendarStatusRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

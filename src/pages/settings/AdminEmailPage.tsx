@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SearchableSelect from '../../components/SearchableSelect'
 import { useSearchParams } from 'react-router-dom'
 import EmailSenderModal from '../../components/EmailSenderModal'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import {
-  fetchEmails,
+  fetchAdminEmails,
   resendEmail,
   type EmailRecord,
   type EmailPayload,
@@ -39,6 +40,7 @@ const formatRecipients = (addrs: string[]) => {
 }
 
 const AdminEmailPage = () => {
+  const { canWrite: emailsWrite } = useFeatureAccess('admin_emails')
   const [searchParams, setSearchParams] = useSearchParams()
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
@@ -119,7 +121,7 @@ const AdminEmailPage = () => {
       setLoading(true)
       setError(null)
       try {
-        const data = await fetchEmails(q, status, companyId)
+        const data = await fetchAdminEmails(q, status, companyId)
         setEmails(data)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load emails')
@@ -330,6 +332,7 @@ const AdminEmailPage = () => {
           email={selected}
           error={resendError}
           sending={resending}
+          canWrite={emailsWrite}
           onSend={handleSend}
           onClose={closeModal}
         />

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -45,20 +46,26 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserRecord | null>(null)
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null)
   const [userLoading, setUserLoading] = useState(hasStoredSession)
+  const hasLoadedUserRef = useRef(false)
 
   const loadCurrentUser = useCallback(async () => {
     if (!hasStoredSession()) {
+      hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
       setUserLoading(false)
       return
     }
-    setUserLoading(true)
+    if (!hasLoadedUserRef.current) {
+      setUserLoading(true)
+    }
     try {
       const user = await fetchMe()
       setCurrentUser(user)
       setSubscriptionPlan(user.subscription_plan ?? 'free')
+      hasLoadedUserRef.current = true
     } catch {
+      hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
     } finally {
@@ -72,6 +79,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     if (authed) {
       void loadCurrentUser()
     } else {
+      hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
       setUserLoading(false)
@@ -87,16 +95,6 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   }, [loadCurrentUser])
 
   useEffect(() => {
-    const refreshOnFocus = () => {
-      if (hasStoredSession()) {
-        void loadCurrentUser()
-      }
-    }
-    window.addEventListener('focus', refreshOnFocus)
-    return () => window.removeEventListener('focus', refreshOnFocus)
-  }, [loadCurrentUser])
-
-  useEffect(() => {
     const syncFromStorage = () => {
       syncAuthState()
     }
@@ -104,6 +102,7 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     return subscribeToAuthSync({
       onLogin: syncFromStorage,
       onLogout: () => {
+        hasLoadedUserRef.current = false
         setIsAuthenticated(false)
         setCurrentUser(null)
         setSubscriptionPlan(null)

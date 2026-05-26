@@ -47,6 +47,24 @@ export async function fetchEmails(
   return res.json()
 }
 
+/** Cross-tenant email logs for Admin → Emails. */
+export async function fetchAdminEmails(
+  search = '',
+  statusFilter = '',
+  companyId?: number | null,
+): Promise<EmailRecord[]> {
+  const params = new URLSearchParams({ platform_scope: '1' })
+  if (search) params.set('search', search)
+  if (statusFilter) params.set('status', statusFilter)
+  if (companyId != null) params.set('company_id', String(companyId))
+
+  const res = await apiFetch(buildApiUrl(`/api/emails/?${params.toString()}`), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load emails')
+  return res.json()
+}
+
 export async function fetchEmail(id: number): Promise<EmailRecord> {
   const res = await apiFetch(buildApiUrl(`/api/emails/${id}/`), {
     headers: authHeaders(),

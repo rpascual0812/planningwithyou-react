@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import AdminKybReviewModal from './AdminKybReviewModal'
 import {
   fetchAdminKybVerifications,
@@ -29,6 +30,7 @@ function formatDateTime(iso: string | null): string {
 }
 
 const AdminKYBPage = () => {
+  const { canWrite: kybWrite } = useFeatureAccess('admin_company_verification')
   const [rows, setRows] = useState<CompanyKybListRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -182,6 +184,7 @@ const AdminKYBPage = () => {
         <AdminKybReviewModal
           verificationId={selected.id}
           companyName={selected.company_name}
+          canApprove={kybWrite}
           onClose={() => setSelected(null)}
           onApproved={() => void loadRows()}
         />

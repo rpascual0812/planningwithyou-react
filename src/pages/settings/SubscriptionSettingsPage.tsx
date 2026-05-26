@@ -248,7 +248,7 @@ function checkoutConfirmButtonText(preview: SubscriptionCheckoutPreview): string
 const SubscriptionSettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const { syncAuthState } = useAuthSession()
-  const { canWrite: subscriptionWrite } = useFeatureAccess('subscription')
+  const { canWrite: subscriptionWrite } = useFeatureAccess('account_settings')
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [plansLoading, setPlansLoading] = useState(true)

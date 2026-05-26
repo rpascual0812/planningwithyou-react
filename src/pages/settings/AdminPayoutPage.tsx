@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import SearchableSelect from '../../components/SearchableSelect'
 import {
   fetchCompaniesDirectory,
@@ -65,6 +66,7 @@ function PaymentBreakdown({ row }: { row: AdminBookingPaymentRecord }) {
 }
 
 const AdminPayoutPage = () => {
+  const { canWrite: payoutsWrite } = useFeatureAccess('admin_payouts')
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
   const [companyFilterId, setCompanyFilterId] = useState<number | null>(null)
@@ -291,7 +293,7 @@ const AdminPayoutPage = () => {
                   <td className="text-end">
                     {row.payout_sent ? (
                       <span className="text-muted small">—</span>
-                    ) : (
+                    ) : payoutsWrite ? (
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-success"
@@ -311,6 +313,8 @@ const AdminPayoutPage = () => {
                           'Payout sent'
                         )}
                       </button>
+                    ) : (
+                      <span className="text-muted small">—</span>
                     )}
                   </td>
                 </tr>

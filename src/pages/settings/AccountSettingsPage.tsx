@@ -10,7 +10,6 @@ type AccountSettingsPageProps = {
 
 const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => {
   const { canRead: accountRead } = useFeatureAccess('account_settings')
-  const { canRead: subscriptionRead } = useFeatureAccess('subscription')
   const [infoOpen, setInfoOpen] = useState(false)
   const [subscriptionOpen, setSubscriptionOpen] = useState(
     initialAccordion === 'subscription',
@@ -43,7 +42,7 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
         </li>
         )}
 
-        {subscriptionRead && (
+        {accountRead && (
         <li className={`faq-item${subscriptionOpen ? ' is-open' : ''}`}>
           <button
             type="button"

@@ -22,7 +22,7 @@ const ACCESS_OPTIONS: { value: AccessLevel; label: string }[] = [
 ]
 
 const RolesPermissionsSettingsPage = () => {
-  const { canWrite: settingsWrite } = useFeatureAccess('settings')
+  const { canWrite: settingsWrite } = useFeatureAccess('roles_permissions')
   const { currentUser, syncAuthState } = useAuthSession()
 
   const [roles, setRoles] = useState<RoleRecord[]>([])

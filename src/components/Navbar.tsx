@@ -8,6 +8,8 @@ import {
   type ActiveSystemNotification,
 } from '../services/systemNotifications'
 import { canRead } from '../lib/featureAccess'
+import { canAccessAdmin } from '../lib/adminNavAccess'
+import { canAccessAnySettings } from '../lib/settingsNavAccess'
 import { UserAvatar } from './UserAvatar'
 import type { UserRecord } from '../services/users'
 
@@ -142,9 +144,14 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               <Link to="/profile" className="dropdown-item">
                 <i className="bi bi-person me-2" /> Edit Profile
               </Link>
-              {canRead(user, 'settings') && (
+              {canAccessAnySettings(user) && (
                 <Link to="/settings" className="dropdown-item">
                   <i className="bi bi-gear me-2" /> Settings
+                </Link>
+              )}
+              {canAccessAdmin(user) && (
+                <Link to="/admin" className="dropdown-item">
+                  <i className="bi bi-shield-lock me-2" /> Admin
                 </Link>
               )}
               <div className="dropdown-divider" />

@@ -1,5 +1,11 @@
-import { useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo } from 'react'
+import { Navigate, useSearchParams } from 'react-router-dom'
+import { useAuthSession } from '../../context/AuthSessionContext'
+import {
+  canAccessAdminTab,
+  firstAccessibleAdminTab,
+} from '../../lib/adminNavAccess'
+import { firstAccessiblePath } from '../../lib/appNavigation'
 import AdminEmailPage from './AdminEmailPage'
 import AdminKYBPage from './AdminKYBPage'
 import AdminPayoutPage from './AdminPayoutPage'
@@ -8,9 +14,6 @@ import AdminSupportPage from './AdminSupportPage'
 import type { AdminNavItem, AdminSection } from './types'
 
 const TAB_PARAM = 'tab'
-const VALID_TABS = new Set<AdminSection>([
-  'kyb', 'emails', 'payouts', 'notifications', 'support',
-])
 
 const NAV_ITEMS: AdminNavItem[] = [
   { id: 'kyb', label: 'Company Verification', icon: 'bi-buildings' },
@@ -21,12 +24,38 @@ const NAV_ITEMS: AdminNavItem[] = [
 ]
 
 const AdminPage = () => {
+  const { currentUser } = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
+
+  const visibleNav = useMemo(
+    () => NAV_ITEMS.filter((item) => canAccessAdminTab(currentUser, item.id)),
+    [currentUser],
+  )
+
+  const defaultTab = firstAccessibleAdminTab(currentUser)
   const rawTab = searchParams.get(TAB_PARAM)
   const activeNav: AdminSection =
-    rawTab && VALID_TABS.has(rawTab as AdminSection)
+    rawTab && visibleNav.some((item) => item.id === rawTab)
       ? (rawTab as AdminSection)
-      : 'kyb'
+      : defaultTab
+
+  useEffect(() => {
+    if (!currentUser) return
+    if (visibleNav.length === 0) return
+    const tabInUrl = searchParams.get(TAB_PARAM)
+    const urlTabValid =
+      tabInUrl && visibleNav.some((item) => item.id === tabInUrl)
+    if (urlTabValid) return
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (activeNav === 'kyb') next.delete(TAB_PARAM)
+        else next.set(TAB_PARAM, activeNav)
+        return next
+      },
+      { replace: true },
+    )
+  }, [activeNav, currentUser, searchParams, setSearchParams, visibleNav])
 
   const setActiveNav = useCallback(
     (id: AdminSection) => {
@@ -40,17 +69,21 @@ const AdminPage = () => {
     [setSearchParams],
   )
 
+  if (visibleNav.length === 0) {
+    return <Navigate to={firstAccessiblePath(currentUser)} replace />
+  }
+
   const activeLabel =
-    NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? 'Settings'
+    visibleNav.find((item) => item.id === activeNav)?.label ?? 'Admin'
 
   return (
     <div className="app-content">
       <div className="container-fluid">
         <div className="settings-layout">
           <aside className="settings-nav-card">
-            <h5 className="settings-card-title">Settings</h5>
+            <h5 className="settings-card-title">Admin</h5>
             <ul className="settings-nav">
-              {NAV_ITEMS.map((item) => {
+              {visibleNav.map((item) => {
                 const isActive = activeNav === item.id
                 return (
                   <li key={item.id}>
@@ -70,9 +103,7 @@ const AdminPage = () => {
 
           <section className="settings-main-card">
             <h5 className="settings-card-title">{activeLabel}</h5>
-            <ActiveAdminPage
-              activeNav={activeNav}
-            />
+            <ActiveAdminPage activeNav={activeNav} />
           </section>
         </div>
       </div>
@@ -84,9 +115,16 @@ type ActiveAdminPageProps = {
   activeNav: AdminSection
 }
 
-const ActiveAdminPage = ({
-  activeNav,
-}: ActiveAdminPageProps) => {
+const ActiveAdminPage = ({ activeNav }: ActiveAdminPageProps) => {
+  const { currentUser } = useAuthSession()
+  if (!canAccessAdminTab(currentUser, activeNav)) {
+    return (
+      <p className="text-muted small mb-0">
+        You do not have permission to view this section.
+      </p>
+    )
+  }
+
   switch (activeNav) {
     case 'kyb':
       return <AdminKYBPage />
@@ -97,8 +135,7 @@ const ActiveAdminPage = ({
     case 'notifications':
       return <AdminSystemNotificationsPage />
     case 'support':
-    return null
-    //   return <AdminSupportPage />
+      return <AdminSupportPage />
     default:
       return null
   }

@@ -12,7 +12,9 @@ import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import { useAuthSession } from './context/AuthSessionContext'
 import { accessFor, canWrite } from './lib/featureAccess'
+import { canAccessAdmin, canAccessAnyAdminTab } from './lib/adminNavAccess'
 import { firstAccessiblePath } from './lib/appNavigation'
+import { canAccessAnySettings } from './lib/settingsNavAccess'
 import { hasStoredSession } from './services/auth'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
@@ -119,6 +121,21 @@ function RequireFeature({ featureKey }: { featureKey: string }) {
   return <Outlet />
 }
 
+function RequireSettings() {
+  const { currentUser, userLoading } = useAuthSession()
+  if (userLoading) {
+    return (
+      <div className="app-content">
+        <div className="container-fluid py-3 text-muted">Loading…</div>
+      </div>
+    )
+  }
+  if (!canAccessAnySettings(currentUser)) {
+    return <Navigate to={firstAccessiblePath(currentUser)} replace />
+  }
+  return <Outlet />
+}
+
 function RequireAdmin() {
   const { currentUser, userLoading } = useAuthSession()
   if (userLoading) {
@@ -128,7 +145,7 @@ function RequireAdmin() {
       </div>
     )
   }
-  if (!canWrite(currentUser, 'platform_admin')) {
+  if (!canAccessAdmin(currentUser) || !canAccessAnyAdminTab(currentUser)) {
     return <Navigate to={firstAccessiblePath(currentUser)} replace />
   }
   return <Outlet />
@@ -270,7 +287,7 @@ function App() {
           <Route element={<RequireFeature featureKey="reports" />}>
             <Route path="/reports" element={<ReportsPage />} />
           </Route>
-          <Route element={<RequireFeature featureKey="settings" />}>
+          <Route element={<RequireSettings />}>
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route element={<RequireAdmin />}>

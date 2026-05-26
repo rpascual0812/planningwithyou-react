@@ -4,10 +4,12 @@ import defaultBrandLogo from '../assets/images/logo.png'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
 import { canRead, canWrite } from '../lib/featureAccess'
+import { canAccessAdmin } from '../lib/adminNavAccess'
+import { canAccessAnySettings } from '../lib/settingsNavAccess'
 
 const Sidebar = () => {
   const { currentUser } = useAuthSession()
-  const showAdmin = canWrite(currentUser, 'platform_admin')
+  const showAdmin = canAccessAdmin(currentUser)
   const [companyLogoSrc, setCompanyLogoSrc] = useState<string | null>(null)
 
   const companyLogoUrl = (currentUser?.company_logo_url ?? '').trim()
@@ -125,7 +127,7 @@ const Sidebar = () => {
                 </NavLink>
               </li>
             )}
-            {canRead(currentUser, 'settings') && (
+            {canAccessAnySettings(currentUser) && (
               <li className="nav-item">
                 <NavLink to="/settings" className={linkClassName}>
                   <i className="nav-icon bi bi-gear" />

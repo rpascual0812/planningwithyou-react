@@ -1,6 +1,7 @@
 import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import { hasMeaningfulEmailBody, htmlToPlainText } from '../../lib/emailBody'
 import { TINYMCE_EDITOR_SHARED_PROPS } from '../../lib/tinymceFreeEditor'
 import { SYSTEM_NOTIFICATION_EDITOR_INIT } from '../../lib/tinymceSystemNotification'
@@ -70,6 +71,7 @@ function statusClass(row: SystemNotificationRecord): string {
 }
 
 const AdminSystemNotificationsPage = () => {
+  const { canWrite: notificationsWrite } = useFeatureAccess('admin_system_notifications')
   const [rows, setRows] = useState<SystemNotificationRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -217,10 +219,12 @@ const AdminSystemNotificationsPage = () => {
             ))}
           </select>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <i className="bi bi-plus-lg me-1" />
-          Add notification
-        </button>
+        {notificationsWrite && (
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <i className="bi bi-plus-lg me-1" />
+            Add notification
+          </button>
+        )}
       </div>
 
       {error && (
@@ -263,20 +267,26 @@ const AdminSystemNotificationsPage = () => {
                   </td>
                   <td>{row.created_by_name || '—'}</td>
                   <td className="text-end text-nowrap">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary me-1"
-                      onClick={() => openEdit(row)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => setDeleteTarget(row)}
-                    >
-                      Delete
-                    </button>
+                    {notificationsWrite ? (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary me-1"
+                          onClick={() => openEdit(row)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-muted small">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
