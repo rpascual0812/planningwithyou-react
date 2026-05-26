@@ -3,10 +3,11 @@ import { NavLink } from 'react-router-dom'
 import defaultBrandLogo from '../assets/images/logo.png'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
+import { canRead, canWrite } from '../lib/featureAccess'
 
 const Sidebar = () => {
   const { currentUser } = useAuthSession()
-  const showAdmin = currentUser?.is_admin === true
+  const showAdmin = canWrite(currentUser, 'platform_admin')
   const [companyLogoSrc, setCompanyLogoSrc] = useState<string | null>(null)
 
   const companyLogoUrl = (currentUser?.company_logo_url ?? '').trim()
@@ -60,60 +61,78 @@ const Sidebar = () => {
             role="menu"
             data-accordion="false"
           >
-            <li className="nav-item">
-              <NavLink to="/" end className={linkClassName}>
-                <i className="nav-icon bi bi-speedometer2" />
-                <p>Dashboard</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/calendar" className={linkClassName}>
-                <i className="nav-icon bi bi-calendar3" />
-                <p>Calendar</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/bookings" className={linkClassName}>
-                <i className="nav-icon bi bi-kanban" />
-                <p>Bookings</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/contacts" className={linkClassName}>
-                <i className="nav-icon bi bi-person-lines-fill" />
-                <p>Contacts</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/users" className={linkClassName}>
-                <i className="nav-icon bi bi-people" />
-                <p>Users</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/emails" className={linkClassName}>
-                <i className="nav-icon bi bi-envelope" />
-                <p>Emails</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/file-manager" className={linkClassName}>
-                <i className="nav-icon bi bi-folder2-open" />
-                <p>File Manager</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/reports" className={linkClassName}>
-                <i className="nav-icon bi bi-file-earmark-text" />
-                <p>Reports</p>
-              </NavLink>
-            </li>
-            <li className="nav-item">
-              <NavLink to="/settings" className={linkClassName}>
-                <i className="nav-icon bi bi-gear" />
-                <p>Settings</p>
-              </NavLink>
-            </li>
+            {canRead(currentUser, 'dashboard') && (
+              <li className="nav-item">
+                <NavLink to="/" end className={linkClassName}>
+                  <i className="nav-icon bi bi-speedometer2" />
+                  <p>Dashboard</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'calendar') && (
+              <li className="nav-item">
+                <NavLink to="/calendar" className={linkClassName}>
+                  <i className="nav-icon bi bi-calendar3" />
+                  <p>Calendar</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'bookings') && (
+              <li className="nav-item">
+                <NavLink to="/bookings" className={linkClassName}>
+                  <i className="nav-icon bi bi-kanban" />
+                  <p>Bookings</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'contacts') && (
+              <li className="nav-item">
+                <NavLink to="/contacts" className={linkClassName}>
+                  <i className="nav-icon bi bi-person-lines-fill" />
+                  <p>Contacts</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'users') && (
+              <li className="nav-item">
+                <NavLink to="/users" className={linkClassName}>
+                  <i className="nav-icon bi bi-people" />
+                  <p>Users</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'emails') && (
+              <li className="nav-item">
+                <NavLink to="/emails" className={linkClassName}>
+                  <i className="nav-icon bi bi-envelope" />
+                  <p>Emails</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'file_manager') && (
+              <li className="nav-item">
+                <NavLink to="/file-manager" className={linkClassName}>
+                  <i className="nav-icon bi bi-folder2-open" />
+                  <p>File Manager</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'reports') && (
+              <li className="nav-item">
+                <NavLink to="/reports" className={linkClassName}>
+                  <i className="nav-icon bi bi-file-earmark-text" />
+                  <p>Reports</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'settings') && (
+              <li className="nav-item">
+                <NavLink to="/settings" className={linkClassName}>
+                  <i className="nav-icon bi bi-gear" />
+                  <p>Settings</p>
+                </NavLink>
+              </li>
+            )}
             {showAdmin && (
               <li className="nav-item">
                 <NavLink to="/admin" className={linkClassName}>

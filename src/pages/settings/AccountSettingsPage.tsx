@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import AccountInfoForm from './account/AccountInfoForm'
 import SubscriptionSettingsPage from './SubscriptionSettingsPage'
 
@@ -8,6 +9,8 @@ type AccountSettingsPageProps = {
 }
 
 const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => {
+  const { canRead: accountRead } = useFeatureAccess('account_settings')
+  const { canRead: subscriptionRead } = useFeatureAccess('subscription')
   const [infoOpen, setInfoOpen] = useState(false)
   const [subscriptionOpen, setSubscriptionOpen] = useState(
     initialAccordion === 'subscription',
@@ -16,6 +19,7 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
   return (
     <div className="account-settings">
       <ul className="faq-list">
+        {accountRead && (
         <li className={`faq-item${infoOpen ? ' is-open' : ''}`}>
           <button
             type="button"
@@ -37,7 +41,9 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
             </div>
           )}
         </li>
+        )}
 
+        {subscriptionRead && (
         <li className={`faq-item${subscriptionOpen ? ' is-open' : ''}`}>
           <button
             type="button"
@@ -59,6 +65,7 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
             </div>
           )}
         </li>
+        )}
       </ul>
     </div>
   )

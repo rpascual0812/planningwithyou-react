@@ -10,6 +10,7 @@ import {
 } from '../services/emails'
 import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
 import { fetchMe } from '../services/users'
+import { useFeatureAccess } from '../hooks/useFeatureAccess'
 
 const EDIT_PARAM = 'edit'
 
@@ -49,11 +50,12 @@ function pickDefaultCompanyId(
 }
 
 const EmailsPage = () => {
+  const { canWrite: emailsWrite } = useFeatureAccess('emails')
   const [searchParams, setSearchParams] = useSearchParams()
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
-  const [isAccountAdmin, setIsAccountAdmin] = useState(false)
+  const isAccountAdmin = emailsWrite
 
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,7 +104,6 @@ const EmailsPage = () => {
       .then(([companyRows, user]) => {
         if (cancelled) return
         setCompanies(companyRows)
-        setIsAccountAdmin(user.is_admin)
         setSelectedCompanyId((prev) => {
           if (prev != null && companyRows.some((c) => c.id === prev)) return prev
           return pickDefaultCompanyId(companyRows, user.company)
@@ -176,6 +177,7 @@ const EmailsPage = () => {
   }
 
   const openCompose = () => {
+    if (!emailsWrite) return
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev)
       next.set(EDIT_PARAM, 'compose')
@@ -194,6 +196,7 @@ const EmailsPage = () => {
   }
 
   const handleSend = async (data: EmailPayload) => {
+    if (!emailsWrite) return
     setResending(true)
     setResendError(null)
     try {
@@ -293,15 +296,17 @@ const EmailsPage = () => {
               <span className="emails-search-count">
                 {emails.length} email{emails.length !== 1 && 's'}
               </span>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={openCompose}
-                disabled={selectedCompanyId == null || companiesLoading}
-              >
-                <i className="bi bi-pencil-square me-1" />
-                Compose
-              </button>
+              {emailsWrite && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={openCompose}
+                  disabled={selectedCompanyId == null || companiesLoading}
+                >
+                  <i className="bi bi-pencil-square me-1" />
+                  Compose
+                </button>
+              )}
             </div>
           </div>
 
@@ -387,6 +392,7 @@ const EmailsPage = () => {
           email={selected}
           error={resendError}
           sending={resending}
+          canWrite={emailsWrite}
           onSend={handleSend}
           onClose={closeModal}
           bookingTemplateCompanyId={selectedCompanyId}

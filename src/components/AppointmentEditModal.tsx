@@ -46,6 +46,7 @@ type AppointmentEditModalProps = {
   onSubmit: (e: SubmitEvent<HTMLFormElement>) => void
   onDelete?: () => void
   deleting?: boolean
+  canWrite?: boolean
 }
 
 function bookingLabel(booking: BookingItemRecord): string {
@@ -66,8 +67,10 @@ const AppointmentEditModal = ({
   onSubmit,
   onDelete,
   deleting = false,
+  canWrite = true,
 }: AppointmentEditModalProps) => {
   const isEdit = form.eventId !== null
+  const viewOnly = !canWrite
   const showRepeatEnd = form.repeatType !== ''
 
   return (
@@ -89,7 +92,11 @@ const AppointmentEditModal = ({
             <form onSubmit={onSubmit}>
               <div className="modal-header">
                 <h1 id="appointmentEditModalTitle" className="modal-title fs-5">
-                  {isEdit ? 'Edit appointment' : 'Add appointment'}
+                  {isEdit
+                    ? viewOnly
+                      ? 'View appointment'
+                      : 'Edit appointment'
+                    : 'Add appointment'}
                 </h1>
                 <button
                   type="button"
@@ -104,6 +111,10 @@ const AppointmentEditModal = ({
                   <p className="text-muted small mb-3">Loading form options…</p>
                 )}
 
+                <fieldset
+                  disabled={viewOnly}
+                  className="border-0 m-0 p-0 min-w-0"
+                >
                 <div className="mb-3">
                   <label htmlFor="appointment-title" className="form-label">
                     Title
@@ -285,6 +296,7 @@ const AppointmentEditModal = ({
                     {error}
                   </div>
                 )}
+                </fieldset>
               </div>
               <div className="modal-footer justify-content-between">
                 <div>
@@ -306,15 +318,17 @@ const AppointmentEditModal = ({
                     onClick={onClose}
                     disabled={saving || deleting}
                   >
-                    Cancel
+                    {viewOnly ? 'Close' : 'Cancel'}
                   </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    disabled={saving || deleting || loadingOptions}
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
+                  {canWrite && (
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={saving || deleting || loadingOptions}
+                    >
+                      {saving ? 'Saving…' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </div>
             </form>

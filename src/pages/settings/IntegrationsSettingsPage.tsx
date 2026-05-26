@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
 type IntegrationId =
   | 'gmail'
@@ -136,6 +137,7 @@ const renderIntegrationIcon = (integration: Integration) => (
 type IntegrationCardProps = {
   integration: Integration
   enabled: boolean
+  toggleDisabled?: boolean
   onToggle: () => void
   onView: () => void
 }
@@ -143,6 +145,7 @@ type IntegrationCardProps = {
 const IntegrationCard = ({
   integration,
   enabled,
+  toggleDisabled = false,
   onToggle,
   onView,
 }: IntegrationCardProps) => (
@@ -159,6 +162,7 @@ const IntegrationCard = ({
         aria-label={`Toggle ${integration.name} integration`}
         className={`settings-switch${enabled ? ' is-on' : ''}`}
         onClick={onToggle}
+        disabled={toggleDisabled}
       >
         <span className="settings-switch-thumb" aria-hidden="true" />
       </button>
@@ -173,6 +177,7 @@ const IntegrationCard = ({
 )
 
 const IntegrationsSettingsPage = () => {
+  const { canWrite: settingsWrite } = useFeatureAccess('settings')
   const [integrations, setIntegrations] = useState<Record<IntegrationId, boolean>>(
     () =>
       INTEGRATIONS.reduce<Record<IntegrationId, boolean>>(
@@ -204,6 +209,7 @@ const IntegrationsSettingsPage = () => {
   }, [])
 
   const toggleIntegration = (id: IntegrationId) => {
+    if (!settingsWrite) return
     setIntegrations((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
@@ -256,6 +262,7 @@ const IntegrationsSettingsPage = () => {
                       key={integration.id}
                       integration={integration}
                       enabled={integrations[integration.id]}
+                      toggleDisabled={!settingsWrite}
                       onToggle={() => toggleIntegration(integration.id)}
                       onView={() => setSelectedIntegration(integration)}
                     />

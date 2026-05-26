@@ -59,6 +59,7 @@ import {
   type CurrencyFormatOptions,
 } from '../utils/currency'
 import { fetchCurrentAccount } from '../services/accounts'
+import { useFeatureAccess } from '../hooks/useFeatureAccess'
 import { showErrorToast, showSuccessToast } from '../utils/toast'
 
 type BookingColumn = BookingStatusRecord
@@ -253,6 +254,10 @@ function bookingCanEdit(item: BookingItem): boolean {
   return item.can_edit === true
 }
 
+function canMutateBookingItem(item: BookingItem, hasWriteAccess: boolean): boolean {
+  return hasWriteAccess && bookingCanEdit(item)
+}
+
 function BookingOwnerCompanyLabel({
   item,
   className = '',
@@ -383,6 +388,9 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
 }
 
 const BookingsPage = () => {
+  const { canRead: bookingsRead, canWrite: bookingsWrite } = useFeatureAccess('bookings')
+  const { canWrite: statusesWrite } = useFeatureAccess('booking_settings_statuses')
+  const canMutate = (item: BookingItem) => canMutateBookingItem(item, bookingsWrite)
   const [columns, setColumns] = useState<BookingColumn[]>([])
   const [items, setItems] = useState<BookingItem[]>([])
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
@@ -483,7 +491,7 @@ const BookingsPage = () => {
     item: BookingItem,
     sourceIndex: number,
   ) => {
-    if (!bookingCanEdit(item)) {
+    if (!canMutate(item)) {
       e.preventDefault()
       return
     }
@@ -548,6 +556,9 @@ const BookingsPage = () => {
 
   const handleCardsGridDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
+    if (!bookingsWrite) {
+      return
+    }
     const current = cardsDrag ?? cardsDragRef.current
     if (!current) {
       return
@@ -595,7 +606,7 @@ const BookingsPage = () => {
     item: BookingItem,
     sourceIndex: number,
   ) => {
-    if (!bookingCanEdit(item)) {
+    if (!canMutate(item)) {
       e.preventDefault()
       return
     }
@@ -645,6 +656,9 @@ const BookingsPage = () => {
 
   const handleTbodyDrop = (e: DragEvent<HTMLTableSectionElement>) => {
     e.preventDefault()
+    if (!bookingsWrite) {
+      return
+    }
     const current = listDrag ?? listDragRef.current
     if (!current) {
       return
@@ -776,7 +790,7 @@ const BookingsPage = () => {
     item: BookingItem,
     indexInColumn: number,
   ) => {
-    if (!bookingCanEdit(item)) {
+    if (!canMutate(item)) {
       e.preventDefault()
       return
     }
@@ -850,6 +864,9 @@ const BookingsPage = () => {
     targetColumnId: number,
     renderedTargetIndex: number,
   ) => {
+    if (!bookingsWrite) {
+      return
+    }
     setItems((prev) => {
       const source = prev.find((it) => it.id === itemId)
       if (!source) {
@@ -913,6 +930,7 @@ const BookingsPage = () => {
   // --- Status CRUD ---------------------------------------------------------
 
   const openCreateStatus = () => {
+    if (!statusesWrite) return
     setStatusModal({
       mode: 'create',
       id: null,
@@ -923,6 +941,7 @@ const BookingsPage = () => {
   }
 
   const openEditStatus = (column: BookingColumn) => {
+    if (!statusesWrite) return
     setStatusModal({
       mode: 'edit',
       id: column.id,
@@ -934,7 +953,7 @@ const BookingsPage = () => {
 
   const handleStatusSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!statusModal) {
+    if (!statusesWrite || !statusModal) {
       return
     }
     const title = statusModal.title.trim() || 'Untitled'
@@ -962,6 +981,7 @@ const BookingsPage = () => {
   }
 
   const handleDeleteStatus = async (column: BookingColumn) => {
+    if (!statusesWrite) return
     const count = itemsByColumn.get(column.id)?.length ?? 0
     const msg =
       count > 0
@@ -1020,6 +1040,7 @@ const BookingsPage = () => {
   }
 
   const openCreateItem = (statusId: number) => {
+    if (!bookingsWrite) return
     setItemModal({
       mode: 'create',
       id: null,
@@ -1036,7 +1057,10 @@ const BookingsPage = () => {
   }
 
   const openEditItem = (item: BookingItem) => {
-    setItemModal(bookingItemToEditForm(item))
+    setItemModal({
+      ...bookingItemToEditForm(item),
+      canEdit: canMutate(item),
+    })
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -1113,6 +1137,9 @@ const BookingsPage = () => {
   const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
+      return
+    }
+    if (!bookingsWrite) {
       return
     }
     if (itemModal.mode === 'edit' && itemModal.canEdit === false) {
@@ -1267,7 +1294,7 @@ const BookingsPage = () => {
   }
 
   const handleDeleteItem = async (item: BookingItem) => {
-    if (!bookingCanEdit(item)) return
+    if (!canMutate(item)) return
     if (!window.confirm(`Delete card "${item.title}"?`)) {
       return
     }
@@ -1378,26 +1405,28 @@ const BookingsPage = () => {
                 {count}
               </span>
             </div>
-            <div className="kanban-column-actions">
-              <button
-                type="button"
-                className="btn btn-sm btn-link p-1"
-                onClick={() => openEditStatus(column)}
-                aria-label={`Edit status ${column.title}`}
-                title="Edit status"
-              >
-                <i className="bi bi-pencil-square" />
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-link p-1 text-danger"
-                onClick={() => handleDeleteStatus(column)}
-                aria-label={`Delete status ${column.title}`}
-                title="Delete status"
-              >
-                <i className="bi bi-trash" />
-              </button>
-            </div>
+            {statusesWrite && (
+              <div className="kanban-column-actions">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link p-1"
+                  onClick={() => openEditStatus(column)}
+                  aria-label={`Edit status ${column.title}`}
+                  title="Edit status"
+                >
+                  <i className="bi bi-pencil-square" />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link p-1 text-danger"
+                  onClick={() => handleDeleteStatus(column)}
+                  aria-label={`Delete status ${column.title}`}
+                  title="Delete status"
+                >
+                  <i className="bi bi-trash" />
+                </button>
+              </div>
+            )}
           </div>
           {column.description && (
             <p className="kanban-column-description mb-0">
@@ -1436,7 +1465,7 @@ const BookingsPage = () => {
                 className={`kanban-card${
                   isDragging ? ' kanban-card--dragging' : ''
                 }`}
-                draggable={!isSearching && bookingCanEdit(it)}
+                draggable={!isSearching && canMutate(it)}
                 onDragStart={(e) => handleItemDragStart(e, it, idx)}
                 onDragEnd={handleDragEnd}
                 onClick={() => openEditItem(it)}
@@ -1472,7 +1501,7 @@ const BookingsPage = () => {
                     className="kanban-card-created-by"
                   />
                 </div>
-                {bookingCanEdit(it) && (
+                {canMutate(it) && (
                   <button
                     type="button"
                     className="btn btn-sm btn-link p-0 kanban-card-delete"
@@ -1620,16 +1649,18 @@ const BookingsPage = () => {
         <p className="kanban-empty mb-0 kanban-empty--add-slot-placeholder" aria-hidden>
           Drop cards here.
         </p>
-        <div className="kanban-add-slot-cta">
-          <button
-            type="button"
-            className="btn btn-outline-primary kanban-add-slot-btn"
-            onClick={openCreateStatus}
-          >
-            <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-            Add new
-          </button>
-        </div>
+        {statusesWrite && (
+          <div className="kanban-add-slot-cta">
+            <button
+              type="button"
+              className="btn btn-outline-primary kanban-add-slot-btn"
+              onClick={openCreateStatus}
+            >
+              <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+              Add new
+            </button>
+          </div>
+        )}
       </div>
     </section>
   )
@@ -1671,22 +1702,24 @@ const BookingsPage = () => {
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary bookings-add-booking-btn"
-              disabled={columns.length === 0}
-              title={
-                columns.length === 0
-                  ? 'Add a status column on the Board first'
-                  : 'New booking in the first status column'
-              }
-              onClick={() => {
-                if (columns.length > 0) openCreateItem(columns[0].id)
-              }}
-            >
-              <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-              Add booking
-            </button>
+            {bookingsWrite && (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary bookings-add-booking-btn"
+                disabled={columns.length === 0}
+                title={
+                  columns.length === 0
+                    ? 'Add a status column on the Board first'
+                    : 'New booking in the first status column'
+                }
+                onClick={() => {
+                  if (columns.length > 0) openCreateItem(columns[0].id)
+                }}
+              >
+                <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+                Add booking
+              </button>
+            )}
           </div>
 
           <div className="bookings-search">
@@ -1807,7 +1840,7 @@ const BookingsPage = () => {
                   key={item.id}
                   data-card-grid-id={item.id}
                   className={`booking-card${isDragging ? ' is-dragging' : ''}`}
-                  draggable={!isSearching && bookingCanEdit(item)}
+                  draggable={!isSearching && canMutate(item)}
                   onDragStart={(e) => handleCardDragStart(e, item, entry.index)}
                   onDragEnd={handleCardDragEnd}
                   onClick={() => openEditItem(item)}
@@ -1852,7 +1885,7 @@ const BookingsPage = () => {
                         className="booking-card-payment-status mt-1"
                       />
                     </div>
-                    {bookingCanEdit(item) && (
+                    {canMutate(item) && (
                       <button
                         type="button"
                         className="booking-card-trash"
@@ -2015,7 +2048,7 @@ const BookingsPage = () => {
                         <tr
                           key={item.id}
                           data-row-id={item.id}
-                          draggable={!isSearching && bookingCanEdit(item)}
+                          draggable={!isSearching && canMutate(item)}
                           onDragStart={(e) => handleRowDragStart(e, item, row.index)}
                           onDragEnd={handleRowDragEnd}
                           className={`bookings-list-row${isDragging ? ' is-dragging' : ''}`}
@@ -2068,7 +2101,7 @@ const BookingsPage = () => {
                             {formatBookingCardDate(item.date_of_event)}
                           </td>
                           <td className="bookings-list-actions">
-                            {bookingCanEdit(item) && (
+                            {canMutate(item) && (
                               <button
                                 type="button"
                                 className="bookings-list-action bookings-list-action--delete"
@@ -2082,6 +2115,7 @@ const BookingsPage = () => {
                                 <i className="bi bi-trash" />
                               </button>
                             )}
+                            {bookingsRead && (
                             <button
                               type="button"
                               className="bookings-list-action bookings-list-action--edit"
@@ -2089,11 +2123,22 @@ const BookingsPage = () => {
                                 e.stopPropagation()
                                 openEditItem(item)
                               }}
-                              aria-label={`Edit ${item.title}`}
-                              title="Edit"
+                              aria-label={
+                                bookingsWrite
+                                  ? `Edit ${item.title}`
+                                  : `View ${item.title}`
+                              }
+                              title={bookingsWrite ? 'Edit' : 'View'}
                             >
-                              <i className="bi bi-pencil-square" />
+                              <i
+                                className={
+                                  bookingsWrite
+                                    ? 'bi bi-pencil-square'
+                                    : 'bi bi-eye'
+                                }
+                              />
                             </button>
+                            )}
                           </td>
                         </tr>
                       )
@@ -2106,7 +2151,7 @@ const BookingsPage = () => {
         )}
       </div>
 
-      {statusModal && (
+      {statusModal && statusesWrite && (
         <StatusEditModal
           form={statusModal}
           onChange={setStatusModal}
@@ -2118,6 +2163,7 @@ const BookingsPage = () => {
       {itemModal && (
         <BookingEditModal
           form={itemModal}
+          canWrite={bookingsWrite}
           statuses={columns}
           templates={templates}
           bookingGroups={
@@ -2127,7 +2173,9 @@ const BookingsPage = () => {
           }
           onChange={setItemModal}
           onDeleteGroup={
-            itemModal.canEdit !== false ? handleDeleteBookingGroup : undefined
+            bookingsWrite && itemModal.canEdit !== false
+              ? handleDeleteBookingGroup
+              : undefined
           }
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}

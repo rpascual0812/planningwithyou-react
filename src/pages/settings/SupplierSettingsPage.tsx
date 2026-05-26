@@ -19,6 +19,7 @@ import {
   fetchActiveSupplierTypes,
   type SupplierTypeRecord,
 } from '../../services/supplierTypes'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
 const PAGE_SIZES = [10, 25, 50, 100] as const
 
@@ -159,6 +160,7 @@ function tierRowToForm(row: CompanyTierPricingRow): TierPricingFormRow {
 }
 
 const SupplierSettingsPage = () => {
+  const { canWrite: supplierWrite } = useFeatureAccess('supplier_settings')
   const [types, setTypes] = useState<SupplierTypeRecord[]>([])
   const [typesLoading, setTypesLoading] = useState(true)
   const [typesError, setTypesError] = useState<string | null>(null)
@@ -486,24 +488,26 @@ const SupplierSettingsPage = () => {
                       {formatTierColumn(row.supplier_tiers, 'price', row.currency_code)}
                     </td>
                     <td>
-                      <div className="users-actions">
-                        <button
-                          type="button"
-                          className="users-action-btn users-action-edit"
-                          title="Edit supplier"
-                          onClick={() => void openEdit(row)}
-                        >
-                          <i className="bi bi-pencil-square" />
-                        </button>
-                        <button
-                          type="button"
-                          className="users-action-btn users-action-delete"
-                          title="Delete company"
-                          onClick={() => handleDelete(row)}
-                        >
-                          <i className="bi bi-trash3" />
-                        </button>
-                      </div>
+                      {supplierWrite && (
+                        <div className="users-actions">
+                          <button
+                            type="button"
+                            className="users-action-btn users-action-edit"
+                            title="Edit supplier"
+                            onClick={() => void openEdit(row)}
+                          >
+                            <i className="bi bi-pencil-square" />
+                          </button>
+                          <button
+                            type="button"
+                            className="users-action-btn users-action-delete"
+                            title="Delete company"
+                            onClick={() => handleDelete(row)}
+                          >
+                            <i className="bi bi-trash3" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -726,14 +730,16 @@ const SupplierSettingsPage = () => {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => void handleSaveEdit()}
-                    disabled={saving || tierPricingLoading}
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
+                  {supplierWrite && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void handleSaveEdit()}
+                      disabled={saving || tierPricingLoading}
+                    >
+                      {saving ? 'Saving…' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

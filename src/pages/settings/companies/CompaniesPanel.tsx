@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import EditModalHistoryTabs from '../../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../../components/ResourceHistoryPanel'
 import { useAuthSession } from '../../../context/AuthSessionContext'
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { historyPaths } from '../../../services/history'
 import { resizeImageFileToMaxWidth } from '../../../lib/resizeImageFile'
 import { fetchSecuredFileBlobUrl } from '../../../lib/securedFileUrl'
@@ -51,8 +52,11 @@ function formatWebsite(url: string): string {
 
 const CompaniesPanel = () => {
   const { subscriptionPlan } = useAuthSession()
+  const { canWrite: companiesWrite } = useFeatureAccess('companies_settings')
   const canAddCompany =
-    subscriptionPlan != null && subscriptionPlan !== 'free'
+    companiesWrite &&
+    subscriptionPlan != null &&
+    subscriptionPlan !== 'free'
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -388,26 +392,28 @@ const CompaniesPanel = () => {
                   </td>
                   <td className="text-end text-muted small">{row.sort_order}</td>
                   <td className="text-end">
-                    <div className="d-inline-flex gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        title="Edit company"
-                        onClick={() => openEdit(row)}
-                      >
-                        <i className="bi bi-pencil-square" />
-                      </button>
-                      {!row.is_main && (
+                    {companiesWrite && (
+                      <div className="d-inline-flex gap-1">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          title="Delete company"
-                          onClick={() => setDeleteTarget(row)}
+                          className="btn btn-sm btn-outline-primary"
+                          title="Edit company"
+                          onClick={() => openEdit(row)}
                         >
-                          <i className="bi bi-trash3" />
+                          <i className="bi bi-pencil-square" />
                         </button>
-                      )}
-                    </div>
+                        {!row.is_main && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            title="Delete company"
+                            onClick={() => setDeleteTarget(row)}
+                          >
+                            <i className="bi bi-trash3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -720,14 +726,16 @@ const CompaniesPanel = () => {
                   >
                     Cancel
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => void handleSave()}
-                    disabled={saving}
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
+                  {companiesWrite && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void handleSave()}
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving…' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

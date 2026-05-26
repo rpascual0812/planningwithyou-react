@@ -11,6 +11,8 @@ import {
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import { useAuthSession } from './context/AuthSessionContext'
+import { accessFor, canWrite } from './lib/featureAccess'
+import { firstAccessiblePath } from './lib/appNavigation'
 import { hasStoredSession } from './services/auth'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
@@ -58,7 +60,9 @@ type DashboardOutletContext = {
 }
 
 function useDashboardOutletContext(): DashboardOutletContext {
-  return useOutletContext<DashboardOutletContext>()
+  return useOutletContext<DashboardOutletContext | undefined>() ?? {
+    isSidebarCollapsed: false,
+  }
 }
 
 /**
@@ -85,9 +89,32 @@ function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
 }
 
 function RequireAuth() {
-  const { isAuthenticated } = useAuthSession()
+  const { isAuthenticated, userLoading } = useAuthSession()
   if (!isAuthenticated && !hasStoredSession()) {
     return <Navigate to="/login" replace />
+  }
+  if (userLoading) {
+    return (
+      <div className="app-content">
+        <div className="container-fluid py-3 text-muted">Loading…</div>
+      </div>
+    )
+  }
+  return <Outlet />
+}
+
+function RequireFeature({ featureKey }: { featureKey: string }) {
+  const { currentUser, userLoading } = useAuthSession()
+  if (userLoading) {
+    return (
+      <div className="app-content">
+        <div className="container-fluid py-3 text-muted">Loading…</div>
+      </div>
+    )
+  }
+  const lvl = accessFor(currentUser, featureKey)
+  if (!(lvl === 'read' || lvl === 'write')) {
+    return <Navigate to={firstAccessiblePath(currentUser)} replace />
   }
   return <Outlet />
 }
@@ -101,8 +128,8 @@ function RequireAdmin() {
       </div>
     )
   }
-  if (!currentUser?.is_admin) {
-    return <Navigate to="/" replace />
+  if (!canWrite(currentUser, 'platform_admin')) {
+    return <Navigate to={firstAccessiblePath(currentUser)} replace />
   }
   return <Outlet />
 }
@@ -218,16 +245,34 @@ function App() {
       {/* Authenticated app: dashboard chrome (sidebar + navbar). */}
       <Route element={<RequireAuth />}>
         <Route element={<DashboardLayout />}>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/calendar" element={<CalendarRoute />} />
-          <Route path="/bookings" element={<BookingsPage />} />
-          <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/emails" element={<EmailsPage />} />
-          <Route path="/file-manager" element={<FileManagerPage />} />
+          <Route element={<RequireFeature featureKey="dashboard" />}>
+            <Route path="/" element={<DashboardPage />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="calendar" />}>
+            <Route path="/calendar" element={<CalendarRoute />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="bookings" />}>
+            <Route path="/bookings" element={<BookingsPage />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="contacts" />}>
+            <Route path="/contacts" element={<ContactsPage />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="users" />}>
+            <Route path="/users" element={<UsersPage />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="emails" />}>
+            <Route path="/emails" element={<EmailsPage />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="file_manager" />}>
+            <Route path="/file-manager" element={<FileManagerPage />} />
+          </Route>
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route element={<RequireFeature featureKey="reports" />}>
+            <Route path="/reports" element={<ReportsPage />} />
+          </Route>
+          <Route element={<RequireFeature featureKey="settings" />}>
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
           <Route element={<RequireAdmin />}>
             <Route path="/admin" element={<AdminPage />} />
           </Route>

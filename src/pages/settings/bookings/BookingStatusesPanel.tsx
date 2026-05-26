@@ -11,9 +11,11 @@ import {
   updateBookingStatus,
   type BookingStatusRecord,
 } from '../../../services/bookings'
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
 const BookingStatusesPanel = () => {
+  const { canWrite: statusesWrite } = useFeatureAccess('booking_settings_statuses')
   const [statuses, setStatuses] = useState<BookingStatusRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -144,10 +146,12 @@ const BookingStatusesPanel = () => {
         <span className="text-muted small">
           {statuses.length} status{statuses.length !== 1 && 'es'}
         </span>
-        <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
-          <i className="bi bi-plus-lg me-1" />
-          Add status
-        </button>
+        {statusesWrite && (
+          <button type="button" className="btn btn-sm btn-primary" onClick={openAdd}>
+            <i className="bi bi-plus-lg me-1" />
+            Add status
+          </button>
+        )}
       </div>
 
       {error && <div className="alert alert-danger py-2">{error}</div>}
@@ -175,6 +179,7 @@ const BookingStatusesPanel = () => {
               {statuses.map((row, index) => (
                 <tr key={row.id}>
                   <td className="bookings-statuses-table__order">
+                    {statusesWrite ? (
                     <div className="d-inline-flex flex-column gap-0">
                       <button
                         type="button"
@@ -195,6 +200,9 @@ const BookingStatusesPanel = () => {
                         <i className="bi bi-chevron-down" />
                       </button>
                     </div>
+                    ) : (
+                      <span className="text-muted small">{index + 1}</span>
+                    )}
                   </td>
                   <td className="fw-semibold">{row.title}</td>
                   <td className="text-muted small">
@@ -212,24 +220,26 @@ const BookingStatusesPanel = () => {
                     {row.item_count ?? 0}
                   </td>
                   <td className="text-end">
-                    <div className="d-inline-flex gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        title="Edit status"
-                        onClick={() => openEdit(row)}
-                      >
-                        <i className="bi bi-pencil-square" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        title="Delete status"
-                        onClick={() => setDeleteTarget(row)}
-                      >
-                        <i className="bi bi-trash3" />
-                      </button>
-                    </div>
+                    {statusesWrite && (
+                      <div className="d-inline-flex gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          title="Edit status"
+                          onClick={() => openEdit(row)}
+                        >
+                          <i className="bi bi-pencil-square" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          title="Delete status"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          <i className="bi bi-trash3" />
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

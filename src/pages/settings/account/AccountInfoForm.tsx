@@ -6,10 +6,12 @@ import {
   type AccountRecord,
 } from '../../../services/accounts'
 import { historyPaths } from '../../../services/history'
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 
 const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
 
 const AccountInfoForm = () => {
+  const { canWrite: accountWrite } = useFeatureAccess('account_settings')
   const [accountId, setAccountId] = useState<number | null>(null)
   const [accountName, setAccountName] = useState('')
   const [contactPerson, setContactPerson] = useState('')
@@ -57,7 +59,7 @@ const AccountInfoForm = () => {
     e,
   ) => {
     e.preventDefault()
-    if (accountId == null) return
+    if (!accountWrite || accountId == null) return
     setSaving(true)
     setError(null)
     setSuccess(null)
@@ -89,6 +91,10 @@ const AccountInfoForm = () => {
       {error && <div className="alert alert-danger py-2">{error}</div>}
       {success && <div className="alert alert-success py-2">{success}</div>}
 
+      <fieldset
+        disabled={!accountWrite}
+        className="account-info-fieldset border-0 m-0 p-0 min-w-0"
+      >
       <label className="account-info-field">
         <span className="account-info-label">Account Name</span>
         <span className="account-info-control">
@@ -167,12 +173,15 @@ const AccountInfoForm = () => {
           />
         </span>
       </label>
+      </fieldset>
 
-      <div className="account-info-actions">
-        <button type="submit" className="account-info-save" disabled={saving}>
-          {saving ? 'Saving…' : 'Save Changes'}
-        </button>
-      </div>
+      {accountWrite && (
+        <div className="account-info-actions">
+          <button type="submit" className="account-info-save" disabled={saving}>
+            {saving ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      )}
     </form>
 
     {accountId != null && (

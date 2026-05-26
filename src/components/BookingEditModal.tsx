@@ -135,6 +135,8 @@ type BookingEditModalProps = {
   onSubmit: (e: SubmitEvent<HTMLFormElement>) => void | Promise<void>
   onSendToCalendar?: () => void
   historyRefreshKey?: number
+  /** When false, the modal is view-only (no save / field edits). */
+  canWrite?: boolean
 }
 
 const EMPTY_FIELD: BookingField = {
@@ -206,8 +208,10 @@ const BookingEditModal = ({
   onSubmit,
   onSendToCalendar,
   historyRefreshKey = 0,
+  canWrite = true,
 }: BookingEditModalProps) => {
-  const viewOnly = form.mode === 'edit' && form.canEdit === false
+  const viewOnly =
+    !canWrite || (form.mode === 'edit' && form.canEdit === false)
   const showHistoryTab = form.mode === 'edit' && form.id != null
 
   useEffect(() => {

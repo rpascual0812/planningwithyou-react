@@ -15,6 +15,7 @@ import {
   type ContactPayload,
 } from '../services/contacts'
 import { fetchMe } from '../services/users'
+import { useFeatureAccess } from '../hooks/useFeatureAccess'
 
 const EDIT_PARAM = 'edit'
 
@@ -38,6 +39,7 @@ function displayName(c: ContactRecord): string {
 }
 
 const ContactsPage = () => {
+  const { canRead: contactsRead, canWrite: contactsWrite } = useFeatureAccess('contacts')
   const [searchParams, setSearchParams] = useSearchParams()
   const [contacts, setContacts] = useState<ContactRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -150,6 +152,7 @@ const ContactsPage = () => {
   }
 
   const handleSave = async () => {
+    if (!contactsWrite) return
     setFormError(null)
     const validated = validateContactPayload(form)
     if (!validated.ok) {
@@ -241,9 +244,11 @@ const ContactsPage = () => {
               <span className="users-search-count">
                 {contacts.length} contact{contacts.length !== 1 && 's'}
               </span>
-              <button type="button" className="btn users-btn-add" onClick={openAdd}>
-                <i className="bi bi-plus-lg" /> Add Contact
-              </button>
+              {contactsWrite && (
+                <button type="button" className="btn users-btn-add" onClick={openAdd}>
+                  <i className="bi bi-plus-lg" /> Add Contact
+                </button>
+              )}
             </div>
           </div>
 
@@ -271,7 +276,11 @@ const ContactsPage = () => {
                 </thead>
                 <tbody>
                   {contacts.map((c) => (
-                    <tr key={c.id} className="users-table-row">
+                    <tr
+                      key={c.id}
+                      className={`users-table-row${contactsRead ? ' users-table-row--clickable' : ''}`}
+                      onClick={contactsRead ? () => openEdit(c) : undefined}
+                    >
                       <td className="users-table-id">{c.id}</td>
                       <td>
                         <div className="users-table-person">
@@ -300,25 +309,40 @@ const ContactsPage = () => {
                       <td className="users-table-office">
                         {new Date(c.created_at).toLocaleDateString()}
                       </td>
-                      <td>
-                        <div className="users-actions">
-                          <button
-                            type="button"
-                            className="users-action-btn users-action-edit"
-                            title="Edit contact"
-                            onClick={() => openEdit(c)}
-                          >
-                            <i className="bi bi-pencil-square" />
-                          </button>
-                          <button
-                            type="button"
-                            className="users-action-btn users-action-delete"
-                            title="Delete contact"
-                            onClick={() => setDeleteTarget(c)}
-                          >
-                            <i className="bi bi-trash3" />
-                          </button>
-                        </div>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        {(contactsWrite || contactsRead) && (
+                          <div className="users-actions">
+                            {contactsWrite ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="users-action-btn users-action-edit"
+                                  title="Edit contact"
+                                  onClick={() => openEdit(c)}
+                                >
+                                  <i className="bi bi-pencil-square" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="users-action-btn users-action-delete"
+                                  title="Delete contact"
+                                  onClick={() => setDeleteTarget(c)}
+                                >
+                                  <i className="bi bi-trash3" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="users-action-btn users-action-edit"
+                                title="View contact"
+                                onClick={() => openEdit(c)}
+                              >
+                                <i className="bi bi-eye" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -345,6 +369,7 @@ const ContactsPage = () => {
           setField={setField}
           error={formError}
           saving={saving}
+          canWrite={contactsWrite}
           onSave={handleSave}
           onClose={closeModal}
           historyRefreshKey={historyRefresh}

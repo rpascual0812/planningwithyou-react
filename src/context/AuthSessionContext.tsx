@@ -87,6 +87,16 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   }, [loadCurrentUser])
 
   useEffect(() => {
+    const refreshOnFocus = () => {
+      if (hasStoredSession()) {
+        void loadCurrentUser()
+      }
+    }
+    window.addEventListener('focus', refreshOnFocus)
+    return () => window.removeEventListener('focus', refreshOnFocus)
+  }, [loadCurrentUser])
+
+  useEffect(() => {
     const syncFromStorage = () => {
       syncAuthState()
     }

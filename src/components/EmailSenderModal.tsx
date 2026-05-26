@@ -133,6 +133,8 @@ export type EmailSenderModalProps = {
   bookingTemplateCompanyId?: number | null
   /** Render above booking payments modal (z-index stack). */
   stacked?: boolean
+  /** When false, modal is view-only (no send/resend). */
+  canWrite?: boolean
 }
 
 const EMPTY_FORM: EmailPayload = {
@@ -207,6 +209,7 @@ const EmailSenderModal = ({
   paymentLinkUrl,
   bookingTemplateCompanyId,
   stacked = false,
+  canWrite = true,
 }: EmailSenderModalProps) => {
   const layerClass = stacked ? ' email-modal--stacked' : ''
   const isCompose = !email
@@ -689,21 +692,23 @@ const EmailSenderModal = ({
               >
                 Close
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleSendClick}
-                disabled={
-                  sending ||
-                  (!(form.to ?? []).length &&
-                    !(form.cc ?? []).length &&
-                    !(form.bcc ?? []).length) ||
-                  !hasMeaningfulEmailBody(bodyForSend())
-                }
-              >
-                <i className="bi bi-send me-1" />
-                {sending ? 'Sending...' : isCompose ? 'Send' : 'Resend'}
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSendClick}
+                  disabled={
+                    sending ||
+                    (!(form.to ?? []).length &&
+                      !(form.cc ?? []).length &&
+                      !(form.bcc ?? []).length) ||
+                    !hasMeaningfulEmailBody(bodyForSend())
+                  }
+                >
+                  <i className="bi bi-send me-1" />
+                  {sending ? 'Sending...' : isCompose ? 'Send' : 'Resend'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -31,6 +31,7 @@ import {
   isBookingsView,
   type BookingsView,
 } from '../../utils/bookingsView'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import { showSuccessToast } from '../../utils/toast'
 
 /* ------------------------------------------------------------------ */
@@ -134,6 +135,7 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
 /* ------------------------------------------------------------------ */
 
 const BookingsViewOptionsPanel = () => {
+  const { canWrite: settingsWrite } = useFeatureAccess('booking_settings_form_templates')
   const [savedView, setSavedView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
   const [view, setView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
   const [loading, setLoading] = useState(true)
@@ -220,19 +222,22 @@ const BookingsViewOptionsPanel = () => {
           {error}
         </p>
       )}
-      <button
-        type="button"
-        className="bookings-view-save-btn"
-        disabled={!isDirty || saving}
-        onClick={() => void handleSave()}
-      >
-        {saving ? 'Saving…' : 'Save'}
-      </button>
+      {settingsWrite && (
+        <button
+          type="button"
+          className="bookings-view-save-btn"
+          disabled={!isDirty || saving}
+          onClick={() => void handleSave()}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      )}
     </div>
   )
 }
 
 const BookingsGroupNamePanel = () => {
+  const { canWrite: settingsWrite } = useFeatureAccess('booking_settings_form_templates')
   const [savedName, setSavedName] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -305,14 +310,16 @@ const BookingsGroupNamePanel = () => {
           maxLength={255}
           placeholder="e.g. Projects, Events, Clients"
         />
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={!isDirty || saving}
-          onClick={() => void handleSave()}
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
+        {settingsWrite && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!isDirty || saving}
+            onClick={() => void handleSave()}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        )}
       </div>
       {error && (
         <p className="bookings-view-settings-error mb-0 mt-2" role="alert">
@@ -434,6 +441,7 @@ const BookingsSettingsPage = () => {
 /* ------------------------------------------------------------------ */
 
 const FormTemplatesPanel = () => {
+  const { canWrite: templatesWrite } = useFeatureAccess('booking_settings_form_templates')
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
@@ -607,7 +615,8 @@ const FormTemplatesPanel = () => {
 
   const showModal = !!(editing || composing)
 
-  const canCreate = selectedCompanyId != null && !companiesLoading
+  const canCreate =
+    templatesWrite && selectedCompanyId != null && !companiesLoading
 
   return (
     <div>
@@ -691,24 +700,26 @@ const FormTemplatesPanel = () => {
                   <span className="badge bg-secondary ms-2">Inactive</span>
                 )}
               </div>
-              <div className="d-flex gap-1" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  title="Edit"
-                  onClick={() => openEdit(t)}
-                >
-                  <i className="bi bi-pencil-square" />
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-danger"
-                  title="Delete"
-                  onClick={() => setDeleteTarget(t)}
-                >
-                  <i className="bi bi-trash3" />
-                </button>
-              </div>
+              {templatesWrite && (
+                <div className="d-flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    title="Edit"
+                    onClick={() => openEdit(t)}
+                  >
+                    <i className="bi bi-pencil-square" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    title="Delete"
+                    onClick={() => setDeleteTarget(t)}
+                  >
+                    <i className="bi bi-trash3" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -721,6 +732,7 @@ const FormTemplatesPanel = () => {
           error={formError}
           saving={saving}
           historyRefreshKey={historyRefresh}
+          canWrite={templatesWrite}
           onSave={handleSave}
           onClose={closeModal}
         />
@@ -792,6 +804,7 @@ type TemplateFormModalProps = {
   error: string | null
   saving: boolean
   historyRefreshKey?: number
+  canWrite?: boolean
   onSave: (payload: FormTemplatePayload) => void
   onClose: () => void
 }
@@ -801,6 +814,7 @@ const TemplateFormModal = ({
   error,
   saving,
   historyRefreshKey = 0,
+  canWrite = true,
   onSave,
   onClose,
 }: TemplateFormModalProps) => {
@@ -1341,14 +1355,16 @@ const TemplateFormModal = ({
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleSubmit}
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
-              </button>
+              {canWrite && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSubmit}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -82,6 +82,55 @@ export async function fetchCalendarStatuses(): Promise<CalendarStatusRecord[]> {
   return res.json()
 }
 
+export type CalendarStatusPayload = {
+  title: string
+  description?: string
+  text_color: string
+  background_color: string
+}
+
+export async function createCalendarStatus(
+  data: CalendarStatusPayload,
+): Promise<CalendarStatusRecord> {
+  const res = await apiFetch(buildApiUrl('/api/calendar-statuses/'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw await calendarApiError(res, 'Failed to create calendar status')
+  return res.json()
+}
+
+export async function updateCalendarStatus(
+  id: number,
+  data: Partial<CalendarStatusPayload>,
+): Promise<CalendarStatusRecord> {
+  const res = await apiFetch(buildApiUrl(`/api/calendar-statuses/${id}/`), {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw await calendarApiError(res, 'Failed to update calendar status')
+  return res.json()
+}
+
+export async function deleteCalendarStatus(id: number): Promise<void> {
+  const res = await apiFetch(buildApiUrl(`/api/calendar-statuses/${id}/`), {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to delete calendar status')
+}
+
+export async function reorderCalendarStatuses(order: number[]): Promise<void> {
+  const res = await apiFetch(buildApiUrl('/api/calendar-statuses/reorder/'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ order }),
+  })
+  if (!res.ok) throw new Error('Failed to reorder calendar statuses')
+}
+
 export async function fetchCalendarEvents(
   start?: string,
   end?: string,

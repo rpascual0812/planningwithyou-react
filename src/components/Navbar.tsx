@@ -7,6 +7,7 @@ import {
   fetchActiveSystemNotifications,
   type ActiveSystemNotification,
 } from '../services/systemNotifications'
+import { canRead } from '../lib/featureAccess'
 import { UserAvatar } from './UserAvatar'
 import type { UserRecord } from '../services/users'
 
@@ -141,9 +142,11 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               <Link to="/profile" className="dropdown-item">
                 <i className="bi bi-person me-2" /> Edit Profile
               </Link>
-              <Link to="/settings" className="dropdown-item">
-                <i className="bi bi-gear me-2" /> Settings
-              </Link>
+              {canRead(user, 'settings') && (
+                <Link to="/settings" className="dropdown-item">
+                  <i className="bi bi-gear me-2" /> Settings
+                </Link>
+              )}
               <div className="dropdown-divider" />
               <button
                 type="button"

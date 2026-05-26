@@ -1,5 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useAuthSession } from '../../context/AuthSessionContext'
+import {
+  canAccessSettingsTab,
+  firstAccessibleSettingsTab,
+} from '../../lib/settingsNavAccess'
 import AccountSettingsPage from './AccountSettingsPage'
 import BookingsSettingsPage from './BookingsSettingsPage'
 import CalendarSettingsPage from './CalendarSettingsPage'
@@ -28,16 +33,40 @@ const NAV_ITEMS: SettingsNavItem[] = [
 ]
 
 const SettingsPage = () => {
+  const { currentUser } = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get(TAB_PARAM)
-  const activeNav: SettingsSection =
+  const requestedNav: SettingsSection =
     rawTab === 'subscription'
       ? 'account'
       : rawTab && VALID_TABS.has(rawTab as SettingsSection)
         ? (rawTab as SettingsSection)
         : 'account'
+
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => canAccessSettingsTab(currentUser, item.id)),
+    [currentUser],
+  )
+
+  const activeNav: SettingsSection = canAccessSettingsTab(currentUser, requestedNav)
+    ? requestedNav
+    : firstAccessibleSettingsTab(currentUser)
+
   const accountAccordionOpen =
     rawTab === 'subscription' ? 'subscription' : undefined
+
+  useEffect(() => {
+    if (requestedNav === activeNav) return
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (activeNav === 'account') next.delete(TAB_PARAM)
+        else next.set(TAB_PARAM, activeNav)
+        return next
+      },
+      { replace: true },
+    )
+  }, [activeNav, requestedNav, setSearchParams])
 
   const setActiveNav = useCallback(
     (id: SettingsSection) => {
@@ -52,7 +81,7 @@ const SettingsPage = () => {
   )
 
   const activeLabel =
-    NAV_ITEMS.find((item) => item.id === activeNav)?.label ?? 'Settings'
+    visibleNavItems.find((item) => item.id === activeNav)?.label ?? 'Settings'
 
   return (
     <div className="app-content">
@@ -61,7 +90,7 @@ const SettingsPage = () => {
           <aside className="settings-nav-card">
             <h5 className="settings-card-title">Settings</h5>
             <ul className="settings-nav">
-              {NAV_ITEMS.map((item) => {
+              {visibleNavItems.map((item) => {
                 const isActive = activeNav === item.id
                 return (
                   <li key={item.id}>

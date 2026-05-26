@@ -15,6 +15,7 @@ import type {
 } from '@fullcalendar/core'
 import type { EventResizeDoneArg } from '@fullcalendar/interaction'
 import { useSearchParams } from 'react-router-dom'
+import { useFeatureAccess } from '../hooks/useFeatureAccess'
 
 import AppointmentEditModal, {
   EMPTY_APPOINTMENT_FORM,
@@ -144,6 +145,7 @@ function computePopoverPosition(
 }
 
 const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
+  const { canWrite: calendarWrite } = useFeatureAccess('calendar')
   const calendarRef = useRef<FullCalendar | null>(null)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const hidePopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -539,10 +541,12 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
   }
 
   const handleDateClick = (arg: DateClickArg) => {
+    if (!calendarWrite) return
     void openCreateModal(arg.date)
   }
 
   const handleAddAppointmentClick = () => {
+    if (!calendarWrite) return
     void openCreateModal(new Date())
   }
 
@@ -565,6 +569,10 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     ev: EventApi,
     revert: () => void,
   ) => {
+    if (!calendarWrite) {
+      revert()
+      return
+    }
     const id = Number(ev.id)
     const patch = eventPatchFromApi(ev)
     if (!id || !patch) return
@@ -595,7 +603,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
 
   const handleEditSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!editModal) return
+    if (!editModal || !calendarWrite) return
 
     const startMs = new Date(editModal.startValue).getTime()
     const endMs = new Date(editModal.endValue).getTime()
@@ -630,7 +638,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
   }
 
   const handleDelete = async () => {
-    if (!editModal?.eventId) return
+    if (!calendarWrite || !editModal?.eventId) return
     if (!window.confirm(`Delete "${editModal.title || 'this appointment'}"?`)) return
     setDeleting(true)
     setModalError(null)
@@ -652,14 +660,16 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
     <div className="app-content calendar-page">
       <div className="container-fluid">
         <div className="calendar-page-toolbar">
-          <button
-            type="button"
-            className="btn btn-primary calendar-page-add-btn"
-            onClick={handleAddAppointmentClick}
-          >
-            <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-            Add appointment
-          </button>
+          {calendarWrite && (
+            <button
+              type="button"
+              className="btn btn-primary calendar-page-add-btn"
+              onClick={handleAddAppointmentClick}
+            >
+              <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+              Add appointment
+            </button>
+          )}
         </div>
         <div className={`calendar-surface${loadingEvents ? ' calendar-surface--loading' : ''}`}>
           {loadingEvents && (
@@ -719,9 +729,9 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
             allDaySlot={false}
             height="auto"
             events={fcEvents}
-            editable
-            eventStartEditable
-            eventDurationEditable
+            editable={calendarWrite}
+            eventStartEditable={calendarWrite}
+            eventDurationEditable={calendarWrite}
             eventResizableFromStart
             eventClassNames="calendar-fc-event"
             dayHeaderContent={handleDayHeaderContent}
@@ -761,7 +771,8 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
           onChange={setEditModal}
           onClose={handleEditModalClose}
           onSubmit={(e) => void handleEditSubmit(e)}
-          onDelete={() => void handleDelete()}
+          onDelete={calendarWrite ? () => void handleDelete() : undefined}
+          canWrite={calendarWrite}
         />
       )}
     </div>

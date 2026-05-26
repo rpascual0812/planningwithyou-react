@@ -31,7 +31,7 @@ const FIELD_LABELS: Record<string, Record<string, string>> = {
     first_name: 'First name',
     last_name: 'Last name',
     is_active: 'Active',
-    is_admin: 'Admin',
+    role: 'Role',
     company_id: 'Company',
   },
   contact: {

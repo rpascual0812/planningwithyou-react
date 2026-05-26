@@ -12,7 +12,10 @@ export type UserRecord = {
   first_name: string
   last_name: string
   is_active: boolean
-  is_admin: boolean
+  role?: number | null
+  role_name?: string
+  /** feature -> access level ('none'|'read'|'write'). */
+  permissions?: Record<string, 'none' | 'read' | 'write'>
   /** ``subscriptions.plan`` via user.account → account_subscriptions → subscriptions. */
   subscription_plan?: string
   last_login: string | null
@@ -27,7 +30,7 @@ export type UserPayload = {
   first_name: string
   last_name: string
   is_active: boolean
-  is_admin: boolean
+  role?: number | null
   company?: number
 }
 
@@ -85,6 +88,39 @@ function userPatchHeaders(multipart: boolean): Record<string, string> {
   const headers = authHeaders()
   if (multipart) delete headers['Content-Type']
   return headers
+}
+
+export type ProfilePayload = Pick<
+  UserPayload,
+  'first_name' | 'last_name' | 'username' | 'email'
+>
+
+export async function updateMe(data: Partial<ProfilePayload>): Promise<UserRecord> {
+  const res = await apiFetch(buildApiUrl('/api/users/me/'), {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(extractError(body) || 'Failed to update profile')
+  }
+  return res.json()
+}
+
+export async function uploadMyPhoto(photo: File): Promise<UserRecord> {
+  const fd = new FormData()
+  fd.append('photo', photo)
+  const res = await apiFetch(buildApiUrl('/api/users/me/'), {
+    method: 'PATCH',
+    headers: userPatchHeaders(true),
+    body: fd,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(extractError(body) || 'Failed to upload profile photo')
+  }
+  return res.json()
 }
 
 export async function updateUser(

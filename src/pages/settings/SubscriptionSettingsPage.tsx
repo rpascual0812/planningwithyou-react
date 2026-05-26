@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { useAuthSession } from '../../context/AuthSessionContext'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import { fetchCurrentAccount } from '../../services/accounts'
 import {
   createSubscriptionCheckout,
@@ -247,6 +248,7 @@ function checkoutConfirmButtonText(preview: SubscriptionCheckoutPreview): string
 const SubscriptionSettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const { syncAuthState } = useAuthSession()
+  const { canWrite: subscriptionWrite } = useFeatureAccess('subscription')
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [plansLoading, setPlansLoading] = useState(true)
@@ -324,6 +326,7 @@ const SubscriptionSettingsPage = () => {
   ])
 
   const payNowClickable =
+    subscriptionWrite &&
     selectionReady &&
     subscriptionHasChanges &&
     !checkoutLoading &&

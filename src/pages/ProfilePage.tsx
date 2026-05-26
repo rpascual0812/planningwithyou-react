@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from 
 import { UserAvatar } from '../components/UserAvatar'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { resizeImageFileToSquare } from '../lib/resizeImageFile'
-import { fetchMe, updateUser, uploadUserPhoto, type UserRecord } from '../services/users'
+import { fetchMe, updateMe, uploadMyPhoto, type UserRecord } from '../services/users'
 
 type SettingsNavItem = {
   id: string
@@ -59,7 +59,7 @@ const ProfilePage = () => {
     setMessage(null)
     try {
       const resized = await resizeImageFileToSquare(file, 200)
-      const updated = await uploadUserPhoto(user.id, resized)
+      const updated = await uploadMyPhoto(resized)
       setUser(updated)
       syncAuthState()
       setMessage({ type: 'success', text: 'Profile photo updated.' })
@@ -79,7 +79,7 @@ const ProfilePage = () => {
     setSaving(true)
     setMessage(null)
     try {
-      const updated = await updateUser(user.id, form)
+      const updated = await updateMe(form)
       setUser(updated)
       syncAuthState()
       setMessage({ type: 'success', text: 'Profile updated successfully.' })

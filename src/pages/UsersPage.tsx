@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
+import { useFeatureAccess } from '../hooks/useFeatureAccess'
 import EditModalHistoryTabs from '../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../components/ResourceHistoryPanel'
 import { validateEmailAddress } from '../lib/formValidators'
@@ -22,6 +23,7 @@ import {
   type UserPayload,
   type UserSeatUsage,
 } from '../services/users'
+import { fetchRoles, type RoleRecord } from '../services/roles'
 
 const EDIT_PARAM = 'edit'
 
@@ -57,7 +59,7 @@ const EMPTY_FORM: UserPayload = {
   first_name: '',
   last_name: '',
   is_active: true,
-  is_admin: false,
+  role: null,
 }
 
 function pickDefaultCompanyId(
@@ -73,13 +75,14 @@ function pickDefaultCompanyId(
 }
 
 const UsersPage = () => {
-  const { currentUser, subscriptionPlan } = useAuthSession()
-  const canManageAdmin = currentUser?.is_admin === true
-  const isAccountAdmin = currentUser?.is_admin === true
+  const { currentUser, subscriptionPlan, syncAuthState } = useAuthSession()
+  const { canRead: usersRead, canWrite: usersWrite } = useFeatureAccess('users')
+  const isAccountAdmin = usersWrite
   const [seatUsage, setSeatUsage] = useState<UserSeatUsage | null>(null)
   const [seatUsageLoading, setSeatUsageLoading] = useState(true)
   const atSeatLimit = seatUsage?.at_seat_limit === true
   const canAddUser =
+    usersWrite &&
     subscriptionPlan != null &&
     subscriptionPlan !== 'free' &&
     !atSeatLimit
@@ -104,6 +107,7 @@ const UsersPage = () => {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [roles, setRoles] = useState<RoleRecord[]>([])
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -146,6 +150,20 @@ const UsersPage = () => {
   useEffect(() => {
     void loadSeatUsage()
   }, [loadSeatUsage])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchRoles()
+      .then((rows) => {
+        if (!cancelled) setRoles(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setRoles([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -215,7 +233,7 @@ const UsersPage = () => {
       editingUser.first_name === user.first_name &&
       editingUser.last_name === user.last_name &&
       editingUser.is_active === user.is_active &&
-      editingUser.is_admin === user.is_admin
+      editingUser.role === user.role
     ) {
       return
     }
@@ -226,7 +244,7 @@ const UsersPage = () => {
       first_name: user.first_name,
       last_name: user.last_name,
       is_active: user.is_active,
-      is_admin: user.is_admin,
+      role: user.role ?? null,
     })
     setFormError(null)
     setModalOpen(true)
@@ -255,10 +273,8 @@ const UsersPage = () => {
     setFormError(null)
   }
 
-  const payloadForSave = (): UserPayload =>
-    canManageAdmin ? form : { ...form, is_admin: false }
-
   const handleSave = async () => {
+    if (!usersWrite) return
     if (!editingUser && !canAddUser) {
       if (atSeatLimit) {
         setFormError(SEAT_LIMIT_MESSAGE)
@@ -280,10 +296,13 @@ const UsersPage = () => {
     }
     setFormError(null)
     setSaving(true)
-    const payload = payloadForSave()
+    const payload = form
     try {
       if (editingUser) {
         await updateUser(editingUser.id, payload)
+        if (currentUser && editingUser.id === currentUser.id) {
+          syncAuthState()
+        }
         setHistoryRefresh((k) => k + 1)
         await loadUsers(debouncedSearch, selectedCompanyId)
         await loadSeatUsage()
@@ -474,7 +493,7 @@ const UsersPage = () => {
                     <th>Email</th>
                     <th>Username</th>
                     <th>Status</th>
-                    <th>Admin</th>
+                    <th>Role</th>
                     <th>Account</th>
                     <th>Created</th>
                     <th className="users-th-actions">Actions</th>
@@ -482,7 +501,11 @@ const UsersPage = () => {
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} className="users-table-row">
+                    <tr
+                      key={user.id}
+                      className={`users-table-row${usersRead ? ' users-table-row--clickable' : ''}`}
+                      onClick={usersRead ? () => openEdit(user) : undefined}
+                    >
                       <td className="users-table-id">{user.id}</td>
                       <td>
                         <div className="users-table-person">
@@ -507,10 +530,8 @@ const UsersPage = () => {
                           {user.is_active ? 'active' : 'inactive'}
                         </span>
                       </td>
-                      <td>
-                        {user.is_admin && (
-                          <span className="users-badge-admin">admin</span>
-                        )}
+                      <td className="users-table-position">
+                        {user.role_name?.trim() || '—'}
                       </td>
                       <td className="users-table-office">
                         {user.account ?? '—'}
@@ -518,25 +539,40 @@ const UsersPage = () => {
                       <td className="users-table-office">
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
-                      <td>
-                        <div className="users-actions">
-                          <button
-                            type="button"
-                            className="users-action-btn users-action-edit"
-                            title="Edit user"
-                            onClick={() => openEdit(user)}
-                          >
-                            <i className="bi bi-pencil-square" />
-                          </button>
-                          <button
-                            type="button"
-                            className="users-action-btn users-action-delete"
-                            title="Delete user"
-                            onClick={() => setDeleteTarget(user)}
-                          >
-                            <i className="bi bi-trash3" />
-                          </button>
-                        </div>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        {(usersWrite || usersRead) && (
+                          <div className="users-actions">
+                            {usersWrite ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="users-action-btn users-action-edit"
+                                  title="Edit user"
+                                  onClick={() => openEdit(user)}
+                                >
+                                  <i className="bi bi-pencil-square" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="users-action-btn users-action-delete"
+                                  title="Delete user"
+                                  onClick={() => setDeleteTarget(user)}
+                                >
+                                  <i className="bi bi-trash3" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="users-action-btn users-action-edit"
+                                title="View user"
+                                onClick={() => openEdit(user)}
+                              >
+                                <i className="bi bi-eye" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -564,7 +600,8 @@ const UsersPage = () => {
           setField={setField}
           error={formError}
           saving={saving}
-          canManageAdmin={canManageAdmin}
+          canWrite={usersWrite}
+          roles={roles}
           onSave={handleSave}
           onClose={closeModal}
           historyRefreshKey={historyRefresh}
@@ -594,7 +631,8 @@ type UserFormModalProps = {
   setField: <K extends keyof UserPayload>(key: K, val: UserPayload[K]) => void
   error: string | null
   saving: boolean
-  canManageAdmin: boolean
+  canWrite: boolean
+  roles: RoleRecord[]
   onSave: () => void
   onClose: () => void
   historyRefreshKey?: number
@@ -606,18 +644,21 @@ const UserFormModal = ({
   setField,
   error,
   saving,
-  canManageAdmin,
+  canWrite,
+  roles,
   onSave,
   onClose,
   historyRefreshKey = 0,
 }: UserFormModalProps) => {
-  const title = editing ? 'Edit User' : 'Add User'
+  const readOnly = !canWrite
+  const title = editing ? (canWrite ? 'Edit User' : 'View User') : 'Add User'
   const [emailError, setEmailError] = useState<string | null>(null)
   const [tab, setTab] = useState<'details' | 'history'>('details')
   const showHistory = editing != null
 
   const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (readOnly) return
     const nextEmailError = validateEmailAddress(form.email)
     setEmailError(nextEmailError)
     if (nextEmailError) return
@@ -664,12 +705,16 @@ const UserFormModal = ({
                     {error}
                   </div>
                 )}
-                {!editing && (
+                {!editing && canWrite && (
                   <div className="alert alert-info py-2 mb-3" role="status">
                     <i className="bi bi-envelope me-1" />
                     A password-setup email will be sent to the user.
                   </div>
                 )}
+                <fieldset
+                  disabled={readOnly}
+                  className="border-0 m-0 p-0 min-w-0"
+                >
                 <div className="row g-3">
                   <div className="col-sm-6">
                     <label className="form-label">First Name</label>
@@ -721,23 +766,32 @@ const UserFormModal = ({
                       </label>
                     </div>
                   </div>
-                  {canManageAdmin && (
-                    <div className="col-sm-6">
-                      <div className="form-check form-switch mt-1">
-                        <input
-                          className="form-check-input"
-                          type="checkbox"
-                          id="userIsAdmin"
-                          checked={form.is_admin}
-                          onChange={(e) => setField('is_admin', e.target.checked)}
-                        />
-                        <label className="form-check-label" htmlFor="userIsAdmin">
-                          Admin
-                        </label>
-                      </div>
-                    </div>
-                  )}
+                  <div className="col-12">
+                    <label className="form-label" htmlFor="userRole">
+                      Role
+                    </label>
+                    <select
+                      id="userRole"
+                      className="form-select"
+                      value={form.role ?? ''}
+                      onChange={(e) =>
+                        setField(
+                          'role',
+                          e.target.value ? Number(e.target.value) : null,
+                        )
+                      }
+                    >
+                      <option value="">Account default</option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                          {role.is_default ? ' (default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+                </fieldset>
                 </>
                 )}
               </div>
@@ -748,8 +802,9 @@ const UserFormModal = ({
                   onClick={onClose}
                   disabled={saving}
                 >
-                  Cancel
+                  {readOnly ? 'Close' : 'Cancel'}
                 </button>
+                {canWrite && (
                 <button
                   type="submit"
                   className="btn users-btn-save"
@@ -761,6 +816,7 @@ const UserFormModal = ({
                       ? 'Update'
                       : 'Create'}
                 </button>
+                )}
               </div>
             </form>
           </div>

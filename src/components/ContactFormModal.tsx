@@ -25,6 +25,7 @@ export type ContactFormModalProps = {
   onSave: () => void
   onClose: () => void
   historyRefreshKey?: number
+  canWrite?: boolean
   /** Render above the booking modal when opened from Add/Edit booking. */
   elevated?: boolean
 }
@@ -38,9 +39,15 @@ export default function ContactFormModal({
   onSave,
   onClose,
   historyRefreshKey = 0,
+  canWrite = true,
   elevated = false,
 }: ContactFormModalProps) {
-  const title = editing ? 'Edit Contact' : 'Add Contact'
+  const readOnly = !canWrite
+  const title = editing
+    ? canWrite
+      ? 'Edit Contact'
+      : 'View Contact'
+    : 'Add Contact'
   const [tab, setTab] = useState<'details' | 'history'>('details')
   const showHistory = editing != null
   const [phoneErrors, setPhoneErrors] = useState<Record<number, boolean>>({})
@@ -133,6 +140,7 @@ export default function ContactFormModal({
 
   const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (readOnly) return
     onSave()
   }
 
@@ -165,6 +173,10 @@ export default function ContactFormModal({
                   <div className="alert alert-danger py-2" role="alert">{error}</div>
                 )}
 
+                <fieldset
+                  disabled={readOnly}
+                  className="contact-form-fieldset border-0 m-0 p-0 min-w-0"
+                >
                 <div className="mb-3">
                   <label className="form-label" htmlFor="contact-company-id">
                     Company *
@@ -246,6 +258,7 @@ export default function ContactFormModal({
                 <div className="mt-4">
                   <div className="d-flex align-items-center gap-2 mb-2">
                     <h6 className="mb-0">Phone Numbers</h6>
+                    {canWrite && (
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-primary"
@@ -253,6 +266,7 @@ export default function ContactFormModal({
                     >
                       <i className="bi bi-plus-lg me-1" />Add
                     </button>
+                    )}
                   </div>
                   {form.phone_numbers.map((phone, idx) => (
                     <div key={idx} className="mb-2">
@@ -302,6 +316,7 @@ export default function ContactFormModal({
                           </label>
                         </div>
                       </div>
+                      {canWrite && (
                       <div className="col-auto">
                         <button
                           type="button"
@@ -313,6 +328,7 @@ export default function ContactFormModal({
                           <i className="bi bi-x-lg" />
                         </button>
                       </div>
+                      )}
                       </div>
                       {phoneErrors[idx] && (
                         <div className="text-danger small mt-1">
@@ -328,6 +344,7 @@ export default function ContactFormModal({
                 <div className="mt-4">
                   <div className="d-flex align-items-center gap-2 mb-2">
                     <h6 className="mb-0">Addresses</h6>
+                    {canWrite && (
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-primary"
@@ -335,6 +352,7 @@ export default function ContactFormModal({
                     >
                       <i className="bi bi-plus-lg me-1" />Add
                     </button>
+                    )}
                   </div>
                   {form.addresses.map((addr, idx) => (
                     <div key={idx} className="card card-body p-2 mb-2">
@@ -371,6 +389,7 @@ export default function ContactFormModal({
                             </label>
                           </div>
                         </div>
+                        {canWrite && (
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-danger"
@@ -380,6 +399,7 @@ export default function ContactFormModal({
                         >
                           <i className="bi bi-x-lg" />
                         </button>
+                        )}
                       </div>
                       <div className="row g-2">
                         <div className="col-12">
@@ -426,6 +446,7 @@ export default function ContactFormModal({
                     </div>
                   ))}
                 </div>
+                </fieldset>
                 </>
                 )}
               </div>
@@ -437,11 +458,13 @@ export default function ContactFormModal({
                   onClick={onClose}
                   disabled={saving}
                 >
-                  Cancel
+                  {readOnly ? 'Close' : 'Cancel'}
                 </button>
-                <button type="submit" className="btn users-btn-save" disabled={saving}>
-                  {saving ? 'Saving...' : editing ? 'Update' : 'Create'}
-                </button>
+                {canWrite && (
+                  <button type="submit" className="btn users-btn-save" disabled={saving}>
+                    {saving ? 'Saving...' : editing ? 'Update' : 'Create'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

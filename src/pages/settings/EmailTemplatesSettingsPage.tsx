@@ -29,6 +29,7 @@ import {
 } from '../../services/emailUserTemplates'
 import { fetchActiveCompanies, type CompanyRecord } from '../../services/companies'
 import { fetchMe } from '../../services/users'
+import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
 type EmailTemplateRecord = EmailUserTemplateRecord | EmailBookingTemplateRecord
 type EmailTemplatePayload = EmailUserTemplatePayload | EmailBookingTemplatePayload
@@ -131,6 +132,7 @@ const EmailTemplatesPanel = ({
   deleteTemplate,
   historyPathForId,
 }: EmailTemplatesPanelConfig) => {
+  const { canWrite: templatesWrite } = useFeatureAccess('email_templates')
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
@@ -301,7 +303,8 @@ const EmailTemplatesPanel = ({
   }
 
   const showFormModal = (composing || editing !== null) && !deleteTarget
-  const canCreate = userCompanyId != null && !companiesLoading
+  const canCreate =
+    templatesWrite && userCompanyId != null && !companiesLoading
 
   return (
     <div>
@@ -378,25 +381,27 @@ const EmailTemplatesPanel = ({
                   {!t.is_active && <span className="badge bg-secondary">Inactive</span>}
                 </div>
               </div>
-              <div className="d-flex gap-1" onClick={(e) => e.stopPropagation()}>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={() => openEdit(t)}
-                >
-                  <i className="bi bi-pencil" />
-                </button>
-                {!t.is_default && (
+              {templatesWrite && (
+                <div className="d-flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={() => setDeleteTarget(t)}
-                    aria-label={`Delete ${t.title || t.name}`}
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => openEdit(t)}
                   >
-                    <i className="bi bi-trash" />
+                    <i className="bi bi-pencil" />
                   </button>
-                )}
-              </div>
+                  {!t.is_default && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => setDeleteTarget(t)}
+                      aria-label={`Delete ${t.title || t.name}`}
+                    >
+                      <i className="bi bi-trash" />
+                    </button>
+                  )}
+                </div>
+              )}
             </button>
           ))}
         </div>
@@ -488,9 +493,11 @@ const EmailTemplatesPanel = ({
                   <button type="button" className="btn btn-secondary" onClick={closeModal}>
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
+                  {templatesWrite && (
+                    <button type="submit" className="btn btn-primary" disabled={saving}>
+                      {saving ? 'Saving…' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </form>
             </div>

@@ -16,6 +16,7 @@ import {
   restoreFolder,
   uploadDocument,
 } from '../services/documents'
+import { useFeatureAccess } from '../hooks/useFeatureAccess'
 
 type ViewMode = 'my-cloud' | 'recycle-bin'
 
@@ -51,6 +52,7 @@ function fileIcon(ext: string, isImage: boolean): string {
 }
 
 const FileManagerPage = () => {
+  const { canWrite: filesWrite } = useFeatureAccess('file_manager')
   const [viewMode, setViewMode] = useState<ViewMode>('my-cloud')
   const [folders, setFolders] = useState<FolderRecord[]>([])
   const [documents, setDocuments] = useState<DocumentRecord[]>([])
@@ -278,6 +280,7 @@ const FileManagerPage = () => {
   const handleDrop = (e: DragEvent) => {
     e.preventDefault()
     setDragOver(false)
+    if (!filesWrite) return
     handleUpload(e.dataTransfer.files)
   }
 
@@ -401,7 +404,7 @@ const FileManagerPage = () => {
                           Back
                         </button>
                       )}
-                      {!selectedFolderId && (
+                      {!selectedFolderId && filesWrite && (
                         <button
                           type="button"
                           className="fm-action-btn"
@@ -569,14 +572,16 @@ const FileManagerPage = () => {
                           }}
                         />
                       </div>
-                      <button
-                        type="button"
-                        className="fm-action-btn"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <i className="bi bi-upload me-1" />
-                        Upload
-                      </button>
+                      {filesWrite && (
+                        <button
+                          type="button"
+                          className="fm-action-btn"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <i className="bi bi-upload me-1" />
+                          Upload
+                        </button>
+                      )}
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -719,7 +724,7 @@ const FileManagerPage = () => {
                     <i className="bi bi-trash me-2" />
                     Recycle Bin
                   </h5>
-                  {trashCount > 0 && (
+                  {trashCount > 0 && filesWrite && (
                     <button
                       type="button"
                       className="fm-action-btn"
@@ -880,70 +885,78 @@ const FileManagerPage = () => {
                 <i className="bi bi-folder2-open me-2" />
                 Open
               </button>
-              <button
-                className="dropdown-item"
-                onClick={() => {
-                  const f = folders.find((x) => x.id === contextMenu.id)
-                  if (f) {
-                    setRenamingFolderId(f.id)
-                    setRenamingFolderName(f.name)
-                  }
-                  setContextMenu(null)
-                }}
-              >
-                <i className="bi bi-pencil me-2" />
-                Rename
-              </button>
-              <div className="dropdown-divider" />
-              <button
-                className="dropdown-item text-danger"
-                onClick={() => {
-                  handleDeleteFolder(contextMenu.id)
-                  setContextMenu(null)
-                }}
-              >
-                <i className="bi bi-trash me-2" />
-                Delete
-              </button>
+              {filesWrite && (
+                <>
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      const f = folders.find((x) => x.id === contextMenu.id)
+                      if (f) {
+                        setRenamingFolderId(f.id)
+                        setRenamingFolderName(f.name)
+                      }
+                      setContextMenu(null)
+                    }}
+                  >
+                    <i className="bi bi-pencil me-2" />
+                    Rename
+                  </button>
+                  <div className="dropdown-divider" />
+                  <button
+                    className="dropdown-item text-danger"
+                    onClick={() => {
+                      handleDeleteFolder(contextMenu.id)
+                      setContextMenu(null)
+                    }}
+                  >
+                    <i className="bi bi-trash me-2" />
+                    Delete
+                  </button>
+                </>
+              )}
             </>
           )}
           {contextMenu.type === 'document' && (
             <>
-              <button
-                className="dropdown-item"
-                onClick={() => {
-                  const d = documents.find((x) => x.id === contextMenu.id)
-                  if (d) {
-                    setRenamingDocId(d.id)
-                    setRenamingDocName(d.original_name)
-                  }
-                  setContextMenu(null)
-                }}
-              >
-                <i className="bi bi-pencil me-2" />
-                Rename
-              </button>
-              <button
-                className="dropdown-item"
-                onClick={() => {
-                  handleMoveDoc(contextMenu.id)
-                  setContextMenu(null)
-                }}
-              >
-                <i className="bi bi-folder-symlink me-2" />
-                Move
-              </button>
-              <div className="dropdown-divider" />
-              <button
-                className="dropdown-item text-danger"
-                onClick={() => {
-                  handleDeleteDoc(contextMenu.id)
-                  setContextMenu(null)
-                }}
-              >
-                <i className="bi bi-trash me-2" />
-                Delete
-              </button>
+              {filesWrite && (
+                <>
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      const d = documents.find((x) => x.id === contextMenu.id)
+                      if (d) {
+                        setRenamingDocId(d.id)
+                        setRenamingDocName(d.original_name)
+                      }
+                      setContextMenu(null)
+                    }}
+                  >
+                    <i className="bi bi-pencil me-2" />
+                    Rename
+                  </button>
+                  <button
+                    className="dropdown-item"
+                    onClick={() => {
+                      handleMoveDoc(contextMenu.id)
+                      setContextMenu(null)
+                    }}
+                  >
+                    <i className="bi bi-folder-symlink me-2" />
+                    Move
+                  </button>
+                  <div className="dropdown-divider" />
+                  <button
+                    className="dropdown-item text-danger"
+                    onClick={() => {
+                      handleDeleteDoc(contextMenu.id)
+                      setContextMenu(null)
+                    }}
+                  >
+                    <i className="bi bi-trash me-2" />
+                    Delete
+                  </button>
+                </>
+              )}
             </>
           )}
         </div>
