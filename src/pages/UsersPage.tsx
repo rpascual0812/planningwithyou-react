@@ -12,7 +12,8 @@ import EditModalHistoryTabs from '../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../components/ResourceHistoryPanel'
 import { validateEmailAddress } from '../lib/formValidators'
 import { historyPaths } from '../services/history'
-import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
+import CompanyFilterSelect from '../components/CompanyFilterSelect'
+import { useCompanyFilter } from '../hooks/useCompanyFilter'
 import {
   fetchUsers,
   fetchUserSeatUsage,
@@ -62,22 +63,9 @@ const EMPTY_FORM: UserPayload = {
   role: null,
 }
 
-function pickDefaultCompanyId(
-  companies: CompanyRecord[],
-  userCompanyId: number | null | undefined,
-): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
-  }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
-}
-
 const UsersPage = () => {
   const { currentUser, subscriptionPlan, syncAuthState } = useAuthSession()
   const { canRead: usersRead, canWrite: usersWrite } = useFeatureAccess('users')
-  const isAccountAdmin = usersWrite
   const [seatUsage, setSeatUsage] = useState<UserSeatUsage | null>(null)
   const [seatUsageLoading, setSeatUsageLoading] = useState(true)
   const atSeatLimit = seatUsage?.at_seat_limit === true
@@ -87,14 +75,20 @@ const UsersPage = () => {
     subscriptionPlan !== 'free' &&
     !atSeatLimit
   const [searchParams, setSearchParams] = useSearchParams()
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter({
+    onFetchError: setError,
+  })
   const [users, setUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [error, setError] = useState<string | null>(null)
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
@@ -165,35 +159,6 @@ const UsersPage = () => {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    void fetchActiveCompanies()
-      .then((companyRows) => {
-        if (cancelled) return
-        setCompanies(companyRows)
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    if (companies.length === 0) return
-    setSelectedCompanyId((prev) => {
-      if (prev != null && companies.some((c) => c.id === prev)) return prev
-      return pickDefaultCompanyId(companies, currentUser?.company ?? null)
-    })
-  }, [companies, currentUser?.company])
-
   const loadUsers = useCallback(async (q = '', companyId: number | null = null) => {
     if (companyId == null) {
       setUsers([])
@@ -213,8 +178,8 @@ const UsersPage = () => {
   }, [])
 
   useEffect(() => {
-    void loadUsers(debouncedSearch, selectedCompanyId)
-  }, [debouncedSearch, selectedCompanyId, loadUsers])
+    void loadUsers(debouncedSearch, activeCompanyId)
+  }, [debouncedSearch, activeCompanyId, loadUsers])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -304,16 +269,16 @@ const UsersPage = () => {
           syncAuthState()
         }
         setHistoryRefresh((k) => k + 1)
-        await loadUsers(debouncedSearch, selectedCompanyId)
+        await loadUsers(debouncedSearch, activeCompanyId)
         await loadSeatUsage()
       } else {
         const email = payload.email.trim()
         const created = await createUser({
           ...payload,
           username: email,
-          company: selectedCompanyId ?? undefined,
+          company: activeCompanyId ?? undefined,
         })
-        await loadUsers(debouncedSearch, selectedCompanyId)
+        await loadUsers(debouncedSearch, activeCompanyId)
         await loadSeatUsage()
         writeEditParam(created.id)
       }
@@ -331,7 +296,7 @@ const UsersPage = () => {
     try {
       await deleteUser(deleteTarget.id)
       setDeleteTarget(null)
-      await loadUsers(debouncedSearch, selectedCompanyId)
+      await loadUsers(debouncedSearch, activeCompanyId)
       await loadSeatUsage()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Delete failed')
@@ -368,44 +333,13 @@ const UsersPage = () => {
       <div className="container-fluid">
         <div className="users-table-card">
           <div className="row g-2 align-items-end mb-0 px-2 pt-2 pb-2 border-bottom">
-            <div className="col-sm-8 col-md-4">
-              <label className="form-label mb-1" htmlFor="users-company">
-                Company
-              </label>
-              <select
-                id="users-company"
-                className="form-select form-select-sm"
-                value={selectedCompanyId ?? ''}
-                disabled={
-                  companiesLoading ||
-                  companies.length === 0 ||
-                  (!isAccountAdmin && companies.length <= 1)
-                }
-                onChange={(e) => {
-                  const raw = e.target.value
-                  setSelectedCompanyId(raw === '' ? null : Number(raw))
-                }}
-              >
-                {companies.length === 0 ? (
-                  <option value="">No active companies</option>
-                ) : (
-                  companies.map((company) => (
-                    <option
-                      key={company.id}
-                      value={company.id}
-                      disabled={
-                        !isAccountAdmin &&
-                        selectedCompanyId != null &&
-                        company.id !== selectedCompanyId
-                      }
-                    >
-                      {company.name}
-                      {company.is_main ? ' (main)' : ''}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
+            <CompanyFilterSelect
+              id="users-company"
+              companies={companies}
+              loading={companiesLoading}
+              value={selectedCompanyId}
+              onChange={setSelectedCompanyId}
+            />
           </div>
           {atSeatLimit && subscriptionPlan !== 'free' && (
             <div
@@ -459,7 +393,7 @@ const UsersPage = () => {
                   onClick={openAdd}
                   disabled={
                     !canAddUser ||
-                    selectedCompanyId == null ||
+                    activeCompanyId == null ||
                     companiesLoading ||
                     seatUsageLoading
                   }

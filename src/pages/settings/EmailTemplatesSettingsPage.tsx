@@ -27,8 +27,8 @@ import {
   type EmailUserTemplatePayload,
   type EmailUserTemplateRecord,
 } from '../../services/emailUserTemplates'
-import { fetchActiveCompanies, type CompanyRecord } from '../../services/companies'
-import { fetchMe } from '../../services/users'
+import CompanyFilterSelect from '../../components/CompanyFilterSelect'
+import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
 type EmailTemplateRecord = EmailUserTemplateRecord | EmailBookingTemplateRecord
@@ -42,18 +42,6 @@ const EMPTY_FORM: EmailTemplateFormFields = {
   subject: '',
   body: '',
   is_active: true,
-}
-
-function pickDefaultCompanyId(
-  companies: CompanyRecord[],
-  userCompanyId: number | null,
-): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
-  }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
 }
 
 type EmailTemplatesPanelConfig = {
@@ -133,14 +121,17 @@ const EmailTemplatesPanel = ({
   historyPathForId,
 }: EmailTemplatesPanelConfig) => {
   const { canWrite: templatesWrite } = useFeatureAccess('email_templates')
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
-  const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter({ onFetchError: setError })
 
   const [templates, setTemplates] = useState<EmailTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [editing, setEditing] = useState<EmailTemplateRecord | null>(null)
   const [composing, setComposing] = useState(false)
@@ -176,34 +167,8 @@ const EmailTemplatesPanel = ({
     setDocsModalOpen(false)
   }
 
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    void Promise.all([fetchActiveCompanies(), fetchMe()])
-      .then(([companyRows, user]) => {
-        if (cancelled) return
-        setCompanies(companyRows)
-        setUserCompanyId(user.company)
-        setSelectedCompanyId((prev) => {
-          if (prev != null && companyRows.some((c) => c.id === prev)) return prev
-          return pickDefaultCompanyId(companyRows, user.company)
-        })
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const load = useCallback(async () => {
-    if (selectedCompanyId == null) {
+    if (activeCompanyId == null) {
       setTemplates([])
       setLoading(false)
       return
@@ -211,13 +176,13 @@ const EmailTemplatesPanel = ({
     setLoading(true)
     setError(null)
     try {
-      setTemplates(await fetchTemplates('', selectedCompanyId))
+      setTemplates(await fetchTemplates('', activeCompanyId))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load templates')
     } finally {
       setLoading(false)
     }
-  }, [fetchTemplates, selectedCompanyId])
+  }, [fetchTemplates, activeCompanyId])
 
   useEffect(() => {
     load()
@@ -261,7 +226,7 @@ const EmailTemplatesPanel = ({
 
   const handleSave = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (userCompanyId == null) {
+    if (activeCompanyId == null) {
       setFormError('Your user account has no company; cannot save templates.')
       return
     }
@@ -269,8 +234,8 @@ const EmailTemplatesPanel = ({
     setFormError(null)
     try {
       const payload = editing
-        ? toApiPayload(form, 'edit', editing.name, userCompanyId)
-        : toApiPayload(form, 'create', undefined, userCompanyId)
+        ? toApiPayload(form, 'edit', editing.name, activeCompanyId)
+        : toApiPayload(form, 'create', undefined, activeCompanyId)
       if (editing) {
         await updateTemplate(editing.id, payload)
         setHistoryRefresh((k) => k + 1)
@@ -304,38 +269,22 @@ const EmailTemplatesPanel = ({
 
   const showFormModal = (composing || editing !== null) && !deleteTarget
   const canCreate =
-    templatesWrite && userCompanyId != null && !companiesLoading
+    templatesWrite && activeCompanyId != null && !companiesLoading
 
   return (
     <div>
       <div className="row g-2 align-items-end mb-3">
-        <div className="col-sm-8 col-md-6">
-          <label className="form-label mb-1" htmlFor={`email-templates-company-${typeLabel}`}>
-            Company
-          </label>
-          <select
-            id={`email-templates-company-${typeLabel}`}
-            className="form-select form-select-sm"
-            value={selectedCompanyId ?? ''}
-            disabled={companiesLoading || companies.length === 0}
-            onChange={(e) => {
-              const id = Number(e.target.value)
-              setSelectedCompanyId(Number.isFinite(id) && id > 0 ? id : null)
-              closeModal()
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No active companies</option>
-            ) : (
-              companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                  {company.is_main ? ' (main)' : ''}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
+        <CompanyFilterSelect
+          id={`email-templates-company-${typeLabel}`}
+          className="col-sm-8 col-md-6"
+          companies={companies}
+          loading={companiesLoading}
+          value={selectedCompanyId}
+          onChange={(id) => {
+            setSelectedCompanyId(id)
+            closeModal()
+          }}
+        />
       </div>
 
       <div className="d-flex justify-content-between align-items-center mb-3">

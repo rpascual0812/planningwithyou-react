@@ -1,9 +1,11 @@
-import { useEffect, useState, type SubmitEvent } from 'react'
+import { useState, type SubmitEvent } from 'react'
 import EditModalHistoryTabs from './EditModalHistoryTabs'
 import ResourceHistoryPanel from './ResourceHistoryPanel'
 import { historyPaths } from '../services/history'
 import { parsePhoneNumberFromString } from 'libphonenumber-js'
-import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
+import { useAuthSession } from '../context/AuthSessionContext'
+import { canChangeCompany } from '../lib/companySelection'
+import { useCompanyFilter } from '../hooks/useCompanyFilter'
 import type { ContactPayload, ContactRecord, PhoneNumber, Address } from '../services/contacts'
 import { EMPTY_ADDRESS, EMPTY_PHONE, ensureSingleDefault } from '../lib/contactForm'
 
@@ -42,6 +44,8 @@ export default function ContactFormModal({
   canWrite = true,
   elevated = false,
 }: ContactFormModalProps) {
+  const { currentUser } = useAuthSession()
+  const showCompanyField = canChangeCompany(currentUser)
   const readOnly = !canWrite
   const title = editing
     ? canWrite
@@ -51,26 +55,9 @@ export default function ContactFormModal({
   const [tab, setTab] = useState<'details' | 'history'>('details')
   const showHistory = editing != null
   const [phoneErrors, setPhoneErrors] = useState<Record<number, boolean>>({})
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    void fetchActiveCompanies()
-      .then((data) => {
-        if (!cancelled) setCompanies(data)
-      })
-      .catch(() => {
-        if (!cancelled) setCompanies([])
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { companies, companiesLoading } = useCompanyFilter({
+    fetchCompanies: showCompanyField,
+  })
 
   const markPhoneValidity = (idx: number, value: string) => {
     const valid = validatePhoneField(value)
@@ -177,6 +164,7 @@ export default function ContactFormModal({
                   disabled={readOnly}
                   className="contact-form-fieldset border-0 m-0 p-0 min-w-0"
                 >
+                {showCompanyField && (
                 <div className="mb-3">
                   <label className="form-label" htmlFor="contact-company-id">
                     Company *
@@ -207,6 +195,7 @@ export default function ContactFormModal({
                     )}
                   </select>
                 </div>
+                )}
 
                 <div className="row g-3">
                   <div className="col-sm-6">

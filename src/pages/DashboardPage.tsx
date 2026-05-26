@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CompanyDashboardGrid from '../components/dashboard/CompanyDashboardGrid'
+import { useAuthSession } from '../context/AuthSessionContext'
+import { canChangeCompany } from '../lib/companySelection'
 import {
   fetchDashboardSummary,
   type DashboardCompanySummary,
 } from '../services/dashboard'
 
 const DashboardPage = () => {
+  const { currentUser } = useAuthSession()
+  const allowCompanyChange = canChangeCompany(currentUser)
   const [companies, setCompanies] = useState<DashboardCompanySummary[]>([])
   const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
@@ -48,7 +52,7 @@ const DashboardPage = () => {
       <div className="container-fluid">
         <header className="dash-toolbar">
           
-          {companies.length > 1 && (
+          {allowCompanyChange && companies.length > 1 && (
             <label className="dash-toolbar__select-wrap">
               <span className="visually-hidden">Company</span>
               <select
@@ -95,7 +99,7 @@ const DashboardPage = () => {
           <CompanyDashboardGrid company={selectedCompany} />
         )}
 
-        {!loading && !error && companies.length > 1 && (
+        {!loading && !error && allowCompanyChange && companies.length > 1 && (
           <section className="dash-company-index" aria-label="All companies summary">
             <h2 className="dash-company-index__title">All companies</h2>
             <ul className="dash-company-index__list">

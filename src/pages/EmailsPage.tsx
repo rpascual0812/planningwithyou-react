@@ -8,8 +8,8 @@ import {
   type EmailRecord,
   type EmailPayload,
 } from '../services/emails'
-import { fetchActiveCompanies, type CompanyRecord } from '../services/companies'
-import { fetchMe } from '../services/users'
+import CompanyFilterSelect from '../components/CompanyFilterSelect'
+import { useCompanyFilter } from '../hooks/useCompanyFilter'
 import { useFeatureAccess } from '../hooks/useFeatureAccess'
 
 const EDIT_PARAM = 'edit'
@@ -37,29 +37,22 @@ const formatRecipients = (addrs: string[]) => {
   return `${addrs[0]}, ${addrs[1]} (+${addrs.length - 2})`
 }
 
-function pickDefaultCompanyId(
-  companies: CompanyRecord[],
-  userCompanyId: number | null,
-): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
-  }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
-}
-
 const EmailsPage = () => {
   const { canWrite: emailsWrite } = useFeatureAccess('emails')
   const [searchParams, setSearchParams] = useSearchParams()
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
-  const isAccountAdmin = emailsWrite
+  const [error, setError] = useState<string | null>(null)
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter({
+    onFetchError: setError,
+  })
 
   const [emails, setEmails] = useState<EmailRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -97,31 +90,6 @@ const EmailsPage = () => {
     }
   }, [search])
 
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    void Promise.all([fetchActiveCompanies(), fetchMe()])
-      .then(([companyRows, user]) => {
-        if (cancelled) return
-        setCompanies(companyRows)
-        setSelectedCompanyId((prev) => {
-          if (prev != null && companyRows.some((c) => c.id === prev)) return prev
-          return pickDefaultCompanyId(companyRows, user.company)
-        })
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const loadEmails = useCallback(
     async (q = '', status = '', companyId: number | null = null) => {
       if (companyId == null) {
@@ -144,8 +112,8 @@ const EmailsPage = () => {
   )
 
   useEffect(() => {
-    void loadEmails(debouncedSearch, statusFilter, selectedCompanyId)
-  }, [debouncedSearch, statusFilter, selectedCompanyId, loadEmails])
+    void loadEmails(debouncedSearch, statusFilter, activeCompanyId)
+  }, [debouncedSearch, statusFilter, activeCompanyId, loadEmails])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -206,7 +174,7 @@ const EmailsPage = () => {
         await sendEmail(data)
       }
       closeModal()
-      await loadEmails(debouncedSearch, statusFilter, selectedCompanyId)
+      await loadEmails(debouncedSearch, statusFilter, activeCompanyId)
     } catch (e) {
       setResendError(e instanceof Error ? e.message : 'Send failed')
     } finally {
@@ -219,44 +187,13 @@ const EmailsPage = () => {
       <div className="container-fluid">
         <div className="emails-table-card">
           <div className="row g-2 align-items-end mb-3 px-2 pt-2">
-            <div className="col-sm-8 col-md-4">
-              <label className="form-label mb-1" htmlFor="emails-company">
-                Company
-              </label>
-              <select
-                id="emails-company"
-                className="form-select form-select-sm"
-                value={selectedCompanyId ?? ''}
-                disabled={
-                  companiesLoading ||
-                  companies.length === 0 ||
-                  (!isAccountAdmin && companies.length <= 1)
-                }
-                onChange={(e) => {
-                  const raw = e.target.value
-                  setSelectedCompanyId(raw === '' ? null : Number(raw))
-                }}
-              >
-                {companies.length === 0 ? (
-                  <option value="">No active companies</option>
-                ) : (
-                  companies.map((company) => (
-                    <option
-                      key={company.id}
-                      value={company.id}
-                      disabled={
-                        !isAccountAdmin &&
-                        selectedCompanyId != null &&
-                        company.id !== selectedCompanyId
-                      }
-                    >
-                      {company.name}
-                      {company.is_main ? ' (main)' : ''}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
+            <CompanyFilterSelect
+              id="emails-company"
+              companies={companies}
+              loading={companiesLoading}
+              value={selectedCompanyId}
+              onChange={setSelectedCompanyId}
+            />
           </div>
           <div className="emails-table-toolbar">
             <div className="emails-search">
@@ -301,7 +238,7 @@ const EmailsPage = () => {
                   type="button"
                   className="btn btn-sm btn-primary"
                   onClick={openCompose}
-                  disabled={selectedCompanyId == null || companiesLoading}
+                  disabled={activeCompanyId == null || companiesLoading}
                 >
                   <i className="bi bi-pencil-square me-1" />
                   Compose
@@ -374,7 +311,7 @@ const EmailsPage = () => {
                   {emails.length === 0 && !loading && (
                     <tr>
                       <td colSpan={9} className="emails-table-empty">
-                        {search || statusFilter || selectedCompanyId != null
+                        {search || statusFilter || activeCompanyId != null
                           ? 'No emails match your filters.'
                           : 'No emails recorded yet.'}
                       </td>
@@ -395,7 +332,7 @@ const EmailsPage = () => {
           canWrite={emailsWrite}
           onSend={handleSend}
           onClose={closeModal}
-          bookingTemplateCompanyId={selectedCompanyId}
+          bookingTemplateCompanyId={activeCompanyId}
         />
       )}
     </div>

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchActiveCompanies, type CompanyRecord } from '../../../services/companies'
+import { useAuthSession } from '../../../context/AuthSessionContext'
+import CompanyFilterSelect from '../../../components/CompanyFilterSelect'
+import { useCompanyFilter } from '../../../hooks/useCompanyFilter'
+import { companyNameForScope } from '../../../lib/companySelection'
 import {
   createTier,
   deleteTier,
@@ -10,20 +13,19 @@ import {
 } from '../../../services/tiers'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
-function pickDefaultCompanyId(companies: CompanyRecord[]): number | null {
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
-}
-
 const TiersPanel = () => {
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const { currentUser } = useAuthSession()
+  const [error, setError] = useState<string | null>(null)
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter({ onFetchError: setError })
 
   const [tiers, setTiers] = useState<TierRecord[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<TierRecord | null>(null)
@@ -34,32 +36,6 @@ const TiersPanel = () => {
 
   const [deleteTarget, setDeleteTarget] = useState<TierRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    setError(null)
-    void fetchActiveCompanies()
-      .then((data) => {
-        if (cancelled) return
-        setCompanies(data)
-        setSelectedCompanyId((prev) => {
-          if (prev != null && data.some((c) => c.id === prev)) return prev
-          return pickDefaultCompanyId(data)
-        })
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const loadTiers = useCallback(async (companyId: number) => {
     setLoading(true)
@@ -74,12 +50,12 @@ const TiersPanel = () => {
   }, [])
 
   useEffect(() => {
-    if (selectedCompanyId == null) {
+    if (activeCompanyId == null) {
       setTiers([])
       return
     }
-    void loadTiers(selectedCompanyId)
-  }, [selectedCompanyId, loadTiers])
+    void loadTiers(activeCompanyId)
+  }, [activeCompanyId, loadTiers])
 
   const openAdd = () => {
     setEditing(null)
@@ -109,7 +85,7 @@ const TiersPanel = () => {
       setFormError('Name is required.')
       return
     }
-    if (!editing && selectedCompanyId == null) {
+    if (!editing && activeCompanyId == null) {
       setFormError('Select a company first.')
       return
     }
@@ -121,11 +97,11 @@ const TiersPanel = () => {
         await updateTier(editing.id, payload)
         showSuccessToast('Tier updated.')
       } else {
-        await createTier({ ...payload, company: selectedCompanyId! })
+        await createTier({ ...payload, company: activeCompanyId! })
         showSuccessToast('Tier created.')
       }
       closeModal()
-      if (selectedCompanyId != null) await loadTiers(selectedCompanyId)
+      if (activeCompanyId != null) await loadTiers(activeCompanyId)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
       setFormError(message)
@@ -136,14 +112,14 @@ const TiersPanel = () => {
   }
 
   const confirmDelete = async () => {
-    if (!deleteTarget || selectedCompanyId == null) return
+    if (!deleteTarget || activeCompanyId == null) return
     setDeleting(true)
     try {
       await deleteTier(deleteTarget.id)
       showSuccessToast('Tier deleted.')
       setDeleteTarget(null)
       if (editing?.id === deleteTarget.id) closeModal()
-      await loadTiers(selectedCompanyId)
+      await loadTiers(activeCompanyId)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Delete failed'
       setError(message)
@@ -154,38 +130,24 @@ const TiersPanel = () => {
     }
   }
 
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId)
-  const canManageTiers = selectedCompanyId != null && !companiesLoading
+  const selectedCompanyName = companyNameForScope(
+    companies,
+    activeCompanyId,
+    currentUser,
+  )
+  const canManageTiers = activeCompanyId != null && !companiesLoading
 
   return (
     <div>
       <div className="row g-2 align-items-end mb-3">
-        <div className="col-sm-8 col-md-6">
-          <label className="form-label mb-1" htmlFor="tiers-company">
-            Company
-          </label>
-          <select
-            id="tiers-company"
-            className="form-select form-select-sm"
-            value={selectedCompanyId ?? ''}
-            disabled={companiesLoading || companies.length === 0}
-            onChange={(e) => {
-              const id = Number(e.target.value)
-              setSelectedCompanyId(Number.isFinite(id) && id > 0 ? id : null)
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No active companies</option>
-            ) : (
-              companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                  {company.is_main ? ' (main)' : ''}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
+        <CompanyFilterSelect
+          id="tiers-company"
+          className="col-sm-8 col-md-6"
+          companies={companies}
+          loading={companiesLoading}
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+        />
         <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
           <button
             type="button"
@@ -201,8 +163,8 @@ const TiersPanel = () => {
 
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
-          {selectedCompany
-            ? `${tiers.length} tier${tiers.length !== 1 ? 's' : ''} for ${selectedCompany.name}`
+          {selectedCompanyName
+            ? `${tiers.length} tier${tiers.length !== 1 ? 's' : ''} for ${selectedCompanyName}`
             : 'Select a company to view tiers'}
         </span>
       </div>
@@ -211,7 +173,7 @@ const TiersPanel = () => {
 
       {companiesLoading || (loading && tiers.length === 0) ? (
         <div className="text-muted">Loading…</div>
-      ) : selectedCompanyId == null ? (
+      ) : activeCompanyId == null ? (
         <div className="text-muted small">Add an active company before managing tiers.</div>
       ) : tiers.length === 0 ? (
         <div className="text-muted small">
@@ -290,9 +252,9 @@ const TiersPanel = () => {
                   />
                 </div>
                 <div className="modal-body">
-                  {!editing && selectedCompany && (
+                  {!editing && selectedCompanyName && (
                     <p className="text-muted small">
-                      Company: <strong>{selectedCompany.name}</strong>
+                      Company: <strong>{selectedCompanyName}</strong>
                     </p>
                   )}
                   <div className="mb-3">

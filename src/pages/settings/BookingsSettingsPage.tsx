@@ -14,9 +14,9 @@ import {
 } from '../../services/formTemplates'
 import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
-import { fetchActiveCompanies, type CompanyRecord } from '../../services/companies'
+import CompanyFilterSelect from '../../components/CompanyFilterSelect'
+import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { historyPaths } from '../../services/history'
-import { fetchMe } from '../../services/users'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
 import BookingStatusesPanel from './bookings/BookingStatusesPanel'
 import {
@@ -95,18 +95,6 @@ function clearDraft(key: string) {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function pickDefaultCompanyId(
-  companies: CompanyRecord[],
-  userCompanyId: number | null,
-): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
-  }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
-}
 
 function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
   return {
@@ -444,13 +432,17 @@ const FormTemplatesPanel = () => {
   const { canWrite: templatesWrite } = useFeatureAccess('booking_settings_statuses')
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter({ onFetchError: setError })
 
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [editing, setEditing] = useState<FormTemplateRecord | null>(null)
   const [composing, setComposing] = useState(
@@ -480,35 +472,9 @@ const FormTemplatesPanel = () => {
     }, { replace: true })
   }
 
-  /* -- companies -- */
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    void Promise.all([fetchActiveCompanies(), fetchMe()])
-      .then(([companyRows, user]) => {
-        if (cancelled) return
-        setCompanies(companyRows)
-        setSelectedCompanyId((prev) => {
-          if (prev != null && companyRows.some((c) => c.id === prev)) return prev
-          return pickDefaultCompanyId(companyRows, user.company)
-        })
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   /* -- data loading -- */
   const load = useCallback(async () => {
-    if (selectedCompanyId == null) {
+    if (activeCompanyId == null) {
       setTemplates([])
       setLoading(false)
       return
@@ -516,13 +482,13 @@ const FormTemplatesPanel = () => {
     setLoading(true)
     setError(null)
     try {
-      setTemplates(await fetchFormTemplates(selectedCompanyId))
+      setTemplates(await fetchFormTemplates(activeCompanyId))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load templates')
     } finally {
       setLoading(false)
     }
-  }, [selectedCompanyId])
+  }, [activeCompanyId])
 
   useEffect(() => {
     load()
@@ -570,7 +536,7 @@ const FormTemplatesPanel = () => {
 
   /* -- save -- */
   const handleSave = async (payload: FormTemplatePayload) => {
-    if (!editing && selectedCompanyId == null) {
+    if (!editing && activeCompanyId == null) {
       setFormError('Select a company before creating a template.')
       return
     }
@@ -583,7 +549,7 @@ const FormTemplatesPanel = () => {
       } else {
         const created = await createFormTemplate({
           ...payload,
-          company_id: selectedCompanyId!,
+          company_id: activeCompanyId!,
         })
         writeTplParam(String(created.id))
       }
@@ -616,38 +582,22 @@ const FormTemplatesPanel = () => {
   const showModal = !!(editing || composing)
 
   const canCreate =
-    templatesWrite && selectedCompanyId != null && !companiesLoading
+    templatesWrite && activeCompanyId != null && !companiesLoading
 
   return (
     <div>
       <div className="row g-2 align-items-end mb-3">
-        <div className="col-sm-8 col-md-6">
-          <label className="form-label mb-1" htmlFor="form-templates-company">
-            Company
-          </label>
-          <select
-            id="form-templates-company"
-            className="form-select form-select-sm"
-            value={selectedCompanyId ?? ''}
-            disabled={companiesLoading || companies.length === 0}
-            onChange={(e) => {
-              const id = Number(e.target.value)
-              setSelectedCompanyId(Number.isFinite(id) && id > 0 ? id : null)
-              closeModal()
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No active companies</option>
-            ) : (
-              companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                  {company.is_main ? ' (main)' : ''}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
+        <CompanyFilterSelect
+          id="form-templates-company"
+          className="col-sm-8 col-md-6"
+          companies={companies}
+          loading={companiesLoading}
+          value={selectedCompanyId}
+          onChange={(id) => {
+            setSelectedCompanyId(id)
+            closeModal()
+          }}
+        />
       </div>
 
       {/* Toolbar */}

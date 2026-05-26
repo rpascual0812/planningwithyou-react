@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
-import { fetchActiveCompanies, type CompanyRecord } from '../../../services/companies'
+import { useAuthSession } from '../../../context/AuthSessionContext'
+import CompanyFilterSelect from '../../../components/CompanyFilterSelect'
+import { useCompanyFilter } from '../../../hooks/useCompanyFilter'
+import { companyNameForScope } from '../../../lib/companySelection'
 import {
   createPackageVersion,
   fetchPackageVersions,
@@ -18,21 +21,8 @@ import {
   type PackageRecord,
 } from '../../../services/packages'
 import { fetchAllTiers, type TierRecord } from '../../../services/tiers'
-import { fetchMe } from '../../../services/users'
 import { datetimeLocalToIso, formatLocalDateTime } from '../../../lib/calendarEventFormat'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
-
-function pickDefaultCompanyId(
-  companies: CompanyRecord[],
-  userCompanyId: number | null,
-): number | null {
-  if (userCompanyId != null && companies.some((c) => c.id === userCompanyId)) {
-    return userCompanyId
-  }
-  if (companies.length === 0) return null
-  const main = companies.find((c) => c.is_main)
-  return main?.id ?? companies[0].id
-}
 
 function nowDatetimeLocalValue(): string {
   return formatLocalDateTime(new Date())
@@ -151,9 +141,14 @@ function countPackageItems(items: PackageItemDraft[]): number {
 }
 
 const PackagesPanel = () => {
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const { currentUser } = useAuthSession()
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter()
 
   const [tiers, setTiers] = useState<TierRecord[]>([])
   const [tiersLoading, setTiersLoading] = useState(false)
@@ -194,32 +189,6 @@ const PackagesPanel = () => {
   const [deleteTarget, setDeleteTarget] = useState<PackageRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    setError(null)
-    void Promise.all([fetchActiveCompanies(), fetchMe()])
-      .then(([companyRows, user]) => {
-        if (cancelled) return
-        setCompanies(companyRows)
-        setSelectedCompanyId((prev) => {
-          if (prev != null && companyRows.some((c) => c.id === prev)) return prev
-          return pickDefaultCompanyId(companyRows, user.company)
-        })
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   const loadTiers = useCallback(async (companyId: number) => {
     setTiersLoading(true)
     try {
@@ -258,16 +227,16 @@ const PackagesPanel = () => {
   }, [])
 
   useEffect(() => {
-    if (selectedCompanyId == null) {
+    if (activeCompanyId == null) {
       setTiers([])
       setPackageVersions([])
       setSelectedTierId(null)
       setSelectedPackageVersionId(null)
       return
     }
-    void loadTiers(selectedCompanyId)
-    void loadPackageVersions(selectedCompanyId)
-  }, [selectedCompanyId, loadTiers, loadPackageVersions])
+    void loadTiers(activeCompanyId)
+    void loadPackageVersions(activeCompanyId)
+  }, [activeCompanyId, loadTiers, loadPackageVersions])
 
   const loadPackages = useCallback(
     async (companyId: number, tierId: number, packageVersionId: number) => {
@@ -286,15 +255,15 @@ const PackagesPanel = () => {
 
   useEffect(() => {
     if (
-      selectedCompanyId == null ||
+      activeCompanyId == null ||
       selectedTierId == null ||
       selectedPackageVersionId == null
     ) {
       setPackages([])
       return
     }
-    void loadPackages(selectedCompanyId, selectedTierId, selectedPackageVersionId)
-  }, [selectedCompanyId, selectedTierId, selectedPackageVersionId, loadPackages])
+    void loadPackages(activeCompanyId, selectedTierId, selectedPackageVersionId)
+  }, [activeCompanyId, selectedTierId, selectedPackageVersionId, loadPackages])
 
   const resetItemDraft = () => {
     setItemName('')
@@ -408,7 +377,7 @@ const PackagesPanel = () => {
       setVersionFormError('Title is required.')
       return
     }
-    if (selectedCompanyId == null) {
+    if (activeCompanyId == null) {
       setVersionFormError('Select a company first.')
       return
     }
@@ -425,11 +394,11 @@ const PackagesPanel = () => {
         description: versionDescription.trim(),
         effectivity_date: datetimeLocalToIso(versionEffectivityDate),
         is_active: versionIsActive,
-        company: selectedCompanyId,
+        company: activeCompanyId,
       })
       showSuccessToast('Package version created.')
       closeVersionModal()
-      await loadPackageVersions(selectedCompanyId)
+      await loadPackageVersions(activeCompanyId)
       setSelectedPackageVersionId(created.id)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
@@ -468,7 +437,7 @@ const PackagesPanel = () => {
         return
       }
     }
-    if (!editing && selectedCompanyId == null) {
+    if (!editing && activeCompanyId == null) {
       setFormError('Select a company first.')
       return
     }
@@ -494,18 +463,18 @@ const PackagesPanel = () => {
       } else {
         await createPackage({
           ...payload,
-          company: selectedCompanyId!,
+          company: activeCompanyId!,
           package_version: selectedPackageVersionId!,
         })
         showSuccessToast('Package created.')
       }
       closePackageModal()
       if (
-        selectedCompanyId != null &&
+        activeCompanyId != null &&
         selectedTierId != null &&
         selectedPackageVersionId != null
       ) {
-        await loadPackages(selectedCompanyId, selectedTierId, selectedPackageVersionId)
+        await loadPackages(activeCompanyId, selectedTierId, selectedPackageVersionId)
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
@@ -519,7 +488,7 @@ const PackagesPanel = () => {
   const confirmDelete = async () => {
     if (
       !deleteTarget ||
-      selectedCompanyId == null ||
+      activeCompanyId == null ||
       selectedTierId == null ||
       selectedPackageVersionId == null
     ) {
@@ -531,7 +500,7 @@ const PackagesPanel = () => {
       showSuccessToast('Package deleted.')
       setDeleteTarget(null)
       if (editing?.id === deleteTarget.id) closePackageModal()
-      await loadPackages(selectedCompanyId, selectedTierId, selectedPackageVersionId)
+      await loadPackages(activeCompanyId, selectedTierId, selectedPackageVersionId)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Delete failed'
       setError(message)
@@ -592,7 +561,11 @@ const PackagesPanel = () => {
       return [row, ...renderItemRows(item.children, depth + 1)]
     })
 
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId)
+  const selectedCompanyName = companyNameForScope(
+    companies,
+    activeCompanyId,
+    currentUser,
+  )
   const selectedTier = tiers.find((t) => t.id === selectedTierId)
   const selectedVersion = packageVersions.find((v) => v.id === selectedPackageVersionId)
   const isFirstPackageInScope = !editing && packages.length === 0
@@ -601,7 +574,7 @@ const PackagesPanel = () => {
   const activeCheckboxLocked = isFirstPackageInScope || isOnlyActivePackageInScope
   const filtersLoading = tiersLoading || versionsLoading
   const canManage =
-    selectedCompanyId != null &&
+    activeCompanyId != null &&
     selectedTierId != null &&
     selectedPackageVersionId != null &&
     !companiesLoading &&
@@ -610,32 +583,14 @@ const PackagesPanel = () => {
   return (
     <div>
       <div className="row g-2 align-items-end mb-3">
-        <div className="col-sm-8 col-md-6">
-          <label className="form-label mb-1" htmlFor="packages-company">
-            Company
-          </label>
-          <select
-            id="packages-company"
-            className="form-select form-select-sm"
-            value={selectedCompanyId ?? ''}
-            disabled={companiesLoading || companies.length === 0}
-            onChange={(e) => {
-              const id = Number(e.target.value)
-              setSelectedCompanyId(Number.isFinite(id) && id > 0 ? id : null)
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No active companies</option>
-            ) : (
-              companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                  {company.is_main ? ' (main)' : ''}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
+        <CompanyFilterSelect
+          id="packages-company"
+          className="col-sm-8 col-md-6"
+          companies={companies}
+          loading={companiesLoading}
+          value={selectedCompanyId}
+          onChange={setSelectedCompanyId}
+        />
         <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
           <button
             type="button"
@@ -658,7 +613,7 @@ const PackagesPanel = () => {
             id="packages-tier"
             className="form-select form-select-sm"
             value={selectedTierId ?? ''}
-            disabled={selectedCompanyId == null || tiersLoading || tiers.length === 0}
+            disabled={activeCompanyId == null || tiersLoading || tiers.length === 0}
             onChange={(e) => {
               const id = Number(e.target.value)
               setSelectedTierId(Number.isFinite(id) && id > 0 ? id : null)
@@ -686,7 +641,7 @@ const PackagesPanel = () => {
               className="form-select"
               value={selectedPackageVersionId ?? ''}
               disabled={
-                selectedCompanyId == null || versionsLoading || packageVersions.length === 0
+                activeCompanyId == null || versionsLoading || packageVersions.length === 0
               }
               onChange={(e) => {
                 const id = Number(e.target.value)
@@ -711,7 +666,7 @@ const PackagesPanel = () => {
               type="button"
               className="btn btn-outline-primary"
               title="Add package version"
-              disabled={selectedCompanyId == null || companiesLoading}
+              disabled={activeCompanyId == null || companiesLoading}
               onClick={openVersionModal}
             >
               <i className="bi bi-plus-lg" />
@@ -722,9 +677,9 @@ const PackagesPanel = () => {
 
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
-          {selectedCompany && selectedTier && selectedVersion
-            ? `${packages.length} package${packages.length !== 1 ? 's' : ''} for ${selectedCompany.name} · ${selectedTier.name} · ${selectedVersion.title}${selectedVersion.effectivity_date ? ` (${formatEffectivityDateTime(selectedVersion.effectivity_date)})` : ''}`
-            : selectedCompany
+          {selectedCompanyName && selectedTier && selectedVersion
+            ? `${packages.length} package${packages.length !== 1 ? 's' : ''} for ${selectedCompanyName} · ${selectedTier.name} · ${selectedVersion.title}${selectedVersion.effectivity_date ? ` (${formatEffectivityDateTime(selectedVersion.effectivity_date)})` : ''}`
+            : selectedCompanyName
               ? 'Select a tier and package version to view packages'
               : 'Select a company to view packages'}
         </span>
@@ -734,7 +689,7 @@ const PackagesPanel = () => {
 
       {companiesLoading || filtersLoading || (loading && packages.length === 0) ? (
         <div className="text-muted">Loading…</div>
-      ) : selectedCompanyId == null ? (
+      ) : activeCompanyId == null ? (
         <div className="text-muted small">Add an active company before managing packages.</div>
       ) : selectedPackageVersionId == null ? (
         <div className="text-muted small">
@@ -819,9 +774,9 @@ const PackagesPanel = () => {
                   />
                 </div>
                 <div className="modal-body">
-                  {!editing && selectedCompany && selectedVersion && (
+                  {!editing && selectedCompanyName && selectedVersion && (
                     <p className="text-muted small mb-3">
-                      Company: <strong>{selectedCompany.name}</strong>
+                      Company: <strong>{selectedCompanyName}</strong>
                       <br />
                       Version: <strong>{selectedVersion.title}</strong>
                     </p>
@@ -1073,9 +1028,9 @@ const PackagesPanel = () => {
                   />
                 </div>
                 <div className="modal-body">
-                  {selectedCompany && (
+                  {selectedCompanyName && (
                     <p className="text-muted small mb-3">
-                      Company: <strong>{selectedCompany.name}</strong>
+                      Company: <strong>{selectedCompanyName}</strong>
                     </p>
                   )}
                   <div className="mb-3">

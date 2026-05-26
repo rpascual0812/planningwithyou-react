@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
 import { useAuthSession } from '../../../context/AuthSessionContext'
+import { useCompanyFilter } from '../../../hooks/useCompanyFilter'
+import { showCompanyFilter } from '../../../lib/companySelection'
 import PayMongoIntegrationCard, {
   PayMongoIntegrationIcon,
   PAYMONGO_INTEGRATION,
 } from '../../../components/integrations/PayMongoIntegrationCard'
-import {
-  fetchActiveCompanies,
-  type CompanyRecord,
-} from '../../../services/companies'
+import type { CompanyRecord } from '../../../services/companies'
 import {
   disconnectPayMongoIntegration,
   fetchPayMongoIntegration,
@@ -40,46 +39,31 @@ function companyOptionLabel(company: CompanyRecord): string {
 
 const IntegrationsPanel = () => {
   const { currentUser } = useAuthSession()
-  const [companies, setCompanies] = useState<CompanyRecord[]>([])
-  const [companiesLoading, setCompaniesLoading] = useState(true)
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+    canChangeCompany,
+  } = useCompanyFilter({ onFetchError: setError })
+  const showCompanySelect = showCompanyFilter(currentUser, companies)
 
   const [status, setStatus] = useState<PayMongoIntegrationStatus | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
-    setCompaniesLoading(true)
-    void fetchActiveCompanies()
-      .then((rows) => {
-        if (cancelled) return
-        setCompanies(rows)
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Failed to load companies')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCompaniesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    if (companies.length === 0) return
-    const selected = companies.find((c) => c.id === selectedCompanyId)
+    if (!canChangeCompany || companies.length === 0) return
+    const selected = companies.find((c) => c.id === activeCompanyId)
     if (selected?.kyb_verified) return
     setSelectedCompanyId(
       pickDefaultCompanyId(companies, currentUser?.company ?? null),
     )
-  }, [companies, selectedCompanyId, currentUser?.company])
+  }, [canChangeCompany, companies, activeCompanyId, currentUser?.company])
 
   const loadStatus = useCallback(async (companyId: number) => {
     setLoading(true)
@@ -96,17 +80,19 @@ const IntegrationsPanel = () => {
   }, [])
 
   useEffect(() => {
-    if (selectedCompanyId == null) {
+    if (activeCompanyId == null) {
       setStatus(null)
       return
     }
-    const company = companies.find((c) => c.id === selectedCompanyId)
-    if (!company?.kyb_verified) {
-      setStatus(null)
-      return
+    if (canChangeCompany) {
+      const company = companies.find((c) => c.id === activeCompanyId)
+      if (!company?.kyb_verified) {
+        setStatus(null)
+        return
+      }
     }
-    void loadStatus(selectedCompanyId)
-  }, [selectedCompanyId, loadStatus, companies])
+    void loadStatus(activeCompanyId)
+  }, [activeCompanyId, loadStatus, companies, canChangeCompany])
 
   const openModal = () => {
     if (!selectedCompany?.kyb_verified) return
@@ -120,11 +106,11 @@ const IntegrationsPanel = () => {
   const paymongoStatusLabel = status?.onboarding_status_label ?? '—'
 
   const handleConnect = async () => {
-    if (selectedCompanyId == null) return
+    if (activeCompanyId == null) return
     setSaving(true)
     setError(null)
     try {
-      const updated = await startPayMongoOnboarding(selectedCompanyId)
+      const updated = await startPayMongoOnboarding(activeCompanyId)
       setStatus(updated)
       showSuccessToast('PayMongo onboarding started.')
       if (updated.identity_verification_url) {
@@ -140,10 +126,10 @@ const IntegrationsPanel = () => {
   }
 
   const handleRefresh = async () => {
-    if (selectedCompanyId == null) return
+    if (activeCompanyId == null) return
     setSaving(true)
     try {
-      const updated = await refreshPayMongoIntegration(selectedCompanyId)
+      const updated = await refreshPayMongoIntegration(activeCompanyId)
       setStatus(updated)
       showSuccessToast('PayMongo status updated.')
     } catch (e) {
@@ -158,7 +144,7 @@ const IntegrationsPanel = () => {
   }
 
   const handleDisconnect = async () => {
-    if (selectedCompanyId == null) return
+    if (activeCompanyId == null) return
     const result = await Swal.fire({
       title: 'Disconnect PayMongo?',
       text: 'This company will no longer accept payments until PayMongo is connected again.',
@@ -170,7 +156,7 @@ const IntegrationsPanel = () => {
     if (!result.isConfirmed) return
     setSaving(true)
     try {
-      const updated = await disconnectPayMongoIntegration(selectedCompanyId)
+      const updated = await disconnectPayMongoIntegration(activeCompanyId)
       setStatus(updated)
       showSuccessToast('PayMongo disconnected.')
     } catch (e) {
@@ -184,9 +170,13 @@ const IntegrationsPanel = () => {
     }
   }
 
-  const selectedCompany = companies.find((c) => c.id === selectedCompanyId)
-  const selectedKybVerified = selectedCompany?.kyb_verified === true
-  const hasVerifiedCompany = companies.some((c) => c.kyb_verified)
+  const selectedCompany = companies.find((c) => c.id === activeCompanyId)
+  const selectedKybVerified = canChangeCompany
+    ? selectedCompany?.kyb_verified === true
+    : activeCompanyId != null
+  const hasVerifiedCompany = canChangeCompany
+    ? companies.some((c) => c.kyb_verified)
+    : activeCompanyId != null
 
   const needsVerification =
     status != null &&
@@ -196,50 +186,63 @@ const IntegrationsPanel = () => {
   return (
     <>
       <div className="row g-2 align-items-end mb-3">
-        <div className="col-sm-8 col-md-5">
-          <label className="form-label mb-1" htmlFor="integrations-company">
-            Company
-          </label>
-          <select
-            id="integrations-company"
-            className="form-select form-select-sm"
-            value={selectedCompanyId ?? ''}
-            disabled={companiesLoading || companies.length === 0}
-            onChange={(e) => {
-              const raw = e.target.value
-              setSelectedCompanyId(raw === '' ? null : Number(raw))
-            }}
-          >
-            {companies.length === 0 ? (
-              <option value="">No active companies</option>
-            ) : !hasVerifiedCompany ? (
-              <option value="">No KYB-verified companies</option>
-            ) : (
-              companies.map((company) => (
-                <option
-                  key={company.id}
-                  value={company.id}
-                  disabled={!company.kyb_verified}
-                >
-                  {companyOptionLabel(company)}
-                </option>
-              ))
+        {showCompanySelect && (
+          <div className="col-sm-8 col-md-5">
+            <label className="form-label mb-1" htmlFor="integrations-company">
+              Company
+            </label>
+            <select
+              id="integrations-company"
+              className="form-select form-select-sm"
+              value={selectedCompanyId ?? ''}
+              disabled={companiesLoading || companies.length === 0}
+              onChange={(e) => {
+                const raw = e.target.value
+                setSelectedCompanyId(raw === '' ? null : Number(raw))
+              }}
+            >
+              {companies.length === 0 ? (
+                <option value="">No active companies</option>
+              ) : !hasVerifiedCompany ? (
+                <option value="">No KYB-verified companies</option>
+              ) : (
+                companies.map((company) => (
+                  <option
+                    key={company.id}
+                    value={company.id}
+                    disabled={!company.kyb_verified}
+                  >
+                    {companyOptionLabel(company)}
+                  </option>
+                ))
+              )}
+            </select>
+            {companies.length > 0 && !hasVerifiedCompany && (
+              <div className="form-text text-warning">
+                Complete KYB verification for a company before configuring
+                payment integrations.
+              </div>
             )}
-          </select>
-          {companies.length > 0 && !hasVerifiedCompany && (
-            <div className="form-text text-warning">
-              Complete KYB verification for a company before configuring
-              payment integrations.
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+        {!canChangeCompany && activeCompanyId != null && (
+          <div className="col-sm-8 col-md-5">
+            <span className="text-muted small">
+              Company:{' '}
+              <strong>{currentUser?.company_name ?? `Company #${activeCompanyId}`}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {error && (
         <p className="text-danger small mb-2">{error}</p>
       )}
 
-      {!selectedKybVerified && hasVerifiedCompany && selectedCompany && (
+      {canChangeCompany &&
+        !selectedKybVerified &&
+        hasVerifiedCompany &&
+        selectedCompany && (
         <p className="text-warning small mb-2">
           Select a KYB-verified company to manage payment integrations.
         </p>
@@ -274,7 +277,7 @@ const IntegrationsPanel = () => {
         </p>
       )}
 
-      {modalOpen && selectedCompanyId != null && (
+      {modalOpen && activeCompanyId != null && (
         <>
           <div
             className="integration-modal-backdrop modal-backdrop fade show"
