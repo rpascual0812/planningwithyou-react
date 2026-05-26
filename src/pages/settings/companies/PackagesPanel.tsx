@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactElement } from 'react'
 import { useAuthSession } from '../../../context/AuthSessionContext'
 import CompanyFilterSelect from '../../../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../../../hooks/useCompanyFilter'
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { companyNameForScope } from '../../../lib/companySelection'
 import {
   createPackageVersion,
@@ -142,6 +143,7 @@ function countPackageItems(items: PackageItemDraft[]): number {
 
 const PackagesPanel = () => {
   const { currentUser } = useAuthSession()
+  const { canWrite: companiesWrite } = useFeatureAccess('companies_settings')
   const {
     companies,
     companiesLoading,
@@ -538,24 +540,26 @@ const PackagesPanel = () => {
             <div className="fw-semibold packages-modal-item-title">{item.title}</div>
             {priceLine ? <div className="text-muted small">{priceLine}</div> : null}
           </div>
-          <div className="d-flex flex-shrink-0 gap-1">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-primary"
-              title="Add sub-item"
-              onClick={() => openItemModal(item.key)}
-            >
-              <i className="bi bi-plus-lg" />
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger"
-              title="Remove item"
-              onClick={() => removeSavedItem(item.key)}
-            >
-              <i className="bi bi-trash3" />
-            </button>
-          </div>
+          {companiesWrite && (
+            <div className="d-flex flex-shrink-0 gap-1">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary"
+                title="Add sub-item"
+                onClick={() => openItemModal(item.key)}
+              >
+                <i className="bi bi-plus-lg" />
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-danger"
+                title="Remove item"
+                onClick={() => removeSavedItem(item.key)}
+              >
+                <i className="bi bi-trash3" />
+              </button>
+            </div>
+          )}
         </li>
       )
       return [row, ...renderItemRows(item.children, depth + 1)]
@@ -574,6 +578,7 @@ const PackagesPanel = () => {
   const activeCheckboxLocked = isFirstPackageInScope || isOnlyActivePackageInScope
   const filtersLoading = tiersLoading || versionsLoading
   const canManage =
+    companiesWrite &&
     activeCompanyId != null &&
     selectedTierId != null &&
     selectedPackageVersionId != null &&
@@ -591,17 +596,19 @@ const PackagesPanel = () => {
           value={selectedCompanyId}
           onChange={setSelectedCompanyId}
         />
-        <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={openAddPackage}
-            disabled={!canManage}
-          >
-            <i className="bi bi-plus-lg me-1" />
-            Add package
-          </button>
-        </div>
+        {companiesWrite && (
+          <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={openAddPackage}
+              disabled={!canManage}
+            >
+              <i className="bi bi-plus-lg me-1" />
+              Add package
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="row g-2 align-items-end mb-3">
@@ -662,15 +669,17 @@ const PackagesPanel = () => {
                 ))
               )}
             </select>
-            <button
-              type="button"
-              className="btn btn-outline-primary"
-              title="Add package version"
-              disabled={activeCompanyId == null || companiesLoading}
-              onClick={openVersionModal}
-            >
-              <i className="bi bi-plus-lg" />
-            </button>
+            {companiesWrite && (
+              <button
+                type="button"
+                className="btn btn-outline-primary"
+                title="Add package version"
+                disabled={activeCompanyId == null || companiesLoading}
+                onClick={openVersionModal}
+              >
+                <i className="bi bi-plus-lg" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -693,11 +702,15 @@ const PackagesPanel = () => {
         <div className="text-muted small">Add an active company before managing packages.</div>
       ) : selectedPackageVersionId == null ? (
         <div className="text-muted small">
-          Add a package version for this company, or select one from the dropdown.
+          {companiesWrite
+            ? 'Add a package version for this company, or select one from the dropdown.'
+            : 'Select a package version from the dropdown.'}
         </div>
       ) : packages.length === 0 ? (
         <div className="text-muted small">
-          No packages yet for this version. Click &quot;Add package&quot; to create one.
+          {companiesWrite
+            ? 'No packages yet for this version. Click "Add package" to create one.'
+            : 'No packages yet for this version.'}
         </div>
       ) : (
         <div className="table-responsive">
@@ -708,7 +721,7 @@ const PackagesPanel = () => {
                 <th>Description</th>
                 <th>Total price</th>
                 <th className="bookings-tiers-table__active">Active</th>
-                <th className="text-end">Actions</th>
+                {companiesWrite && <th className="text-end">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -729,26 +742,28 @@ const PackagesPanel = () => {
                       <span className="badge text-bg-secondary">No</span>
                     )}
                   </td>
-                  <td className="text-end">
-                    <div className="d-inline-flex gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        title="Edit package"
-                        onClick={() => void openEditPackage(pkg)}
-                      >
-                        <i className="bi bi-pencil-square" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        title="Delete package"
-                        onClick={() => setDeleteTarget(pkg)}
-                      >
-                        <i className="bi bi-trash3" />
-                      </button>
-                    </div>
-                  </td>
+                  {companiesWrite && (
+                    <td className="text-end">
+                      <div className="d-inline-flex gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          title="Edit package"
+                          onClick={() => void openEditPackage(pkg)}
+                        >
+                          <i className="bi bi-pencil-square" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          title="Delete package"
+                          onClick={() => setDeleteTarget(pkg)}
+                        >
+                          <i className="bi bi-trash3" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -879,14 +894,16 @@ const PackagesPanel = () => {
                           {renderItemRows(savedItems)}
                         </ul>
                       )}
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => openItemModal(null)}
-                      >
-                        <i className="bi bi-plus-lg me-1" />
-                        Add item
-                      </button>
+                      {companiesWrite && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => openItemModal(null)}
+                        >
+                          <i className="bi bi-plus-lg me-1" />
+                          Add item
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -903,16 +920,18 @@ const PackagesPanel = () => {
                     onClick={closePackageModal}
                     disabled={saving}
                   >
-                    Cancel
+                    {companiesWrite ? 'Cancel' : 'Close'}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => void handleSavePackage()}
-                    disabled={saving}
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </button>
+                  {companiesWrite && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => void handleSavePackage()}
+                      disabled={saving}
+                    >
+                      {saving ? 'Saving…' : 'Save'}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

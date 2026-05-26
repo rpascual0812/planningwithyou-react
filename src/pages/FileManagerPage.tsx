@@ -507,16 +507,18 @@ const FileManagerPage = () => {
                           >
                             <header className="fm-tile-head">
                               <span />
-                              <button
-                                type="button"
-                                className="fm-tile-menu"
-                                aria-label="More actions"
-                                onClick={(e) =>
-                                  openContext(e, 'folder', folder.id)
-                                }
-                              >
-                                <i className="bi bi-three-dots-vertical" />
-                              </button>
+                              {filesWrite && (
+                                <button
+                                  type="button"
+                                  className="fm-tile-menu"
+                                  aria-label="More actions"
+                                  onClick={(e) =>
+                                    openContext(e, 'folder', folder.id)
+                                  }
+                                >
+                                  <i className="bi bi-three-dots-vertical" />
+                                </button>
+                              )}
                             </header>
                             <div className="fm-tile-icon fm-tile-icon--folder">
                               <i
@@ -540,10 +542,10 @@ const FileManagerPage = () => {
 
                 {/* Documents table */}
                 <section
-                  className={`fm-card fm-section${dragOver ? ' border-primary' : ''}`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
+                  className={`fm-card fm-section${filesWrite && dragOver ? ' border-primary' : ''}`}
+                  onDragOver={filesWrite ? handleDragOver : undefined}
+                  onDragLeave={filesWrite ? handleDragLeave : undefined}
+                  onDrop={filesWrite ? handleDrop : undefined}
                 >
                   <header className="fm-section-head">
                     <h5 className="fm-section-title">
@@ -592,7 +594,7 @@ const FileManagerPage = () => {
                     </div>
                   </header>
 
-                  {dragOver && (
+                  {filesWrite && dragOver && (
                     <div className="text-center text-primary py-3">
                       <i className="bi bi-cloud-arrow-up fs-1" />
                       <p className="mb-0 fw-semibold">Drop files here to upload</p>
@@ -612,7 +614,10 @@ const FileManagerPage = () => {
                     <div className="text-center py-4 text-muted">
                       <i className="bi bi-folder2-open fs-1 d-block mb-2" />
                       No files found.{' '}
-                      {!selectedFolderId && !search && 'Upload files to get started.'}
+                      {filesWrite &&
+                        !selectedFolderId &&
+                        !search &&
+                        'Upload files to get started.'}
                     </div>
                   ) : (
                     <div className="fm-recent-scroll">
@@ -623,7 +628,9 @@ const FileManagerPage = () => {
                             <th>Folder</th>
                             <th>Size</th>
                             <th>Uploaded</th>
-                            <th className="fm-recent-actions-th">Actions</th>
+                            {filesWrite && (
+                              <th className="fm-recent-actions-th">Actions</th>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
@@ -677,37 +684,39 @@ const FileManagerPage = () => {
                               <td className="fm-recent-date">
                                 {formatDate(doc.created_at)}
                               </td>
-                              <td className="fm-recent-actions">
-                                <div className="d-flex gap-1 justify-content-end">
-                                  <button
-                                    type="button"
-                                    className="fm-tile-menu"
-                                    title="Rename"
-                                    onClick={() => {
-                                      setRenamingDocId(doc.id)
-                                      setRenamingDocName(doc.original_name)
-                                    }}
-                                  >
-                                    <i className="bi bi-pencil" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="fm-tile-menu"
-                                    title="Move"
-                                    onClick={() => handleMoveDoc(doc.id)}
-                                  >
-                                    <i className="bi bi-folder-symlink" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="fm-tile-menu"
-                                    title="Delete"
-                                    onClick={() => handleDeleteDoc(doc.id)}
-                                  >
-                                    <i className="bi bi-trash" />
-                                  </button>
-                                </div>
-                              </td>
+                              {filesWrite && (
+                                <td className="fm-recent-actions">
+                                  <div className="d-flex gap-1 justify-content-end">
+                                    <button
+                                      type="button"
+                                      className="fm-tile-menu"
+                                      title="Rename"
+                                      onClick={() => {
+                                        setRenamingDocId(doc.id)
+                                        setRenamingDocName(doc.original_name)
+                                      }}
+                                    >
+                                      <i className="bi bi-pencil" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="fm-tile-menu"
+                                      title="Move"
+                                      onClick={() => handleMoveDoc(doc.id)}
+                                    >
+                                      <i className="bi bi-folder-symlink" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="fm-tile-menu"
+                                      title="Delete"
+                                      onClick={() => handleDeleteDoc(doc.id)}
+                                    >
+                                      <i className="bi bi-trash" />
+                                    </button>
+                                  </div>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -766,16 +775,18 @@ const FileManagerPage = () => {
                                 />
                               </div>
                               <div className="fm-tile-name">{f.name}</div>
-                              <div className="d-flex gap-1 mt-2">
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-success"
-                                  onClick={() => handleRestoreFolder(f.id)}
-                                >
-                                  <i className="bi bi-arrow-counterclockwise me-1" />
-                                  Restore
-                                </button>
-                              </div>
+                              {filesWrite && (
+                                <div className="d-flex gap-1 mt-2">
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-success"
+                                    onClick={() => handleRestoreFolder(f.id)}
+                                  >
+                                    <i className="bi bi-arrow-counterclockwise me-1" />
+                                    Restore
+                                  </button>
+                                </div>
+                              )}
                             </article>
                           ))}
                         </div>
@@ -802,9 +813,11 @@ const FileManagerPage = () => {
                                 <th>Folder</th>
                                 <th>Size</th>
                                 <th>Deleted</th>
-                                <th className="fm-recent-actions-th">
-                                  Actions
-                                </th>
+                                {filesWrite && (
+                                  <th className="fm-recent-actions-th">
+                                    Actions
+                                  </th>
+                                )}
                               </tr>
                             </thead>
                             <tbody>
@@ -835,18 +848,20 @@ const FileManagerPage = () => {
                                       ? formatDate(doc.deleted_at)
                                       : '—'}
                                   </td>
-                                  <td className="fm-recent-actions">
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-success me-1"
-                                      title="Restore"
-                                      onClick={() =>
-                                        handleRestoreDoc(doc.id)
-                                      }
-                                    >
-                                      <i className="bi bi-arrow-counterclockwise" />
-                                    </button>
-                                  </td>
+                                  {filesWrite && (
+                                    <td className="fm-recent-actions">
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-success me-1"
+                                        title="Restore"
+                                        onClick={() =>
+                                          handleRestoreDoc(doc.id)
+                                        }
+                                      >
+                                        <i className="bi bi-arrow-counterclockwise" />
+                                      </button>
+                                    </td>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>
@@ -863,7 +878,8 @@ const FileManagerPage = () => {
       </div>
 
       {/* Context menu */}
-      {contextMenu && (
+      {contextMenu &&
+        (contextMenu.type === 'folder' || filesWrite) && (
         <div
           className="dropdown-menu show"
           style={{

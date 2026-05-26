@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuthSession } from '../../../context/AuthSessionContext'
 import CompanyFilterSelect from '../../../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../../../hooks/useCompanyFilter'
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { companyNameForScope } from '../../../lib/companySelection'
 import {
   createTier,
@@ -15,6 +16,7 @@ import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
 const TiersPanel = () => {
   const { currentUser } = useAuthSession()
+  const { canWrite: companiesWrite } = useFeatureAccess('companies_settings')
   const [error, setError] = useState<string | null>(null)
   const {
     companies,
@@ -135,7 +137,8 @@ const TiersPanel = () => {
     activeCompanyId,
     currentUser,
   )
-  const canManageTiers = activeCompanyId != null && !companiesLoading
+  const canManageTiers =
+    companiesWrite && activeCompanyId != null && !companiesLoading
 
   return (
     <div>
@@ -148,17 +151,19 @@ const TiersPanel = () => {
           value={selectedCompanyId}
           onChange={setSelectedCompanyId}
         />
-        <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={openAdd}
-            disabled={!canManageTiers}
-          >
-            <i className="bi bi-plus-lg me-1" />
-            Add tier
-          </button>
-        </div>
+        {companiesWrite && (
+          <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={openAdd}
+              disabled={!canManageTiers}
+            >
+              <i className="bi bi-plus-lg me-1" />
+              Add tier
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="d-flex justify-content-between align-items-center mb-3">
@@ -177,7 +182,9 @@ const TiersPanel = () => {
         <div className="text-muted small">Add an active company before managing tiers.</div>
       ) : tiers.length === 0 ? (
         <div className="text-muted small">
-          No tiers yet for this company. Click &quot;Add tier&quot; to create one.
+          {companiesWrite
+            ? 'No tiers yet for this company. Click "Add tier" to create one.'
+            : 'No tiers yet for this company.'}
         </div>
       ) : (
         <div className="table-responsive">
@@ -186,7 +193,7 @@ const TiersPanel = () => {
               <tr>
                 <th>Name</th>
                 <th className="bookings-tiers-table__active">Active</th>
-                <th className="text-end">Actions</th>
+                {companiesWrite && <th className="text-end">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -200,26 +207,28 @@ const TiersPanel = () => {
                       <span className="badge text-bg-secondary">No</span>
                     )}
                   </td>
-                  <td className="text-end">
-                    <div className="d-inline-flex gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        title="Edit tier"
-                        onClick={() => openEdit(tier)}
-                      >
-                        <i className="bi bi-pencil-square" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        title="Delete tier"
-                        onClick={() => setDeleteTarget(tier)}
-                      >
-                        <i className="bi bi-trash3" />
-                      </button>
-                    </div>
-                  </td>
+                  {companiesWrite && (
+                    <td className="text-end">
+                      <div className="d-inline-flex gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          title="Edit tier"
+                          onClick={() => openEdit(tier)}
+                        >
+                          <i className="bi bi-pencil-square" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          title="Delete tier"
+                          onClick={() => setDeleteTarget(tier)}
+                        >
+                          <i className="bi bi-trash3" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
