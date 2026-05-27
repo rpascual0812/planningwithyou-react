@@ -3,7 +3,6 @@ import {
   approveAdminKybVerification,
   fetchAdminKybVerification,
 } from '../../services/adminCompanyKyb'
-import KybDocumentDisplay from '../../components/KybDocumentDisplay'
 import type { CompanyKybRecord } from '../../services/companyKyb'
 import { showErrorToast, showSuccessToast } from '../../utils/toast'
 
@@ -17,7 +16,7 @@ type Props = {
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
-  submitted: 'Submitted for review',
+  pending_paymongo: 'Pending PayMongo verification',
   approved: 'Approved',
   rejected: 'Rejected',
 }
@@ -93,7 +92,7 @@ const AdminKybReviewModal = ({
     setError(null)
     try {
       await approveAdminKybVerification(verificationId)
-      showSuccessToast('KYB verification approved.')
+      showSuccessToast('Verification marked approved.')
       onApproved()
       onClose()
     } catch (e) {
@@ -105,15 +104,8 @@ const AdminKybReviewModal = ({
     }
   }
 
-  const ownerFiles = (record?.owner_director_id_files ?? []).map((entry, index) => {
-    if (typeof entry === 'string') {
-      return { label: `Owner/director ${index + 1}`, file: entry }
-    }
-    return {
-      label: entry.label?.trim() || `Owner/director ${index + 1}`,
-      file: entry.file ?? '',
-    }
-  })
+  const bank = record?.bank_details ?? {}
+  const rejectionNote = record?.rejection_reason ?? record?.rejection_notes
 
   return (
     <>
@@ -123,7 +115,7 @@ const AdminKybReviewModal = ({
           <div className="modal-content">
             <div className="modal-header">
               <h2 className="modal-title fs-5">
-                KYB verification — {companyName}
+                Business verification — {companyName}
               </h2>
               <button
                 type="button"
@@ -139,6 +131,11 @@ const AdminKybReviewModal = ({
                 <p className="text-danger mb-0">{error}</p>
               ) : record ? (
                 <>
+                  <p className="text-muted small">
+                    Documents are submitted on PayMongo. This view shows the
+                    application data stored in Planning With You.
+                  </p>
+
                   <div className="row g-3 mb-3">
                     <div className="col-sm-6">
                       <KybReadOnlyText label="Company ID" value={String(record.company)} />
@@ -160,7 +157,13 @@ const AdminKybReviewModal = ({
                     </div>
                     <div className="col-sm-6">
                       <KybReadOnlyText
-                        label="Submitted at"
+                        label="PayMongo merchant ID"
+                        value={record.paymongo_merchant_id}
+                      />
+                    </div>
+                    <div className="col-sm-6">
+                      <KybReadOnlyText
+                        label="Started at"
                         value={formatDateTime(record.submitted_at)}
                       />
                     </div>
@@ -170,111 +173,56 @@ const AdminKybReviewModal = ({
                         value={formatDateTime(record.reviewed_at)}
                       />
                     </div>
-                    <div className="col-sm-6">
-                      <KybReadOnlyText
-                        label="Reviewed by (user id)"
-                        value={
-                          record.reviewed_by != null
-                            ? String(record.reviewed_by)
-                            : ''
-                        }
-                      />
-                    </div>
-                    <div className="col-sm-6">
-                      <KybReadOnlyText
-                        label="Created at"
-                        value={formatDateTime(record.created_at)}
-                      />
-                    </div>
-                    <div className="col-sm-6">
-                      <KybReadOnlyText
-                        label="Updated at"
-                        value={formatDateTime(record.updated_at)}
-                      />
-                    </div>
                   </div>
 
-                  {record.business_type === 'sole_proprietor' && (
-                    <fieldset className="mb-3">
-                      <legend className="fs-6 fw-semibold">Sole proprietorship</legend>
-                      <KybDocumentDisplay
-                        label="Valid government ID"
-                        fileUrl={record.government_id_file}
-                      />
-                      <KybDocumentDisplay
-                        label="DTI registration"
-                        fileUrl={record.dti_registration_file}
-                      />
-                      <KybReadOnlyText
-                        label="Business address"
-                        value={record.sole_prop_business_address}
-                        multiline
-                      />
-                      <KybReadOnlyText
-                        label="Mobile number"
-                        value={record.sole_prop_mobile_number}
-                      />
-                      <KybReadOnlyText
-                        label="Bank account under same name"
-                        value={record.bank_account_same_name}
-                        multiline
-                      />
-                    </fieldset>
-                  )}
-
-                  {record.business_type === 'corporation' && (
-                    <fieldset className="mb-3">
-                      <legend className="fs-6 fw-semibold">Corporation</legend>
-                      <KybDocumentDisplay
-                        label="SEC registration"
-                        fileUrl={record.sec_registration_file}
-                      />
-                      <KybDocumentDisplay
-                        label="Articles of Incorporation"
-                        fileUrl={record.articles_of_incorporation_file}
-                      />
-                      <KybDocumentDisplay
-                        label="BIR registration"
-                        fileUrl={record.bir_registration_file}
-                      />
-                      {ownerFiles.map((row, index) => (
-                        <KybDocumentDisplay
-                          key={index}
-                          label={row.label}
-                          fileUrl={row.file}
-                        />
-                      ))}
-                      <KybReadOnlyText
-                        label="Business website / social pages"
-                        value={record.business_website_social}
-                        multiline
-                      />
-                      <KybReadOnlyText
-                        label="Company email domain"
-                        value={record.company_email_domain}
-                      />
-                    </fieldset>
-                  )}
-
-                  {record.business_type && (
-                    <fieldset className="mb-0">
-                      <legend className="fs-6 fw-semibold">Additional checks</legend>
-                      <KybDocumentDisplay
-                        label="Proof of address"
-                        fileUrl={record.proof_of_address_file}
-                      />
-                      <KybReadOnlyText
-                        label="Business description"
-                        value={record.business_description}
-                        multiline
-                      />
-                    </fieldset>
-                  )}
-
-                  {record.rejection_notes?.trim() ? (
+                  <fieldset className="mb-3">
+                    <legend className="fs-6 fw-semibold">Application</legend>
                     <KybReadOnlyText
-                      label="Rejection notes"
-                      value={record.rejection_notes}
+                      label="Business name"
+                      value={record.merchant_business_name}
+                    />
+                    <KybReadOnlyText label="Email" value={record.merchant_email} />
+                    <KybReadOnlyText
+                      label="Mobile"
+                      value={record.merchant_mobile_number}
+                    />
+                    <KybReadOnlyText
+                      label="Website"
+                      value={record.business_website}
+                    />
+                  </fieldset>
+
+                  <fieldset className="mb-3">
+                    <legend className="fs-6 fw-semibold">Bank details</legend>
+                    <KybReadOnlyText label="Bank" value={bank.bank_name ?? ''} />
+                    <KybReadOnlyText
+                      label="Account name"
+                      value={bank.account_name ?? ''}
+                    />
+                    <KybReadOnlyText
+                      label="Account number"
+                      value={bank.account_number ?? ''}
+                    />
+                  </fieldset>
+
+                  {record.onboarding_url?.trim() ? (
+                    <div className="mb-3">
+                      <div className="text-muted small mb-1">Onboarding URL</div>
+                      <a
+                        href={record.onboarding_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="small"
+                      >
+                        Open PayMongo onboarding
+                      </a>
+                    </div>
+                  ) : null}
+
+                  {rejectionNote?.trim() ? (
+                    <KybReadOnlyText
+                      label="Rejection reason"
+                      value={rejectionNote}
                       multiline
                     />
                   ) : null}
@@ -305,7 +253,7 @@ const AdminKybReviewModal = ({
                     approving || loading || record?.status === 'approved'
                   }
                 >
-                  {approving ? 'Approving…' : 'Approve'}
+                  {approving ? 'Approving…' : 'Manual approve'}
                 </button>
               )}
             </div>

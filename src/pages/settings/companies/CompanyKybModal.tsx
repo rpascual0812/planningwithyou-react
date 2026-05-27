@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   fetchCompanyKyb,
+  startPaymongoKybOnboarding,
   updateCompanyKyb,
   type CompanyKybRecord,
   type KybBusinessType,
 } from '../../../services/companyKyb'
-import KybDocumentDisplay from '../../../components/KybDocumentDisplay'
-import { uploadDocument } from '../../../services/documents'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
 type Props = {
@@ -14,153 +13,54 @@ type Props = {
   companyName: string
   onClose: () => void
   onSaved: () => void
-  /** Raise above another open modal (e.g. booking payments). */
   stacked?: boolean
 }
 
 type KybFormState = {
   business_type: KybBusinessType
-  government_id_file: string
-  dti_registration_file: string
-  sole_prop_business_address: string
-  sole_prop_mobile_number: string
-  bank_account_same_name: string
-  sec_registration_file: string
-  articles_of_incorporation_file: string
-  bir_registration_file: string
-  owner_director_id_files: { label: string; file: string }[]
-  business_website_social: string
-  company_email_domain: string
-  proof_of_address_file: string
-  business_description: string
+  merchant_business_name: string
+  merchant_email: string
+  merchant_mobile_number: string
+  business_website: string
+  bank_name: string
+  bank_account_name: string
+  bank_account_number: string
 }
 
-const EMPTY_FORM: KybFormState = {
-  business_type: '',
-  government_id_file: '',
-  dti_registration_file: '',
-  sole_prop_business_address: '',
-  sole_prop_mobile_number: '',
-  bank_account_same_name: '',
-  sec_registration_file: '',
-  articles_of_incorporation_file: '',
-  bir_registration_file: '',
-  owner_director_id_files: [{ label: '', file: '' }],
-  business_website_social: '',
-  company_email_domain: '',
-  proof_of_address_file: '',
-  business_description: '',
-}
-
-function recordToForm(record: CompanyKybRecord): KybFormState {
-  const ownerFiles = (record.owner_director_id_files ?? []).map((entry) => {
-    if (typeof entry === 'string') {
-      return { label: '', file: entry }
-    }
-    return {
-      label: entry.label ?? '',
-      file: entry.file ?? '',
-    }
-  })
+function recordToForm(record: CompanyKybRecord, companyName: string): KybFormState {
+  const bank = record.bank_details ?? {}
   return {
     business_type: record.business_type ?? '',
-    government_id_file: record.government_id_file ?? '',
-    dti_registration_file: record.dti_registration_file ?? '',
-    sole_prop_business_address: record.sole_prop_business_address ?? '',
-    sole_prop_mobile_number: record.sole_prop_mobile_number ?? '',
-    bank_account_same_name: record.bank_account_same_name ?? '',
-    sec_registration_file: record.sec_registration_file ?? '',
-    articles_of_incorporation_file: record.articles_of_incorporation_file ?? '',
-    bir_registration_file: record.bir_registration_file ?? '',
-    owner_director_id_files:
-      ownerFiles.length > 0 ? ownerFiles : [{ label: '', file: '' }],
-    business_website_social: record.business_website_social ?? '',
-    company_email_domain: record.company_email_domain ?? '',
-    proof_of_address_file: record.proof_of_address_file ?? '',
-    business_description: record.business_description ?? '',
+    merchant_business_name: record.merchant_business_name || companyName,
+    merchant_email: record.merchant_email ?? '',
+    merchant_mobile_number: record.merchant_mobile_number ?? '',
+    business_website: record.business_website ?? '',
+    bank_name: bank.bank_name ?? '',
+    bank_account_name: bank.account_name ?? '',
+    bank_account_number: bank.account_number ?? '',
   }
 }
 
 function formToPayload(form: KybFormState) {
   return {
     business_type: form.business_type,
-    government_id_file: form.government_id_file.trim(),
-    dti_registration_file: form.dti_registration_file.trim(),
-    sole_prop_business_address: form.sole_prop_business_address.trim(),
-    sole_prop_mobile_number: form.sole_prop_mobile_number.trim(),
-    bank_account_same_name: form.bank_account_same_name.trim(),
-    sec_registration_file: form.sec_registration_file.trim(),
-    articles_of_incorporation_file: form.articles_of_incorporation_file.trim(),
-    bir_registration_file: form.bir_registration_file.trim(),
-    owner_director_id_files: form.owner_director_id_files
-      .filter((row) => row.file.trim())
-      .map((row) => ({
-        label: row.label.trim(),
-        file: row.file.trim(),
-      })),
-    business_website_social: form.business_website_social.trim(),
-    company_email_domain: form.company_email_domain.trim(),
-    proof_of_address_file: form.proof_of_address_file.trim(),
-    business_description: form.business_description.trim(),
+    merchant_business_name: form.merchant_business_name.trim(),
+    merchant_email: form.merchant_email.trim(),
+    merchant_mobile_number: form.merchant_mobile_number.trim(),
+    business_website: form.business_website.trim(),
+    bank_details: {
+      bank_name: form.bank_name.trim(),
+      account_name: form.bank_account_name.trim(),
+      account_number: form.bank_account_number.trim(),
+    },
   }
 }
 
-type KybFileFieldProps = {
-  id: string
-  label: string
-  value: string
-  disabled?: boolean
-  onChange: (url: string) => void
-}
-
-const KybFileField = ({
-  id,
-  label,
-  value,
-  disabled,
-  onChange,
-}: KybFileFieldProps) => {
-  const [uploading, setUploading] = useState(false)
-
-  const handleFile = async (file: File | undefined) => {
-    if (!file || disabled) return
-    setUploading(true)
-    try {
-      const doc = await uploadDocument(file)
-      onChange(doc.url || doc.file)
-      showSuccessToast('File uploaded.')
-    } catch (e) {
-      showErrorToast(e instanceof Error ? e.message : 'Upload failed')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  return (
-    <div className="mb-3">
-      <label className="form-label" htmlFor={id}>
-        {label}
-      </label>
-      {value && disabled ? (
-        <KybDocumentDisplay label={label} fileUrl={value} showLabel={false} />
-      ) : value ? (
-        <p className="small text-success mb-1">
-          <i className="bi bi-check-circle me-1" />
-          Document attached
-        </p>
-      ) : null}
-      {!disabled && (
-      <input
-        id={id}
-        type="file"
-        className="form-control form-control-sm"
-        disabled={disabled || uploading}
-        onChange={(e) => void handleFile(e.target.files?.[0])}
-      />
-      )}
-      {uploading && <div className="form-text">Uploading…</div>}
-    </div>
-  )
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft',
+  pending_paymongo: 'Pending PayMongo verification',
+  approved: 'Verified',
+  rejected: 'Rejected',
 }
 
 const CompanyKybModal = ({
@@ -172,10 +72,22 @@ const CompanyKybModal = ({
 }: Props) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [record, setRecord] = useState<CompanyKybRecord | null>(null)
-  const [form, setForm] = useState<KybFormState>(EMPTY_FORM)
+  const [form, setForm] = useState<KybFormState>(() =>
+    recordToForm(
+      {
+        business_type: '',
+        merchant_business_name: companyName,
+        merchant_email: '',
+        merchant_mobile_number: '',
+        business_website: '',
+        bank_details: {},
+      } as CompanyKybRecord,
+      companyName,
+    ),
+  )
   const [missingFields, setMissingFields] = useState<string[]>([])
 
   const load = useCallback(async () => {
@@ -184,21 +96,20 @@ const CompanyKybModal = ({
     try {
       const data = await fetchCompanyKyb(companyId)
       setRecord(data)
-      setForm(recordToForm(data))
+      setForm(recordToForm(data, companyName))
       setMissingFields(data.missing_fields ?? [])
     } catch (e) {
-      setFormError(e instanceof Error ? e.message : 'Failed to load KYB')
+      setFormError(e instanceof Error ? e.message : 'Failed to load verification')
     } finally {
       setLoading(false)
     }
-  }, [companyId])
+  }, [companyId, companyName])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const readOnly =
-    record?.status === 'submitted' || record?.status === 'approved'
+  const readOnly = record?.status === 'approved'
 
   const patchForm = (patch: Partial<KybFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -218,7 +129,7 @@ const CompanyKybModal = ({
       })
       setRecord(data)
       setMissingFields(data.missing_fields ?? [])
-      showSuccessToast('KYB draft saved.')
+      showSuccessToast('Application saved.')
       onSaved()
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
@@ -229,40 +140,40 @@ const CompanyKybModal = ({
     }
   }
 
-  const handleSubmit = async () => {
+  const handleContinueToPayMongo = async (regenerate = false) => {
     if (!form.business_type) {
       setFormError('Select a business type.')
       return
     }
-    setSubmitting(true)
+    setRedirecting(true)
     setFormError(null)
     try {
-      const data = await updateCompanyKyb(companyId, {
+      const data = await startPaymongoKybOnboarding(companyId, {
         ...formToPayload(form),
-        status: 'submitted',
+        regenerate_link: regenerate,
       })
       setRecord(data)
-      setMissingFields([])
-      showSuccessToast('KYB submitted for review.')
       onSaved()
-      onClose()
+      const url = data.onboarding_url?.trim()
+      if (!url) {
+        showSuccessToast(
+          'PayMongo onboarding started. Refresh status after completing verification on PayMongo.',
+        )
+        return
+      }
+      window.location.assign(url)
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Submit failed'
+      const message =
+        e instanceof Error ? e.message : 'Failed to start PayMongo verification'
       setFormError(message)
       showErrorToast(message)
     } finally {
-      setSubmitting(false)
+      setRedirecting(false)
     }
   }
 
-  const statusLabel: Record<string, string> = {
-    draft: 'Draft',
-    submitted: 'Submitted for review',
-    approved: 'Approved',
-    rejected: 'Rejected',
-  }
-
   const layerClass = stacked ? ' company-kyb-modal--stacked' : ''
+  const rejectionNote = record?.rejection_reason ?? record?.rejection_notes
 
   return (
     <>
@@ -279,7 +190,7 @@ const CompanyKybModal = ({
           <div className="modal-content">
             <div className="modal-header">
               <h2 className="modal-title fs-5">
-                Know Your Business — {companyName}
+                Business verification — {companyName}
               </h2>
               <button
                 type="button"
@@ -293,6 +204,12 @@ const CompanyKybModal = ({
                 <p className="text-muted mb-0">Loading…</p>
               ) : (
                 <>
+                  <p className="text-muted small">
+                    Collect your business details here, then continue to PayMongo to
+                    upload documents and complete verification on their secure site.
+                    We no longer collect KYB documents inside Planning With You.
+                  </p>
+
                   {record && (
                     <div className="mb-3 d-flex flex-wrap align-items-center gap-2">
                       <span className="text-muted small">Status:</span>
@@ -302,18 +219,30 @@ const CompanyKybModal = ({
                             ? 'text-bg-success'
                             : record.status === 'rejected'
                               ? 'text-bg-danger'
-                              : record.status === 'submitted'
+                              : record.status === 'pending_paymongo'
                                 ? 'text-bg-warning'
                                 : 'text-bg-secondary'
                         }`}
                       >
-                        {statusLabel[record.status] ?? record.status}
+                        {STATUS_LABEL[record.status] ?? record.status}
                       </span>
-                      {record.status === 'rejected' && record.rejection_notes ? (
-                        <span className="small text-danger">
-                          {record.rejection_notes}
-                        </span>
+                      {rejectionNote ? (
+                        <span className="small text-danger">{rejectionNote}</span>
                       ) : null}
+                    </div>
+                  )}
+
+                  {record?.onboarding_url && record.status === 'pending_paymongo' && (
+                    <div className="alert alert-info py-2 small">
+                      Verification is in progress on PayMongo.{' '}
+                      <button
+                        type="button"
+                        className="btn btn-link btn-sm p-0 align-baseline"
+                        onClick={() => void handleContinueToPayMongo(true)}
+                        disabled={redirecting}
+                      >
+                        Open onboarding again
+                      </button>
                     </div>
                   )}
 
@@ -357,230 +286,132 @@ const CompanyKybModal = ({
                     </ul>
                   </div>
 
-                  {form.business_type === 'sole_proprietor' && (
-                    <fieldset className="mb-3">
-                      <legend className="fs-6 fw-semibold">Sole proprietorship</legend>
-                      <KybFileField
-                        id="kyb-government-id"
-                        label="Valid government ID"
-                        value={form.government_id_file}
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="kyb-business-name">
+                        Business name *
+                      </label>
+                      <input
+                        id="kyb-business-name"
+                        type="text"
+                        className="form-control"
+                        value={form.merchant_business_name}
                         disabled={readOnly}
-                        onChange={(url) => patchForm({ government_id_file: url })}
-                      />
-                      <KybFileField
-                        id="kyb-dti"
-                        label="DTI registration"
-                        value={form.dti_registration_file}
-                        disabled={readOnly}
-                        onChange={(url) => patchForm({ dti_registration_file: url })}
-                      />
-                      <div className="mb-3">
-                        <label className="form-label" htmlFor="kyb-sp-address">
-                          Business address
-                        </label>
-                        <textarea
-                          id="kyb-sp-address"
-                          className="form-control"
-                          rows={2}
-                          disabled={readOnly}
-                          value={form.sole_prop_business_address}
-                          onChange={(e) =>
-                            patchForm({ sole_prop_business_address: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <label className="form-label" htmlFor="kyb-sp-mobile">
-                          Mobile number
-                        </label>
-                        <input
-                          id="kyb-sp-mobile"
-                          type="tel"
-                          className="form-control"
-                          disabled={readOnly}
-                          value={form.sole_prop_mobile_number}
-                          onChange={(e) =>
-                            patchForm({ sole_prop_mobile_number: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <label className="form-label" htmlFor="kyb-bank">
-                          Bank account under same name
-                        </label>
-                        <textarea
-                          id="kyb-bank"
-                          className="form-control"
-                          rows={2}
-                          disabled={readOnly}
-                          value={form.bank_account_same_name}
-                          onChange={(e) =>
-                            patchForm({ bank_account_same_name: e.target.value })
-                          }
-                        />
-                      </div>
-                    </fieldset>
-                  )}
-
-                  {form.business_type === 'corporation' && (
-                    <fieldset className="mb-3">
-                      <legend className="fs-6 fw-semibold">Corporation</legend>
-                      <KybFileField
-                        id="kyb-sec"
-                        label="SEC registration"
-                        value={form.sec_registration_file}
-                        disabled={readOnly}
-                        onChange={(url) => patchForm({ sec_registration_file: url })}
-                      />
-                      <KybFileField
-                        id="kyb-articles"
-                        label="Articles of Incorporation"
-                        value={form.articles_of_incorporation_file}
-                        disabled={readOnly}
-                        onChange={(url) =>
-                          patchForm({ articles_of_incorporation_file: url })
+                        onChange={(e) =>
+                          patchForm({ merchant_business_name: e.target.value })
                         }
                       />
-                      <KybFileField
-                        id="kyb-bir"
-                        label="BIR registration"
-                        value={form.bir_registration_file}
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="kyb-email">
+                        Business email *
+                      </label>
+                      <input
+                        id="kyb-email"
+                        type="email"
+                        className="form-control"
+                        value={form.merchant_email}
                         disabled={readOnly}
-                        onChange={(url) => patchForm({ bir_registration_file: url })}
+                        onChange={(e) =>
+                          patchForm({ merchant_email: e.target.value })
+                        }
                       />
-                      <div className="mb-3">
-                        <span className="form-label d-block">
-                          Valid IDs of owners/directors
-                        </span>
-                        {form.owner_director_id_files.map((row, index) => (
-                          <div
-                            key={index}
-                            className="border rounded p-2 mb-2 bg-light"
-                          >
-                            <div className="mb-2">
-                              <label
-                                className="form-label small"
-                                htmlFor={`kyb-owner-label-${index}`}
-                              >
-                                Name / role (optional)
-                              </label>
-                              <input
-                                id={`kyb-owner-label-${index}`}
-                                type="text"
-                                className="form-control form-control-sm"
-                                disabled={readOnly}
-                                value={row.label}
-                                onChange={(e) => {
-                                  const next = [...form.owner_director_id_files]
-                                  next[index] = {
-                                    ...next[index],
-                                    label: e.target.value,
-                                  }
-                                  patchForm({ owner_director_id_files: next })
-                                }}
-                              />
-                            </div>
-                            <KybFileField
-                              id={`kyb-owner-file-${index}`}
-                              label="ID document"
-                              value={row.file}
-                              disabled={readOnly}
-                              onChange={(url) => {
-                                const next = [...form.owner_director_id_files]
-                                next[index] = { ...next[index], file: url }
-                                patchForm({ owner_director_id_files: next })
-                              }}
-                            />
-                          </div>
-                        ))}
-                        {!readOnly && (
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() =>
-                              patchForm({
-                                owner_director_id_files: [
-                                  ...form.owner_director_id_files,
-                                  { label: '', file: '' },
-                                ],
-                              })
-                            }
-                          >
-                            <i className="bi bi-plus-lg me-1" />
-                            Add owner/director ID
-                          </button>
-                        )}
-                      </div>
-                      <div className="mb-3">
-                        <label className="form-label" htmlFor="kyb-website-social">
-                          Business website / social pages
-                        </label>
-                        <textarea
-                          id="kyb-website-social"
-                          className="form-control"
-                          rows={2}
-                          disabled={readOnly}
-                          value={form.business_website_social}
-                          onChange={(e) =>
-                            patchForm({ business_website_social: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <label className="form-label" htmlFor="kyb-email-domain">
-                          Company email domain
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="kyb-mobile">
+                        Mobile number *
+                      </label>
+                      <input
+                        id="kyb-mobile"
+                        type="tel"
+                        className="form-control"
+                        placeholder="+639171234567"
+                        value={form.merchant_mobile_number}
+                        disabled={readOnly}
+                        onChange={(e) =>
+                          patchForm({ merchant_mobile_number: e.target.value })
+                        }
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label" htmlFor="kyb-website">
+                        Website (optional)
+                      </label>
+                      <input
+                        id="kyb-website"
+                        type="url"
+                        className="form-control"
+                        placeholder="https://"
+                        value={form.business_website}
+                        disabled={readOnly}
+                        onChange={(e) =>
+                          patchForm({ business_website: e.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <fieldset
+                    className="border-0 p-0 mt-2"
+                    disabled={readOnly}
+                  >
+                    <legend className="form-label fs-6">
+                      Payout bank details (optional)
+                    </legend>
+                    <div className="row g-3">
+                      <div className="col-md-4">
+                        <label className="form-label" htmlFor="kyb-bank">
+                          Bank
                         </label>
                         <input
-                          id="kyb-email-domain"
+                          id="kyb-bank"
                           type="text"
                           className="form-control"
-                          placeholder="example.com"
-                          disabled={readOnly}
-                          value={form.company_email_domain}
+                          value={form.bank_name}
                           onChange={(e) =>
-                            patchForm({ company_email_domain: e.target.value })
+                            patchForm({ bank_name: e.target.value })
                           }
                         />
                       </div>
-                    </fieldset>
-                  )}
-
-                  {form.business_type && (
-                    <fieldset>
-                      <legend className="fs-6 fw-semibold">Additional checks</legend>
-                      <KybFileField
-                        id="kyb-proof-address"
-                        label="Proof of address"
-                        value={form.proof_of_address_file}
-                        disabled={readOnly}
-                        onChange={(url) => patchForm({ proof_of_address_file: url })}
-                      />
-                      <div className="mb-3">
-                        <label className="form-label" htmlFor="kyb-description">
-                          Business description
+                      <div className="col-md-4">
+                        <label className="form-label" htmlFor="kyb-acct-name">
+                          Account name
                         </label>
-                        <textarea
-                          id="kyb-description"
+                        <input
+                          id="kyb-acct-name"
+                          type="text"
                           className="form-control"
-                          rows={3}
-                          disabled={readOnly}
-                          value={form.business_description}
+                          value={form.bank_account_name}
                           onChange={(e) =>
-                            patchForm({ business_description: e.target.value })
+                            patchForm({ bank_account_name: e.target.value })
                           }
                         />
                       </div>
-                    </fieldset>
-                  )}
+                      <div className="col-md-4">
+                        <label className="form-label" htmlFor="kyb-acct-num">
+                          Account number
+                        </label>
+                        <input
+                          id="kyb-acct-num"
+                          type="text"
+                          className="form-control"
+                          value={form.bank_account_number}
+                          onChange={(e) =>
+                            patchForm({ bank_account_number: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </fieldset>
 
-                  {!readOnly && missingFields.length > 0 && (
-                    <div className="alert alert-warning py-2 small mb-0">
-                      <strong>Still required:</strong> {missingFields.join(', ')}
+                  {missingFields.length > 0 && (
+                    <div className="alert alert-warning py-2 mt-3 mb-0 small">
+                      Missing: {missingFields.join(', ')}
                     </div>
                   )}
 
                   {formError && (
-                    <div className="alert alert-danger py-2 mt-3 mb-0" role="alert">
+                    <div className="alert alert-danger py-2 mt-3 mb-0">
                       {formError}
                     </div>
                   )}
@@ -592,27 +423,27 @@ const CompanyKybModal = ({
                 type="button"
                 className="btn btn-secondary"
                 onClick={onClose}
-                disabled={saving || submitting}
+                disabled={saving || redirecting}
               >
-                {readOnly ? 'Close' : 'Cancel'}
+                Close
               </button>
-              {!readOnly && !loading && (
+              {!readOnly && (
                 <>
                   <button
                     type="button"
                     className="btn btn-outline-primary"
                     onClick={() => void handleSaveDraft()}
-                    disabled={saving || submitting}
+                    disabled={saving || redirecting || loading}
                   >
                     {saving ? 'Saving…' : 'Save draft'}
                   </button>
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => void handleSubmit()}
-                    disabled={saving || submitting}
+                    onClick={() => void handleContinueToPayMongo(false)}
+                    disabled={saving || redirecting || loading}
                   >
-                    {submitting ? 'Submitting…' : 'Submit for review'}
+                    {redirecting ? 'Redirecting…' : 'Continue to PayMongo'}
                   </button>
                 </>
               )}

@@ -7,6 +7,9 @@ export type CompanyKybListRecord = {
   company_name: string
   business_type: string
   status: KybStatus
+  paymongo_merchant_id?: string
+  merchant_business_name?: string
+  merchant_email?: string
   submitted_at: string | null
   reviewed_at: string | null
   created_at: string
@@ -33,8 +36,14 @@ async function adminKybApiError(res: Response, fallback: string): Promise<Error>
   }
 }
 
+export type AdminKybStatusFilter =
+  | 'pending_paymongo'
+  | 'approved'
+  | 'rejected'
+  | 'draft'
+
 export async function fetchAdminKybVerifications(
-  status: 'submitted' | 'approved',
+  status: AdminKybStatusFilter,
   search = '',
 ): Promise<CompanyKybListRecord[]> {
   const params = new URLSearchParams({ status })

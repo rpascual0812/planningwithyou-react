@@ -2,9 +2,17 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 
 export type KybBusinessType = 'sole_proprietor' | 'corporation' | ''
 
-export type KybStatus = 'draft' | 'submitted' | 'approved' | 'rejected'
+export type KybStatus =
+  | 'draft'
+  | 'pending_paymongo'
+  | 'approved'
+  | 'rejected'
 
-export type OwnerDirectorIdFile = string | { label: string; file: string }
+export type BankDetails = {
+  bank_name?: string
+  account_name?: string
+  account_number?: string
+}
 
 export type CompanyKybRecord = {
   id: number
@@ -12,23 +20,18 @@ export type CompanyKybRecord = {
   company_name?: string
   business_type: KybBusinessType
   status: KybStatus
-  government_id_file: string
-  dti_registration_file: string
-  sole_prop_business_address: string
-  sole_prop_mobile_number: string
-  bank_account_same_name: string
-  sec_registration_file: string
-  articles_of_incorporation_file: string
-  bir_registration_file: string
-  owner_director_id_files: OwnerDirectorIdFile[]
-  business_website_social: string
-  company_email_domain: string
-  proof_of_address_file: string
-  business_description: string
+  paymongo_merchant_id: string
+  onboarding_url: string
+  merchant_business_name: string
+  merchant_email: string
+  merchant_mobile_number: string
+  bank_details: BankDetails
+  business_website: string
   submitted_at: string | null
   reviewed_at: string | null
   reviewed_by: number | null
   rejection_notes: string
+  rejection_reason?: string
   live_payments_allowed: boolean
   missing_fields: string[]
   created_at: string
@@ -36,17 +39,16 @@ export type CompanyKybRecord = {
 }
 
 export type CompanyKybPayload = Partial<
-  Omit<
+  Pick<
     CompanyKybRecord,
-    | 'id'
-    | 'company'
-    | 'submitted_at'
-    | 'reviewed_at'
-    | 'reviewed_by'
-    | 'live_payments_allowed'
-    | 'missing_fields'
-    | 'created_at'
-    | 'updated_at'
+    | 'business_type'
+    | 'merchant_business_name'
+    | 'merchant_email'
+    | 'merchant_mobile_number'
+    | 'bank_details'
+    | 'business_website'
+    | 'status'
+    | 'rejection_notes'
   >
 >
 
@@ -88,5 +90,21 @@ export async function updateCompanyKyb(
     body: JSON.stringify(data),
   })
   if (!res.ok) throw await kybApiError(res, 'Failed to save KYB verification')
+  return res.json()
+}
+
+export async function startPaymongoKybOnboarding(
+  companyId: number,
+  data: CompanyKybPayload & { regenerate_link?: boolean },
+): Promise<CompanyKybRecord> {
+  const res = await apiFetch(
+    buildApiUrl(`/api/companies/${companyId}/kyb/start-paymongo/`),
+    {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    },
+  )
+  if (!res.ok) throw await kybApiError(res, 'Failed to start PayMongo verification')
   return res.json()
 }

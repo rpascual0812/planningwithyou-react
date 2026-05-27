@@ -17,6 +17,7 @@ import {
   uploadDocument,
 } from '../services/documents'
 import { useFeatureAccess } from '../hooks/useFeatureAccess'
+import { downloadSecuredFile } from '../lib/securedFileUrl'
 
 type ViewMode = 'my-cloud' | 'recycle-bin'
 
@@ -282,6 +283,14 @@ const FileManagerPage = () => {
     setDragOver(false)
     if (!filesWrite) return
     handleUpload(e.dataTransfer.files)
+  }
+
+  const handleDownloadDoc = async (doc: DocumentRecord) => {
+    try {
+      await downloadSecuredFile(doc.url, doc.original_name)
+    } catch {
+      void Swal.fire('Error', 'Failed to download file', 'error')
+    }
   }
 
   const openContext = (
@@ -664,14 +673,13 @@ const FileManagerPage = () => {
                                         aria-hidden="true"
                                       />
                                     </span>
-                                    <a
-                                      href={doc.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-decoration-none text-dark"
+                                    <button
+                                      type="button"
+                                      className="btn btn-link p-0 border-0 text-start text-dark fm-file-download"
+                                      onClick={() => void handleDownloadDoc(doc)}
                                     >
                                       {doc.original_name}
-                                    </a>
+                                    </button>
                                   </div>
                                 )}
                               </td>

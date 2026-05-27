@@ -3,15 +3,16 @@ import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import AdminKybReviewModal from './AdminKybReviewModal'
 import {
   fetchAdminKybVerifications,
+  type AdminKybStatusFilter,
   type CompanyKybListRecord,
 } from '../../services/adminCompanyKyb'
 
-const STATUS_OPTIONS = [
-  { value: 'submitted', label: 'Submitted' },
+const STATUS_OPTIONS: { value: AdminKybStatusFilter; label: string }[] = [
+  { value: 'pending_paymongo', label: 'Pending PayMongo' },
+  { value: 'rejected', label: 'Rejected' },
   { value: 'approved', label: 'Approved' },
-] as const
-
-type StatusFilter = (typeof STATUS_OPTIONS)[number]['value']
+  { value: 'draft', label: 'Draft' },
+]
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   sole_proprietor: 'Sole proprietorship',
@@ -19,8 +20,17 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  submitted: 'text-bg-warning',
+  draft: 'text-bg-secondary',
+  pending_paymongo: 'text-bg-warning',
   approved: 'text-bg-success',
+  rejected: 'text-bg-danger',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft',
+  pending_paymongo: 'Pending PayMongo',
+  approved: 'Approved',
+  rejected: 'Rejected',
 }
 
 function formatDateTime(iso: string | null): string {
@@ -36,7 +46,8 @@ const AdminKYBPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('submitted')
+  const [statusFilter, setStatusFilter] =
+    useState<AdminKybStatusFilter>('pending_paymongo')
   const [selected, setSelected] = useState<CompanyKybListRecord | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -69,6 +80,12 @@ const AdminKYBPage = () => {
 
   return (
     <>
+      <p className="text-muted small mb-3">
+        Merchants complete document verification on PayMongo. Use this list to
+        monitor status and manually approve only when PayMongo verification needs
+        an override.
+      </p>
+
       <div className="emails-table-card">
         <div className="emails-table-toolbar">
           <div className="emails-search">
@@ -76,7 +93,7 @@ const AdminKYBPage = () => {
             <input
               type="search"
               className="emails-search-input"
-              placeholder="Search company or domain…"
+              placeholder="Search company, business name, or email…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search KYB verifications"
@@ -97,7 +114,7 @@ const AdminKYBPage = () => {
               className="form-select form-select-sm emails-status-filter"
               value={statusFilter}
               onChange={(e) =>
-                setStatusFilter(e.target.value as StatusFilter)
+                setStatusFilter(e.target.value as AdminKybStatusFilter)
               }
               aria-label="Filter by status"
             >
@@ -128,9 +145,9 @@ const AdminKYBPage = () => {
                 <tr>
                   <th>Id</th>
                   <th>Company</th>
-                  <th>Business type</th>
+                  <th>Business</th>
                   <th>Status</th>
-                  <th>Submitted</th>
+                  <th>Started</th>
                   <th>Reviewed</th>
                   <th className="emails-th-actions">Action</th>
                 </tr>
@@ -139,7 +156,7 @@ const AdminKYBPage = () => {
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="emails-table-empty">
-                      No KYB verifications for this filter.
+                      No verifications for this filter.
                     </td>
                   </tr>
                 ) : (
@@ -148,8 +165,12 @@ const AdminKYBPage = () => {
                       <td className="emails-table-id">{row.id}</td>
                       <td>{row.company_name}</td>
                       <td>
-                        {(BUSINESS_TYPE_LABELS[row.business_type] ??
-                          row.business_type) || '—'}
+                        <div className="small">
+                          {row.merchant_business_name || '—'}
+                        </div>
+                        {row.merchant_email ? (
+                          <div className="text-muted small">{row.merchant_email}</div>
+                        ) : null}
                       </td>
                       <td>
                         <span
@@ -157,7 +178,7 @@ const AdminKYBPage = () => {
                             STATUS_BADGE[row.status] ?? 'text-bg-secondary'
                           }`}
                         >
-                          {row.status}
+                          {STATUS_LABEL[row.status] ?? row.status}
                         </span>
                       </td>
                       <td>{formatDateTime(row.submitted_at)}</td>

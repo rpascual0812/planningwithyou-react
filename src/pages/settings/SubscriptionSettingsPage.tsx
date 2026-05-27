@@ -407,7 +407,6 @@ const SubscriptionSettingsPage = () => {
 
   const loadPlans = useCallback(async () => {
     setPlansLoading(true)
-    setSelectionReady(false)
     setPlansError(null)
     try {
       const [account, data] = await Promise.all([
@@ -454,14 +453,21 @@ const SubscriptionSettingsPage = () => {
     : ''
 
   useEffect(() => {
-    if (currentSubscriptionLoading || plansLoading) {
+    if (currentSubscriptionLoading) {
       setSelectionReady(false)
       return
     }
 
+    // Reloading plan prices for a new billing cycle must not re-sync from subscription.
+    if (plansLoading) {
+      return
+    }
+
     if (!currentSubscription) {
-      setInitialSelection({ billingCycle, selectedPlanId, teamSeats })
-      setSelectionReady(true)
+      if (!selectionReady) {
+        setInitialSelection({ billingCycle, selectedPlanId, teamSeats })
+        setSelectionReady(true)
+      }
       return
     }
 
@@ -469,13 +475,16 @@ const SubscriptionSettingsPage = () => {
       return
     }
 
-    if (billingCycle !== currentSubscription.billing_cycle) {
-      setSelectionReady(false)
+    const needsInitialSync =
+      lastAppliedSubscriptionKeyRef.current !== accountSubscriptionKey
+
+    if (needsInitialSync && billingCycle !== currentSubscription.billing_cycle) {
       setBillingCycle(currentSubscription.billing_cycle)
       return
     }
 
     if (
+      needsInitialSync &&
       plans.length > 0 &&
       !plans.some((p) => p.id === currentSubscription.plan)
     ) {
