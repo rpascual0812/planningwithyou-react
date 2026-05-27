@@ -1,6 +1,6 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 
-const BASE = '/api/email-templates/users/'
+const BASE = '/email-templates/users/'
 
 export type EmailUserTemplateRecord = {
   id: number

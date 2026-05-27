@@ -14,7 +14,7 @@ export async function fetchActiveSupplierTypes(
   const params = new URLSearchParams()
   if (search) params.set('search', search)
   const qs = params.toString() ? `?${params.toString()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/supplier-types/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/supplier-types/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load supplier types')
@@ -28,7 +28,7 @@ export async function fetchPublicSupplierTypes(
   const params = new URLSearchParams()
   if (search) params.set('search', search)
   const qs = params.toString() ? `?${params.toString()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/public/supplier-types/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/public/supplier-types/${qs}`), {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new Error('Failed to load company types')

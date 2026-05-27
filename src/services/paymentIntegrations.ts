@@ -36,7 +36,7 @@ export async function fetchPayMongoIntegration(
   companyId: number,
 ): Promise<PayMongoIntegrationStatus> {
   const res = await apiFetch(
-    buildApiUrl(`/api/companies/${companyId}/payment-integrations/paymongo/`),
+    buildApiUrl(`/companies/${companyId}/payment-integrations/paymongo/`),
     { headers: authHeaders() },
   )
   if (!res.ok) {
@@ -50,7 +50,7 @@ export async function startPayMongoOnboarding(
   companyId: number,
 ): Promise<PayMongoIntegrationStatus> {
   const res = await apiFetch(
-    buildApiUrl(`/api/companies/${companyId}/payment-integrations/paymongo/`),
+    buildApiUrl(`/companies/${companyId}/payment-integrations/paymongo/`),
     {
       method: 'PUT',
       headers: authHeaders(),
@@ -67,7 +67,7 @@ export async function refreshPayMongoIntegration(
 ): Promise<PayMongoIntegrationStatus> {
   const res = await apiFetch(
     buildApiUrl(
-      `/api/companies/${companyId}/payment-integrations/paymongo/refresh/`,
+      `/companies/${companyId}/payment-integrations/paymongo/refresh/`,
     ),
     {
       method: 'POST',
@@ -84,7 +84,7 @@ export async function disconnectPayMongoIntegration(
   companyId: number,
 ): Promise<PayMongoIntegrationStatus> {
   const res = await apiFetch(
-    buildApiUrl(`/api/companies/${companyId}/payment-integrations/paymongo/`),
+    buildApiUrl(`/companies/${companyId}/payment-integrations/paymongo/`),
     {
       method: 'DELETE',
       headers: authHeaders(),

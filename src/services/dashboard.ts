@@ -54,7 +54,7 @@ export type DashboardSummary = {
 }
 
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
-  const res = await apiFetch(buildApiUrl('/api/dashboard/summary/'), {
+  const res = await apiFetch(buildApiUrl('/dashboard/summary/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load dashboard')

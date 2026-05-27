@@ -84,15 +84,18 @@ function CalendarRoute() {
  * top-level `<Routes>`.
  */
 function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuthSession()
-  if (isAuthenticated || hasStoredSession()) {
+  const { isAuthenticated, userLoading, currentUser } = useAuthSession()
+  if (userLoading) {
+    return children
+  }
+  if ((isAuthenticated || hasStoredSession()) && currentUser) {
     return <Navigate to="/" replace />
   }
   return children
 }
 
 function RequireAuth() {
-  const { isAuthenticated, userLoading } = useAuthSession()
+  const { isAuthenticated, userLoading, currentUser } = useAuthSession()
   if (!isAuthenticated && !hasStoredSession()) {
     return <Navigate to="/login" replace />
   }
@@ -102,6 +105,9 @@ function RequireAuth() {
         <div className="container-fluid py-3 text-muted">Loading…</div>
       </div>
     )
+  }
+  if (!currentUser) {
+    return <Navigate to="/login" replace state={{ sessionInvalid: true }} />
   }
   return <Outlet />
 }
@@ -202,7 +208,11 @@ function DashboardLayout() {
     '/admin': 'Admin',
   }
 
-  const pageTitle = pageTitleByPath[location.pathname] ?? 'Dashboard'
+  const profileTab = new URLSearchParams(location.search).get('tab')
+  const pageTitle =
+    location.pathname === '/profile' && profileTab === 'support'
+      ? 'Support'
+      : pageTitleByPath[location.pathname] ?? 'Dashboard'
 
   const wrapperClassName = [
     'app-wrapper',

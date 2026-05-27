@@ -1,4 +1,4 @@
-import { apiFetch, authHeaders, buildApiUrl } from './api'
+import { apiFetch, authHeaders, buildApiUrl, apiErrorFromResponse, apiPathWithQuery, readJsonResponse } from './api'
 
 export type SystemNotificationRecord = {
   id: number
@@ -27,11 +27,11 @@ export type ActiveSystemNotification = {
 }
 
 export async function fetchActiveSystemNotifications(): Promise<ActiveSystemNotification[]> {
-  const res = await apiFetch(buildApiUrl('/api/system-notifications/active/'), {
+  const res = await apiFetch(buildApiUrl('/system-notifications/active/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load system notifications')
-  return res.json()
+  return readJsonResponse(res, 'Failed to load system notifications')
 }
 
 export async function fetchAdminSystemNotifications(
@@ -41,62 +41,51 @@ export async function fetchAdminSystemNotifications(
   const params = new URLSearchParams()
   if (search.trim()) params.set('search', search.trim())
   if (status.trim()) params.set('status', status.trim())
-  const qs = params.toString()
   const res = await apiFetch(
-    buildApiUrl(`/api/admin/system-notifications/${qs ? `?${qs}` : ''}`),
+    buildApiUrl(apiPathWithQuery('/admin/system-notifications', params)),
     { headers: authHeaders() },
   )
-  if (!res.ok) throw new Error('Failed to load system notifications')
-  return res.json()
+  if (!res.ok) {
+    throw await apiErrorFromResponse(res, 'Failed to load system notifications')
+  }
+  return readJsonResponse(res, 'Failed to load system notifications')
 }
 
 export async function createSystemNotification(
   payload: SystemNotificationPayload,
 ): Promise<SystemNotificationRecord> {
-  const res = await apiFetch(buildApiUrl('/api/admin/system-notifications/'), {
+  const res = await apiFetch(buildApiUrl('/admin/system-notifications/'), {
     method: 'POST',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
-    let detail = 'Failed to create notification'
-    try {
-      const body = (await res.json()) as { detail?: string }
-      if (body.detail) detail = body.detail
-    } catch {
-      /* ignore */
-    }
-    throw new Error(detail)
+    throw await apiErrorFromResponse(res, 'Failed to create notification')
   }
-  return res.json()
+  return readJsonResponse(res, 'Failed to create notification')
 }
 
 export async function updateSystemNotification(
   id: number,
   payload: SystemNotificationPayload,
 ): Promise<SystemNotificationRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/admin/system-notifications/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/admin/system-notifications/${id}/`), {
     method: 'PATCH',
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
-    let detail = 'Failed to update notification'
-    try {
-      const body = (await res.json()) as { detail?: string }
-      if (body.detail) detail = body.detail
-    } catch {
-      /* ignore */
-    }
-    throw new Error(detail)
+    throw await apiErrorFromResponse(res, 'Failed to update notification')
   }
-  return res.json()
+  return readJsonResponse(res, 'Failed to update notification')
 }
 
 export async function deleteSystemNotification(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/admin/system-notifications/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/admin/system-notifications/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to delete notification')
+  if (!res.ok) {
+    throw await apiErrorFromResponse(res, 'Failed to delete notification')
+  }
 }

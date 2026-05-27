@@ -4,21 +4,54 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  // When VITE_API_BASE_URL is empty (the default in `.env.example`), all `/api/*`
-  // requests from the browser are proxied through the Vite dev server to the
-  // Django backend. This sidesteps CORS in development entirely.
+  // Optional: when VITE_API_BASE_URL is empty, proxy API paths to Django in dev.
   const apiTarget = env.VITE_DEV_API_PROXY_TARGET ?? 'http://localhost:8000'
+  const apiPathPrefixes = [
+    'token',
+    'register',
+    'verify-email',
+    'reset-password',
+    'accounts',
+    'roles',
+    'users',
+    'companies',
+    'emails',
+    'contacts',
+    'booking-',
+    'calendar-',
+    'documents',
+    'document-',
+    'tiers',
+    'packages',
+    'package-',
+    'subscriptions',
+    'account-subscription',
+    'config',
+    'system-',
+    'admin/',
+    'public',
+    'supplier-',
+    'dashboard',
+    'files',
+    'webhooks',
+    'form-templates',
+    'email-templates',
+    'support-tickets',
+  ]
+
+  const proxy: Record<string, object> = {}
+  for (const prefix of apiPathPrefixes) {
+    proxy[`^/${prefix}`] = {
+      target: apiTarget,
+      changeOrigin: true,
+      secure: false,
+    }
+  }
 
   return {
     plugins: [react()],
     server: {
-      proxy: {
-        '/api': {
-          target: apiTarget,
-          changeOrigin: true,
-          secure: false,
-        },
-      },
+      proxy: env.VITE_API_BASE_URL ? undefined : proxy,
     },
   }
 })

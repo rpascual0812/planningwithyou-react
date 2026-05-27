@@ -7,7 +7,6 @@ const ADMIN_TAB_ORDER: AdminSection[] = [
   'emails',
   'payouts',
   'notifications',
-  'legal',
   'support',
 ]
 
@@ -17,7 +16,6 @@ const TAB_READ_FEATURES: Record<AdminSection, string> = {
   emails: 'admin_emails',
   payouts: 'admin_payouts',
   notifications: 'admin_system_notifications',
-  legal: 'admin_legal',
   support: 'admin_support',
 }
 

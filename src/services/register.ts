@@ -36,7 +36,7 @@ function getErrorMessage(data: unknown): string {
 export async function registerAccount(
   payload: RegisterPayload,
 ): Promise<RegisterResponse> {
-  const res = await apiFetch(buildApiUrl('/api/register/'), {
+  const res = await apiFetch(buildApiUrl('/register/'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

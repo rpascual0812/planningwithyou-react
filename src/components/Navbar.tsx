@@ -144,6 +144,9 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               <Link to="/profile" className="dropdown-item">
                 <i className="bi bi-person me-2" /> Edit Profile
               </Link>
+              <Link to="/profile?tab=support" className="dropdown-item">
+                <i className="bi bi-life-preserver me-2" /> Support
+              </Link>
               {canAccessAnySettings(user) && (
                 <Link to="/settings" className="dropdown-item">
                   <i className="bi bi-gear me-2" /> Settings

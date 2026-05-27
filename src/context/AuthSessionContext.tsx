@@ -13,6 +13,7 @@ import {
   hasStoredSession,
   startAuthSessionKeepAlive,
   subscribeToAuthSync,
+  clearStoredTokens,
 } from '../services/auth'
 import { fetchMe, type UserRecord } from '../services/users'
 
@@ -68,6 +69,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
+      setIsAuthenticated(false)
+      clearStoredTokens()
     } finally {
       setUserLoading(false)
     }

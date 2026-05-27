@@ -46,7 +46,7 @@ export type ContactPayload = {
 
 export async function fetchContacts(search = ''): Promise<ContactRecord[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/contacts/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/contacts/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load contacts')
@@ -54,7 +54,7 @@ export async function fetchContacts(search = ''): Promise<ContactRecord[]> {
 }
 
 export async function fetchContact(id: number): Promise<ContactRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/contacts/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/contacts/${id}/`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load contact')
@@ -64,7 +64,7 @@ export async function fetchContact(id: number): Promise<ContactRecord> {
 export async function createContact(
   data: ContactPayload,
 ): Promise<ContactRecord> {
-  const res = await apiFetch(buildApiUrl('/api/contacts/'), {
+  const res = await apiFetch(buildApiUrl('/contacts/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -80,7 +80,7 @@ export async function updateContact(
   id: number,
   data: Partial<ContactPayload>,
 ): Promise<ContactRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/contacts/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/contacts/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -93,7 +93,7 @@ export async function updateContact(
 }
 
 export async function deleteContact(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/contacts/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/contacts/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

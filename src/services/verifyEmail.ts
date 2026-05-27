@@ -22,7 +22,7 @@ export async function verifyEmailToken(
   token: string,
   remember = true,
 ): Promise<VerifyEmailResponse> {
-  const res = await apiFetch(buildApiUrl('/api/verify-email/'), {
+  const res = await apiFetch(buildApiUrl('/verify-email/'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

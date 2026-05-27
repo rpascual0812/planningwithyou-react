@@ -31,7 +31,7 @@ export type AccountPayload = {
 }
 
 export async function fetchCurrentAccount(): Promise<AccountRecord> {
-  const res = await apiFetch(buildApiUrl('/api/accounts/current/'), {
+  const res = await apiFetch(buildApiUrl('/accounts/current/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load account')
@@ -42,7 +42,7 @@ export async function updateAccount(
   id: number,
   data: AccountPayload,
 ): Promise<AccountRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/accounts/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/accounts/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -52,7 +52,7 @@ export async function updateAccount(
 }
 
 export async function deleteAccount(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/accounts/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/accounts/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

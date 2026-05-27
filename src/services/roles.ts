@@ -46,7 +46,7 @@ async function roleApiError(res: Response, fallback: string): Promise<Error> {
 }
 
 export async function fetchRoles(): Promise<RoleRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/roles/'), {
+  const res = await apiFetch(buildApiUrl('/roles/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load roles')
@@ -54,7 +54,7 @@ export async function fetchRoles(): Promise<RoleRecord[]> {
 }
 
 export async function fetchRoleFeatureCatalog(): Promise<FeatureCatalogItem[]> {
-  const res = await apiFetch(buildApiUrl('/api/roles/feature-catalog/'), {
+  const res = await apiFetch(buildApiUrl('/roles/feature-catalog/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load permission features')
@@ -62,7 +62,7 @@ export async function fetchRoleFeatureCatalog(): Promise<FeatureCatalogItem[]> {
 }
 
 export async function createRole(data: RolePayload): Promise<RoleRecord> {
-  const res = await apiFetch(buildApiUrl('/api/roles/'), {
+  const res = await apiFetch(buildApiUrl('/roles/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -72,7 +72,7 @@ export async function createRole(data: RolePayload): Promise<RoleRecord> {
 }
 
 export async function updateRole(id: number, data: RolePayload): Promise<RoleRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/roles/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/roles/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -82,7 +82,7 @@ export async function updateRole(id: number, data: RolePayload): Promise<RoleRec
 }
 
 export async function deleteRole(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/roles/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/roles/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

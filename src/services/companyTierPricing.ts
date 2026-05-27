@@ -35,7 +35,7 @@ export async function fetchCompanyTierPricing(
 ): Promise<CompanyTierPricingRecord> {
   const suffix = options?.supplierDirectory ? '?supplier_directory=1' : ''
   const res = await apiFetch(
-    buildApiUrl(`/api/companies/${companyId}/tier-pricing/${suffix}`),
+    buildApiUrl(`/companies/${companyId}/tier-pricing/${suffix}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load tier pricing')
@@ -49,7 +49,7 @@ export async function updateCompanyTierPricing(
 ): Promise<CompanyTierPricingRecord> {
   const suffix = options?.supplierDirectory ? '?supplier_directory=1' : ''
   const res = await apiFetch(
-    buildApiUrl(`/api/companies/${companyId}/tier-pricing/${suffix}`),
+    buildApiUrl(`/companies/${companyId}/tier-pricing/${suffix}`),
     {
       method: 'PATCH',
       headers: authHeaders(),

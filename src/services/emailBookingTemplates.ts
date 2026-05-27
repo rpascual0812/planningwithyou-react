@@ -1,6 +1,6 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 
-const BASE = '/api/email-templates/bookings/'
+const BASE = '/email-templates/bookings/'
 
 export type EmailBookingTemplateRecord = {
   id: number

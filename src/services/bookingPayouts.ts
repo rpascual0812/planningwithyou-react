@@ -1,4 +1,11 @@
-import { apiFetch, authHeaders, buildApiUrl } from './api'
+import {
+  apiErrorFromResponse,
+  apiFetch,
+  apiPathWithQuery,
+  authHeaders,
+  buildApiUrl,
+  readJsonResponse,
+} from './api'
 
 export type BookingPayoutRecord = {
   id: number
@@ -15,26 +22,6 @@ export type BookingPayoutRecord = {
   created_at: string
 }
 
-function extractError(body: unknown): string {
-  if (!body || typeof body !== 'object') return ''
-  const obj = body as Record<string, unknown>
-  if (typeof obj.detail === 'string') return obj.detail
-  for (const val of Object.values(obj)) {
-    if (typeof val === 'string') return val
-    if (Array.isArray(val) && typeof val[0] === 'string') return val[0]
-  }
-  return ''
-}
-
-async function payoutApiError(res: Response, fallback: string): Promise<Error> {
-  try {
-    const body = await res.json()
-    return new Error(extractError(body) || fallback)
-  } catch {
-    return new Error(fallback)
-  }
-}
-
 export async function fetchBookingPayouts(
   options: {
     payout?: 'pending' | 'sent' | ''
@@ -48,13 +35,12 @@ export async function fetchBookingPayouts(
   if (options.search?.trim()) {
     params.set('search', options.search.trim())
   }
-  const qs = params.toString()
   const res = await apiFetch(
-    buildApiUrl(`/api/booking-payouts/${qs ? `?${qs}` : ''}`),
+    buildApiUrl(apiPathWithQuery('/booking-payouts', params)),
     { headers: authHeaders() },
   )
   if (!res.ok) {
-    throw await payoutApiError(res, 'Failed to load payouts')
+    throw await apiErrorFromResponse(res, 'Failed to load payouts')
   }
-  return res.json()
+  return readJsonResponse(res, 'Failed to load payouts')
 }

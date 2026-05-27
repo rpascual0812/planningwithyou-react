@@ -22,13 +22,13 @@ type DjangoJwtResponse = {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 const JWT_LOGIN_PATH = import.meta.env.VITE_JWT_LOGIN_PATH
 const JWT_REFRESH_PATH =
-  import.meta.env.VITE_JWT_REFRESH_PATH ?? '/api/token/refresh/'
+  import.meta.env.VITE_JWT_REFRESH_PATH ?? '/token/refresh/'
 
 /** SimpleJWT blacklist URL by default; set `VITE_JWT_LOGOUT_PATH=` to disable server round-trip. */
 const JWT_LOGOUT_PATH =
   import.meta.env.VITE_JWT_LOGOUT_PATH !== undefined
     ? import.meta.env.VITE_JWT_LOGOUT_PATH
-    : '/api/token/blacklist/'
+    : '/token/blacklist/'
 
 export const TOKEN_STORAGE_KEYS = {
   access: 'auth.accessToken',
@@ -154,7 +154,7 @@ export async function loginWithJwt({
   const identifier = login.trim()
   assertLoginAllowed(identifier)
 
-  const response = await fetch(buildApiUrl(JWT_LOGIN_PATH ?? '/api/token/'), {
+  const response = await fetch(buildApiUrl(JWT_LOGIN_PATH ?? '/token/'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

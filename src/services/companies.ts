@@ -1,4 +1,4 @@
-import { apiFetch, authHeaders, buildApiUrl } from './api'
+import { apiFetch, authHeaders, buildApiUrl, apiPathWithQuery } from './api'
 import { getAccessToken } from './auth'
 import { parseApiList } from './parseApiList'
 
@@ -100,7 +100,7 @@ function toFormData(data: CompanyPayload): FormData {
 }
 
 export async function fetchCompanies(): Promise<CompanyRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/companies/'), {
+  const res = await apiFetch(buildApiUrl('/companies/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load companies')
@@ -111,7 +111,12 @@ export async function fetchCompanies(): Promise<CompanyRecord[]> {
 /** All active companies (any account) for admin / supplier directory. */
 export async function fetchCompaniesDirectory(): Promise<CompanyRecord[]> {
   const res = await apiFetch(
-    buildApiUrl('/api/companies/?supplier_directory=1&active_only=true'),
+    buildApiUrl(
+      apiPathWithQuery('/companies', {
+        supplier_directory: '1',
+        active_only: 'true',
+      }),
+    ),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load companies')
@@ -121,7 +126,7 @@ export async function fetchCompaniesDirectory(): Promise<CompanyRecord[]> {
 
 /** Active, non-deleted companies for the current account. */
 export async function fetchActiveCompanies(): Promise<CompanyRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/companies/?active_only=true'), {
+  const res = await apiFetch(buildApiUrl('/companies/?active_only=true'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load companies')
@@ -141,7 +146,7 @@ export async function fetchCompaniesBySupplierType(
   params.set('supplier_type', String(supplierTypeId))
   params.set('supplier_directory', '1')
   if (search) params.set('search', search)
-  const res = await apiFetch(buildApiUrl(`/api/companies/?${params.toString()}`), {
+  const res = await apiFetch(buildApiUrl(`/companies/?${params.toString()}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load companies')
@@ -151,7 +156,7 @@ export async function fetchCompaniesBySupplierType(
 
 export async function createCompany(data: CompanyPayload): Promise<CompanyRecord> {
   const hasFile = data.logo instanceof File
-  const res = await apiFetch(buildApiUrl('/api/companies/'), {
+  const res = await apiFetch(buildApiUrl('/companies/'), {
     method: 'POST',
     headers: patchHeaders(hasFile),
     body: hasFile ? toFormData(data) : JSON.stringify(data),
@@ -167,7 +172,7 @@ export async function updateCompany(
 ): Promise<CompanyRecord> {
   const hasFile = data.logo instanceof File
   const suffix = options?.supplierDirectory ? `?${supplierDirectoryQuery()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/${suffix}`), {
+  const res = await apiFetch(buildApiUrl(`/companies/${id}/${suffix}`), {
     method: 'PATCH',
     headers: patchHeaders(hasFile),
     body: hasFile ? toFormData(data as CompanyPayload) : JSON.stringify(data),
@@ -181,7 +186,7 @@ export async function deleteCompany(
   options?: { supplierDirectory?: boolean },
 ): Promise<void> {
   const suffix = options?.supplierDirectory ? `?${supplierDirectoryQuery()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/companies/${id}/${suffix}`), {
+  const res = await apiFetch(buildApiUrl(`/companies/${id}/${suffix}`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

@@ -36,7 +36,7 @@ async function tierApiError(res: Response, fallback: string): Promise<Error> {
 
 /** Active tiers only (supplier fields, dropdowns). */
 export async function fetchTiers(): Promise<TierRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/tiers/?active_only=true'), {
+  const res = await apiFetch(buildApiUrl('/tiers/?active_only=true'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load tiers')
@@ -47,7 +47,7 @@ export async function fetchTiers(): Promise<TierRecord[]> {
 /** All non-deleted tiers for settings management, optionally scoped to a company. */
 export async function fetchAllTiers(companyId: number): Promise<TierRecord[]> {
   const params = new URLSearchParams({ company_id: String(companyId) })
-  const res = await apiFetch(buildApiUrl(`/api/tiers/?${params.toString()}`), {
+  const res = await apiFetch(buildApiUrl(`/tiers/?${params.toString()}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load tiers')
@@ -56,7 +56,7 @@ export async function fetchAllTiers(companyId: number): Promise<TierRecord[]> {
 }
 
 export async function createTier(data: TierPayload): Promise<TierRecord> {
-  const res = await apiFetch(buildApiUrl('/api/tiers/'), {
+  const res = await apiFetch(buildApiUrl('/tiers/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -69,7 +69,7 @@ export async function updateTier(
   id: number,
   data: Partial<TierPayload>,
 ): Promise<TierRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/tiers/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/tiers/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -79,7 +79,7 @@ export async function updateTier(
 }
 
 export async function deleteTier(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/tiers/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/tiers/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

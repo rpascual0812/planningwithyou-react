@@ -47,7 +47,7 @@ const ResetPasswordConfirmPage = () => {
     setSubmitting(true)
 
     try {
-      const res = await fetch(buildApiUrl('/api/reset-password/confirm/'), {
+      const res = await fetch(buildApiUrl('/reset-password/confirm/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

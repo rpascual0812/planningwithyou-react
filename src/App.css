@@ -4360,6 +4360,10 @@ body,
   align-items: start;
 }
 
+.profile-page-layout--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .profile-settings-col {
   display: flex;
   flex-direction: column;
@@ -4433,6 +4437,116 @@ body,
 
 .profile-settings-link.is-active i {
   color: #ffffff;
+}
+
+.support-tickets-row--unread {
+  font-weight: 700;
+}
+
+.support-tickets-title-btn {
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.support-tickets-title-btn:hover {
+  text-decoration: underline;
+}
+
+.support-ticket-message {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9375rem;
+}
+
+.support-ticket-message--html {
+  white-space: normal;
+}
+
+.support-ticket-message--html p:last-child {
+  margin-bottom: 0;
+}
+
+.support-ticket-message-editor .tox-tinymce {
+  border-radius: 0.375rem;
+}
+
+.support-tickets-preview {
+  max-width: 280px;
+}
+
+.support-ticket-chat .modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+  max-height: min(70vh, 640px);
+}
+
+.support-ticket-chat-thread {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 200px;
+  max-height: min(50vh, 420px);
+  background: var(--bs-tertiary-bg, #f8f9fa);
+}
+
+.support-ticket-chat-row {
+  display: flex;
+  margin-bottom: 0.75rem;
+}
+
+.support-ticket-chat-row--mine {
+  justify-content: flex-end;
+}
+
+.support-ticket-chat-bubble {
+  max-width: min(85%, 520px);
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.support-ticket-chat-bubble--mine {
+  background: var(--brand-navy-light, #e8eef5);
+  border-color: rgba(13, 44, 84, 0.12);
+}
+
+.support-ticket-chat-bubble--staff {
+  background: #fff;
+  border-color: var(--bs-border-color, #dee2e6);
+}
+
+.support-ticket-chat-bubble--other {
+  background: #fff;
+}
+
+.support-ticket-chat-bubble-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  align-items: baseline;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.support-ticket-chat-bubble-body {
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.support-ticket-chat-bubble-body p:last-child {
+  margin-bottom: 0;
+}
+
+.support-ticket-chat-composer {
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.support-ticket-chat-editor .tox-tinymce {
+  border-radius: 0.375rem;
 }
 
 .profile-time-card {

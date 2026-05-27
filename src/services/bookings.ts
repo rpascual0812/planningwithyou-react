@@ -99,7 +99,7 @@ export type BookingItemRecord = {
 /* ── Statuses ── */
 
 export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/booking-statuses/'), {
+  const res = await apiFetch(buildApiUrl('/booking-statuses/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking statuses')
@@ -109,7 +109,7 @@ export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
 export async function createBookingStatus(
   data: Pick<BookingStatusRecord, 'title' | 'description' | 'color'>,
 ): Promise<BookingStatusRecord> {
-  const res = await apiFetch(buildApiUrl('/api/booking-statuses/'), {
+  const res = await apiFetch(buildApiUrl('/booking-statuses/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -122,7 +122,7 @@ export async function updateBookingStatus(
   id: number,
   data: Partial<Pick<BookingStatusRecord, 'title' | 'description' | 'color' | 'sort_order'>>,
 ): Promise<BookingStatusRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/booking-statuses/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -132,7 +132,7 @@ export async function updateBookingStatus(
 }
 
 export async function deleteBookingStatus(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/booking-statuses/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -140,7 +140,7 @@ export async function deleteBookingStatus(id: number): Promise<void> {
 }
 
 export async function reorderBookingStatuses(order: number[]): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/api/booking-statuses/reorder/'), {
+  const res = await apiFetch(buildApiUrl('/booking-statuses/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ order }),
@@ -154,7 +154,7 @@ export async function fetchBookingItems(statusId?: number): Promise<BookingItemR
   const params = new URLSearchParams()
   if (statusId) params.set('status', String(statusId))
   const qs = params.toString() ? `?${params}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/booking-items/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/booking-items/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking items')
@@ -162,7 +162,7 @@ export async function fetchBookingItems(statusId?: number): Promise<BookingItemR
 }
 
 export async function fetchBookingItem(id: number): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking')
@@ -181,7 +181,7 @@ export async function createBookingItem(
     | 'notes'
   > & { contact?: number | null; groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl('/api/booking-items/'), {
+  const res = await apiFetch(buildApiUrl('/booking-items/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -207,7 +207,7 @@ export async function updateBookingItem(
     >
   > & { groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -221,7 +221,7 @@ export async function deleteBookingGroup(
   groupId: number,
 ): Promise<void> {
   const res = await apiFetch(
-    buildApiUrl(`/api/booking-items/${bookingId}/groups/${groupId}/`),
+    buildApiUrl(`/booking-items/${bookingId}/groups/${groupId}/`),
     {
       method: 'DELETE',
       headers: authHeaders(),
@@ -231,7 +231,7 @@ export async function deleteBookingGroup(
 }
 
 export async function deleteBookingItem(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -243,7 +243,7 @@ export async function moveBookingItem(
   statusId: number,
   sortOrder: number,
 ): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/booking-items/${id}/move/`), {
+  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/move/`), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ status: statusId, sort_order: sortOrder }),
@@ -255,7 +255,7 @@ export async function moveBookingItem(
 export async function reorderBookingItems(
   items: { id: number; status: number; sort_order: number }[],
 ): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/api/booking-items/reorder/'), {
+  const res = await apiFetch(buildApiUrl('/booking-items/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ items }),

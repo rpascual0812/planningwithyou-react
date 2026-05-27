@@ -78,7 +78,7 @@ async function kybApiError(res: Response, fallback: string): Promise<Error> {
 }
 
 export async function fetchCompanyKyb(companyId: number): Promise<CompanyKybRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/companies/${companyId}/kyb/`), {
+  const res = await apiFetch(buildApiUrl(`/companies/${companyId}/kyb/`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw await kybApiError(res, 'Failed to load KYB verification')
@@ -89,7 +89,7 @@ export async function updateCompanyKyb(
   companyId: number,
   data: CompanyKybPayload,
 ): Promise<CompanyKybRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/companies/${companyId}/kyb/`), {
+  const res = await apiFetch(buildApiUrl(`/companies/${companyId}/kyb/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -103,7 +103,7 @@ export async function startPaymongoKybOnboarding(
   data: CompanyKybPayload & { regenerate_link?: boolean },
 ): Promise<CompanyKybRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/api/companies/${companyId}/kyb/start-paymongo/`),
+    buildApiUrl(`/companies/${companyId}/kyb/start-paymongo/`),
     {
       method: 'POST',
       headers: authHeaders(),

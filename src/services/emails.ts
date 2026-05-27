@@ -1,4 +1,4 @@
-import { apiFetch, authHeaders, buildApiUrl } from './api'
+import { apiFetch, authHeaders, buildApiUrl, apiErrorFromResponse, readJsonResponse } from './api'
 
 export type EmailRecord = {
   id: number
@@ -40,7 +40,7 @@ export async function fetchEmails(
   if (companyId != null) params.set('company_id', String(companyId))
   const qs = params.toString() ? `?${params.toString()}` : ''
 
-  const res = await apiFetch(buildApiUrl(`/api/emails/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/emails/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load emails')
@@ -58,15 +58,17 @@ export async function fetchAdminEmails(
   if (statusFilter) params.set('status', statusFilter)
   if (companyId != null) params.set('company_id', String(companyId))
 
-  const res = await apiFetch(buildApiUrl(`/api/emails/?${params.toString()}`), {
+  const res = await apiFetch(buildApiUrl(`/emails/?${params.toString()}`), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load emails')
-  return res.json()
+  if (!res.ok) {
+    throw await apiErrorFromResponse(res, 'Failed to load emails')
+  }
+  return readJsonResponse(res, 'Failed to load emails')
 }
 
 export async function fetchEmail(id: number): Promise<EmailRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/emails/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/emails/${id}/`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load email')
@@ -81,7 +83,7 @@ function apiEmailBody(data: EmailPayload): EmailPayload {
 export async function sendEmail(
   data: EmailPayload,
 ): Promise<EmailRecord> {
-  const res = await apiFetch(buildApiUrl('/api/emails/'), {
+  const res = await apiFetch(buildApiUrl('/emails/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(apiEmailBody(data)),
@@ -97,7 +99,7 @@ export async function resendEmail(
   id: number,
   data: EmailPayload = {},
 ): Promise<EmailRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/emails/${id}/resend/`), {
+  const res = await apiFetch(buildApiUrl(`/emails/${id}/resend/`), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(apiEmailBody(data)),

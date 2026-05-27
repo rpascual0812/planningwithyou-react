@@ -37,7 +37,7 @@ export async function fetchFolders(
   const params = new URLSearchParams()
   if (deleted) params.set('deleted', 'true')
   const qs = params.toString() ? `?${params}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/document-folders/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/document-folders/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load folders')
@@ -45,7 +45,7 @@ export async function fetchFolders(
 }
 
 export async function createFolder(name: string): Promise<FolderRecord> {
-  const res = await apiFetch(buildApiUrl('/api/document-folders/'), {
+  const res = await apiFetch(buildApiUrl('/document-folders/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ name }),
@@ -58,7 +58,7 @@ export async function renameFolder(
   id: number,
   name: string,
 ): Promise<FolderRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/document-folders/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/document-folders/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify({ name }),
@@ -68,7 +68,7 @@ export async function renameFolder(
 }
 
 export async function deleteFolder(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/document-folders/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/document-folders/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -77,7 +77,7 @@ export async function deleteFolder(id: number): Promise<void> {
 
 export async function restoreFolder(id: number): Promise<FolderRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/api/document-folders/${id}/restore/`),
+    buildApiUrl(`/document-folders/${id}/restore/`),
     { method: 'POST', headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to restore folder')
@@ -98,7 +98,7 @@ export async function fetchDocuments(opts?: {
   const qs = params.toString() ? `?${params}` : ''
 
   const token = getAccessToken()
-  const res = await apiFetch(buildApiUrl(`/api/documents/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/documents/${qs}`), {
     headers: {
       Accept: 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -117,7 +117,7 @@ export async function uploadDocument(
   if (folderId) formData.append('folder', String(folderId))
 
   const token = getAccessToken()
-  const res = await apiFetch(buildApiUrl('/api/documents/'), {
+  const res = await apiFetch(buildApiUrl('/documents/'), {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -132,7 +132,7 @@ export async function uploadDocument(
 }
 
 export async function deleteDocument(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/documents/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/documents/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -140,7 +140,7 @@ export async function deleteDocument(id: number): Promise<void> {
 }
 
 export async function restoreDocument(id: number): Promise<DocumentRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/documents/${id}/restore/`), {
+  const res = await apiFetch(buildApiUrl(`/documents/${id}/restore/`), {
     method: 'POST',
     headers: authHeaders(),
   })
@@ -152,7 +152,7 @@ export async function moveDocument(
   id: number,
   folderId: number,
 ): Promise<DocumentRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/documents/${id}/move/`), {
+  const res = await apiFetch(buildApiUrl(`/documents/${id}/move/`), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ folder: folderId }),
@@ -165,7 +165,7 @@ export async function renameDocument(
   id: number,
   name: string,
 ): Promise<DocumentRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/documents/${id}/rename/`), {
+  const res = await apiFetch(buildApiUrl(`/documents/${id}/rename/`), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ name }),
@@ -175,7 +175,7 @@ export async function renameDocument(
 }
 
 export async function emptyTrash(): Promise<{ deleted_documents: number; deleted_folders: number }> {
-  const res = await apiFetch(buildApiUrl('/api/documents/empty-trash/'), {
+  const res = await apiFetch(buildApiUrl('/documents/empty-trash/'), {
     method: 'POST',
     headers: authHeaders(),
   })

@@ -75,7 +75,7 @@ export const REPEAT_TYPE_OPTIONS = [
 export type RepeatTypeValue = '' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 export async function fetchCalendarStatuses(): Promise<CalendarStatusRecord[]> {
-  const res = await apiFetch(buildApiUrl('/api/calendar-statuses/'), {
+  const res = await apiFetch(buildApiUrl('/calendar-statuses/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load calendar statuses')
@@ -92,7 +92,7 @@ export type CalendarStatusPayload = {
 export async function createCalendarStatus(
   data: CalendarStatusPayload,
 ): Promise<CalendarStatusRecord> {
-  const res = await apiFetch(buildApiUrl('/api/calendar-statuses/'), {
+  const res = await apiFetch(buildApiUrl('/calendar-statuses/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -105,7 +105,7 @@ export async function updateCalendarStatus(
   id: number,
   data: Partial<CalendarStatusPayload>,
 ): Promise<CalendarStatusRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/calendar-statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/calendar-statuses/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -115,7 +115,7 @@ export async function updateCalendarStatus(
 }
 
 export async function deleteCalendarStatus(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/calendar-statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/calendar-statuses/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -123,7 +123,7 @@ export async function deleteCalendarStatus(id: number): Promise<void> {
 }
 
 export async function reorderCalendarStatuses(order: number[]): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/api/calendar-statuses/reorder/'), {
+  const res = await apiFetch(buildApiUrl('/calendar-statuses/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ order }),
@@ -139,7 +139,7 @@ export async function fetchCalendarEvents(
   if (start) params.set('start', start)
   if (end) params.set('end', end)
   const qs = params.toString() ? `?${params.toString()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/calendar-events/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/calendar-events/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load calendar events')
@@ -149,7 +149,7 @@ export async function fetchCalendarEvents(
 export async function createCalendarEvent(
   data: CalendarEventPayload,
 ): Promise<CalendarEventRecord> {
-  const res = await apiFetch(buildApiUrl('/api/calendar-events/'), {
+  const res = await apiFetch(buildApiUrl('/calendar-events/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -162,7 +162,7 @@ export async function updateCalendarEvent(
   id: number,
   data: Partial<CalendarEventPayload>,
 ): Promise<CalendarEventRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/calendar-events/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/calendar-events/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -172,7 +172,7 @@ export async function updateCalendarEvent(
 }
 
 export async function deleteCalendarEvent(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/calendar-events/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/calendar-events/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

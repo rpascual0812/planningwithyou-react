@@ -43,7 +43,7 @@ export async function fetchSupplierOptions(
     search.set('supplier_id', String(params.supplierId))
   }
   const qs = search.toString() ? `?${search.toString()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/supplier-options/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/supplier-options/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load suppliers')
@@ -72,7 +72,7 @@ export async function fetchSupplierBookingCapacity(params: {
     search.set('exclude_booking_id', String(params.excludeBookingId))
   }
   const res = await apiFetch(
-    buildApiUrl(`/api/supplier-booking-capacity/?${search.toString()}`),
+    buildApiUrl(`/supplier-booking-capacity/?${search.toString()}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to check supplier booking capacity')
@@ -82,7 +82,7 @@ export async function fetchSupplierBookingCapacity(params: {
 export async function fetchTiersForSupplier(
   supplierId: number,
 ): Promise<SupplierTierOptionRecord[]> {
-  const url = `${buildApiUrl('/api/supplier-tiers/')}?supplier_id=${encodeURIComponent(String(supplierId))}`
+  const url = `${buildApiUrl('/supplier-tiers/')}?supplier_id=${encodeURIComponent(String(supplierId))}`
   const res = await apiFetch(url, { headers: authHeaders() })
   if (!res.ok) throw new Error('Failed to load tiers')
   const data: unknown = await res.json()
@@ -112,7 +112,7 @@ export async function fetchBookingSupplierPackage(params: {
     search.set('package_version_id', String(params.packageVersionId))
   }
   const res = await apiFetch(
-    buildApiUrl(`/api/booking-supplier-package/?${search.toString()}`),
+    buildApiUrl(`/booking-supplier-package/?${search.toString()}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load package items')

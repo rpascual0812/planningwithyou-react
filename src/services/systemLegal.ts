@@ -10,7 +10,7 @@ export type PublicLegalRecord = {
 export async function fetchPublicSystemLegal(
   name: LegalDocumentName,
 ): Promise<PublicLegalRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/system-legal/${name}/`))
+  const res = await apiFetch(buildApiUrl(`/system-legal/${name}/`))
   if (!res.ok) throw new Error('Failed to load document')
   return res.json()
 }

@@ -1,4 +1,10 @@
-import { apiFetch, authHeaders, buildApiUrl } from './api'
+import {
+  apiErrorFromResponse,
+  apiFetch,
+  authHeaders,
+  buildApiUrl,
+  readJsonResponse,
+} from './api'
 
 export type LegalDocumentName =
   | 'privacy_policy'
@@ -14,18 +20,20 @@ export type SystemLegalRecord = {
 export async function fetchAdminSystemLegal(
   name: LegalDocumentName,
 ): Promise<SystemLegalRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/admin/system-legal/${name}/`), {
+  const res = await apiFetch(buildApiUrl(`/admin/system-legal/${name}/`), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load document')
-  return res.json()
+  if (!res.ok) {
+    throw await apiErrorFromResponse(res, 'Failed to load document')
+  }
+  return readJsonResponse(res, 'Failed to load document')
 }
 
 export async function updateAdminSystemLegal(
   name: LegalDocumentName,
   value: string,
 ): Promise<SystemLegalRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/admin/system-legal/${name}/`), {
+  const res = await apiFetch(buildApiUrl(`/admin/system-legal/${name}/`), {
     method: 'PATCH',
     headers: {
       ...authHeaders(),
@@ -33,6 +41,8 @@ export async function updateAdminSystemLegal(
     },
     body: JSON.stringify({ value }),
   })
-  if (!res.ok) throw new Error('Failed to save document')
-  return res.json()
+  if (!res.ok) {
+    throw await apiErrorFromResponse(res, 'Failed to save document')
+  }
+  return readJsonResponse(res, 'Failed to save document')
 }

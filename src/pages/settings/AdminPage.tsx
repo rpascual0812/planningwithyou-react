@@ -10,7 +10,6 @@ import AdminEmailPage from './AdminEmailPage'
 import AdminKYBPage from './AdminKYBPage'
 import AdminPayoutPage from './AdminPayoutPage'
 import AdminSystemNotificationsPage from './AdminSystemNotificationsPage'
-import AdminLegalPage from './AdminLegalPage'
 import AdminSupportPage from './AdminSupportPage'
 import type { AdminNavItem, AdminSection } from './types'
 
@@ -21,7 +20,6 @@ const NAV_ITEMS: AdminNavItem[] = [
   { id: 'emails', label: 'Emails', icon: 'bi-envelope' },
   { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
   { id: 'notifications', label: 'System Notifications', icon: 'bi-megaphone' },
-  { id: 'legal', label: 'Legal Documents', icon: 'bi-file-text' },
   { id: 'support', label: 'Support', icon: 'bi-chat-dots' },
 ]
 
@@ -136,8 +134,6 @@ const ActiveAdminPage = ({ activeNav }: ActiveAdminPageProps) => {
       return <AdminPayoutPage />
     case 'notifications':
       return <AdminSystemNotificationsPage />
-    case 'legal':
-      return <AdminLegalPage />
     case 'support':
       return <AdminSupportPage />
     default:

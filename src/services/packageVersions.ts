@@ -46,7 +46,7 @@ export async function fetchPackageVersions(
   if (options?.activeOnly) {
     params.set('active_only', 'true')
   }
-  const res = await apiFetch(buildApiUrl(`/api/package-versions/?${params.toString()}`), {
+  const res = await apiFetch(buildApiUrl(`/package-versions/?${params.toString()}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load package versions')
@@ -57,7 +57,7 @@ export async function fetchPackageVersions(
 export async function createPackageVersion(
   data: PackageVersionPayload,
 ): Promise<PackageVersionRecord> {
-  const res = await apiFetch(buildApiUrl('/api/package-versions/'), {
+  const res = await apiFetch(buildApiUrl('/package-versions/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),

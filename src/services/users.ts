@@ -35,7 +35,7 @@ export type UserPayload = {
 }
 
 export async function fetchMe(): Promise<UserRecord> {
-  const res = await apiFetch(buildApiUrl('/api/users/me/'), {
+  const res = await apiFetch(buildApiUrl('/users/me/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load current user')
@@ -49,7 +49,7 @@ export type UserSeatUsage = {
 }
 
 export async function fetchUserSeatUsage(): Promise<UserSeatUsage> {
-  const res = await apiFetch(buildApiUrl('/api/users/seat-usage/'), {
+  const res = await apiFetch(buildApiUrl('/users/seat-usage/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load user seat usage')
@@ -64,7 +64,7 @@ export async function fetchUsers(
   if (search) params.set('search', search)
   if (companyId != null) params.set('company_id', String(companyId))
   const qs = params.toString() ? `?${params.toString()}` : ''
-  const res = await apiFetch(buildApiUrl(`/api/users/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/users/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load users')
@@ -72,7 +72,7 @@ export async function fetchUsers(
 }
 
 export async function createUser(data: UserPayload): Promise<UserRecord> {
-  const res = await apiFetch(buildApiUrl('/api/users/'), {
+  const res = await apiFetch(buildApiUrl('/users/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -96,7 +96,7 @@ export type ProfilePayload = Pick<
 >
 
 export async function updateMe(data: Partial<ProfilePayload>): Promise<UserRecord> {
-  const res = await apiFetch(buildApiUrl('/api/users/me/'), {
+  const res = await apiFetch(buildApiUrl('/users/me/'), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -111,7 +111,7 @@ export async function updateMe(data: Partial<ProfilePayload>): Promise<UserRecor
 export async function uploadMyPhoto(photo: File): Promise<UserRecord> {
   const fd = new FormData()
   fd.append('photo', photo)
-  const res = await apiFetch(buildApiUrl('/api/users/me/'), {
+  const res = await apiFetch(buildApiUrl('/users/me/'), {
     method: 'PATCH',
     headers: userPatchHeaders(true),
     body: fd,
@@ -127,7 +127,7 @@ export async function updateUser(
   id: number,
   data: Partial<UserPayload>,
 ): Promise<UserRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/users/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/users/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -142,7 +142,7 @@ export async function updateUser(
 export async function uploadUserPhoto(id: number, photo: File): Promise<UserRecord> {
   const fd = new FormData()
   fd.append('photo', photo)
-  const res = await apiFetch(buildApiUrl(`/api/users/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/users/${id}/`), {
     method: 'PATCH',
     headers: userPatchHeaders(true),
     body: fd,
@@ -155,7 +155,7 @@ export async function uploadUserPhoto(id: number, photo: File): Promise<UserReco
 }
 
 export async function deleteUser(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/users/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/users/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

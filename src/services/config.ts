@@ -8,7 +8,7 @@ export type BookingViewConfigRecord = {
 }
 
 export async function fetchBookingViewConfig(): Promise<BookingViewConfigRecord> {
-  const res = await apiFetch(buildApiUrl('/api/config/booking-view/'), {
+  const res = await apiFetch(buildApiUrl('/config/booking-view/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking view setting')
@@ -18,7 +18,7 @@ export async function fetchBookingViewConfig(): Promise<BookingViewConfigRecord>
 export async function saveBookingViewConfig(
   value: BookingsView,
 ): Promise<BookingViewConfigRecord> {
-  const res = await apiFetch(buildApiUrl('/api/config/booking-view/'), {
+  const res = await apiFetch(buildApiUrl('/config/booking-view/'), {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ value }),
@@ -34,7 +34,7 @@ export type BookingsGroupNameConfigRecord = {
 }
 
 export async function fetchBookingsGroupNameConfig(): Promise<BookingsGroupNameConfigRecord> {
-  const res = await apiFetch(buildApiUrl('/api/config/bookings-group-name/'), {
+  const res = await apiFetch(buildApiUrl('/config/bookings-group-name/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load bookings group name')
@@ -44,7 +44,7 @@ export async function fetchBookingsGroupNameConfig(): Promise<BookingsGroupNameC
 export async function saveBookingsGroupNameConfig(
   value: string,
 ): Promise<BookingsGroupNameConfigRecord> {
-  const res = await apiFetch(buildApiUrl('/api/config/bookings-group-name/'), {
+  const res = await apiFetch(buildApiUrl('/config/bookings-group-name/'), {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({ value }),

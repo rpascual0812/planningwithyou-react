@@ -1,4 +1,11 @@
-import { apiFetch, authHeaders, buildApiUrl } from './api'
+import {
+  apiErrorFromResponse,
+  apiFetch,
+  apiPathWithQuery,
+  authHeaders,
+  buildApiUrl,
+  readJsonResponse,
+} from './api'
 
 export type AdminBookingPaymentRecord = {
   id: number
@@ -21,26 +28,6 @@ export type AdminBookingPaymentRecord = {
   created_at: string
 }
 
-function extractError(body: unknown): string {
-  if (!body || typeof body !== 'object') return ''
-  const obj = body as Record<string, unknown>
-  if (typeof obj.detail === 'string') return obj.detail
-  for (const val of Object.values(obj)) {
-    if (typeof val === 'string') return val
-    if (Array.isArray(val) && typeof val[0] === 'string') return val[0]
-  }
-  return ''
-}
-
-async function adminPayoutApiError(res: Response, fallback: string): Promise<Error> {
-  try {
-    const body = await res.json()
-    return new Error(extractError(body) || fallback)
-  } catch {
-    return new Error(fallback)
-  }
-}
-
 export async function fetchAdminBookingPayments(
   options: {
     companyId?: number | null
@@ -58,29 +45,28 @@ export async function fetchAdminBookingPayments(
   if (options.search?.trim()) {
     params.set('search', options.search.trim())
   }
-  const qs = params.toString()
   const res = await apiFetch(
-    buildApiUrl(`/api/admin/booking-payments/${qs ? `?${qs}` : ''}`),
+    buildApiUrl(apiPathWithQuery('/admin/booking-payments', params)),
     { headers: authHeaders() },
   )
   if (!res.ok) {
-    throw await adminPayoutApiError(res, 'Failed to load booking payments')
+    throw await apiErrorFromResponse(res, 'Failed to load booking payments')
   }
-  return res.json()
+  return readJsonResponse(res, 'Failed to load booking payments')
 }
 
 export async function markAdminBookingPayoutSent(
   paymentId: number,
 ): Promise<AdminBookingPaymentRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/api/admin/booking-payments/${paymentId}/mark-payout-sent/`),
+    buildApiUrl(`/admin/booking-payments/${paymentId}/mark-payout-sent/`),
     {
       method: 'POST',
       headers: authHeaders(),
     },
   )
   if (!res.ok) {
-    throw await adminPayoutApiError(res, 'Failed to mark payout as sent')
+    throw await apiErrorFromResponse(res, 'Failed to mark payout as sent')
   }
-  return res.json()
+  return readJsonResponse(res, 'Failed to mark payout as sent')
 }

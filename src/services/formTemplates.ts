@@ -70,8 +70,8 @@ export async function fetchFormTemplates(
   if (companyId != null) params.set('company_id', String(companyId))
   const query = params.toString()
   const url = query
-    ? `/api/form-templates/?${query}`
-    : '/api/form-templates/'
+    ? `/form-templates/?${query}`
+    : '/form-templates/'
   const res = await apiFetch(buildApiUrl(url), {
     headers: authHeaders(),
   })
@@ -82,7 +82,7 @@ export async function fetchFormTemplates(
 export async function createFormTemplate(
   data: FormTemplatePayload,
 ): Promise<FormTemplateRecord> {
-  const res = await apiFetch(buildApiUrl('/api/form-templates/'), {
+  const res = await apiFetch(buildApiUrl('/form-templates/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -98,7 +98,7 @@ export async function updateFormTemplate(
   id: number,
   data: Partial<FormTemplatePayload>,
 ): Promise<FormTemplateRecord> {
-  const res = await apiFetch(buildApiUrl(`/api/form-templates/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/form-templates/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -111,7 +111,7 @@ export async function updateFormTemplate(
 }
 
 export async function deleteFormTemplate(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/api/form-templates/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/form-templates/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

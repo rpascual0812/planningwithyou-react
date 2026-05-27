@@ -27,7 +27,7 @@ export async function fetchAccountTierPricing(
   accountId: number,
 ): Promise<AccountTierPricingRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/api/accounts/${accountId}/tier-pricing/`),
+    buildApiUrl(`/accounts/${accountId}/tier-pricing/`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load tier pricing')
@@ -39,7 +39,7 @@ export async function updateAccountTierPricing(
   data: AccountTierPricingPayload,
 ): Promise<AccountTierPricingRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/api/accounts/${accountId}/tier-pricing/`),
+    buildApiUrl(`/accounts/${accountId}/tier-pricing/`),
     {
       method: 'PATCH',
       headers: authHeaders(),

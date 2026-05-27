@@ -19,7 +19,6 @@ export type AdminSection =
   | 'emails'
   | 'payouts'
   | 'notifications'
-  | 'legal'
   | 'support'
 
 export type AdminNavItem = {

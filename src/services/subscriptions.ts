@@ -56,7 +56,7 @@ export async function fetchSubscriptionPlans(
 ): Promise<SubscriptionPlanRecord[]> {
   const params = new URLSearchParams({ billing_cycle: billingCycle })
   const res = await apiFetch(
-    buildApiUrl(`/api/subscriptions/?${params.toString()}`),
+    buildApiUrl(`/subscriptions/?${params.toString()}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load subscription plans')
@@ -64,7 +64,7 @@ export async function fetchSubscriptionPlans(
 }
 
 export async function fetchCurrentAccountSubscription(): Promise<AccountSubscriptionRecord | null> {
-  const res = await apiFetch(buildApiUrl('/api/account-subscription/current/'), {
+  const res = await apiFetch(buildApiUrl('/account-subscription/current/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load account subscription')
@@ -95,7 +95,7 @@ export type SubscriptionCheckoutPreview = {
 export async function previewSubscriptionCheckout(
   payload: SubscriptionCheckoutPayload,
 ): Promise<SubscriptionCheckoutPreview> {
-  const res = await apiFetch(buildApiUrl('/api/subscriptions/checkout/preview/'), {
+  const res = await apiFetch(buildApiUrl('/subscriptions/checkout/preview/'), {
     method: 'POST',
     headers: {
       ...authHeaders(),
@@ -119,7 +119,7 @@ export async function previewSubscriptionCheckout(
 export async function createSubscriptionCheckout(
   payload: SubscriptionCheckoutPayload,
 ): Promise<SubscriptionCheckoutResponse> {
-  const res = await apiFetch(buildApiUrl('/api/subscriptions/checkout/'), {
+  const res = await apiFetch(buildApiUrl('/subscriptions/checkout/'), {
     method: 'POST',
     headers: {
       ...authHeaders(),

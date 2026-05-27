@@ -22,15 +22,15 @@ export async function fetchHistory(historyPath: string): Promise<HistoryRecord[]
 }
 
 export const historyPaths = {
-  account: (id: number) => `/api/accounts/${id}/history/`,
-  company: (id: number) => `/api/companies/${id}/history/`,
-  user: (id: number) => `/api/users/${id}/history/`,
-  contact: (id: number) => `/api/contacts/${id}/history/`,
-  bookingStatus: (id: number) => `/api/booking-statuses/${id}/history/`,
-  bookingItem: (id: number) => `/api/booking-items/${id}/history/`,
-  formTemplate: (id: number) => `/api/form-templates/${id}/history/`,
-  emailTemplateUsers: (id: number) => `/api/email-templates/users/${id}/history/`,
-  emailTemplateBookings: (id: number) => `/api/email-templates/bookings/${id}/history/`,
+  account: (id: number) => `/accounts/${id}/history/`,
+  company: (id: number) => `/companies/${id}/history/`,
+  user: (id: number) => `/users/${id}/history/`,
+  contact: (id: number) => `/contacts/${id}/history/`,
+  bookingStatus: (id: number) => `/booking-statuses/${id}/history/`,
+  bookingItem: (id: number) => `/booking-items/${id}/history/`,
+  formTemplate: (id: number) => `/form-templates/${id}/history/`,
+  emailTemplateUsers: (id: number) => `/email-templates/users/${id}/history/`,
+  emailTemplateBookings: (id: number) => `/email-templates/bookings/${id}/history/`,
   supplierSetting: (companyId: number) =>
-    `/api/companies/${companyId}/supplier-setting/history/`,
+    `/companies/${companyId}/supplier-setting/history/`,
 } as const
