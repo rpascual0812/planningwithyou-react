@@ -22,7 +22,9 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  individual: 'Individual',
   sole_proprietor: 'Sole proprietorship',
+  partnership: 'Partnership',
   corporation: 'Corporation',
 }
 
@@ -104,7 +106,6 @@ const AdminKybReviewModal = ({
     }
   }
 
-  const bank = record?.bank_details ?? {}
   const rejectionNote = record?.rejection_reason ?? record?.rejection_notes
 
   return (
@@ -185,23 +186,6 @@ const AdminKybReviewModal = ({
                     <KybReadOnlyText
                       label="Mobile"
                       value={record.merchant_mobile_number}
-                    />
-                    <KybReadOnlyText
-                      label="Website"
-                      value={record.business_website}
-                    />
-                  </fieldset>
-
-                  <fieldset className="mb-3">
-                    <legend className="fs-6 fw-semibold">Bank details</legend>
-                    <KybReadOnlyText label="Bank" value={bank.bank_name ?? ''} />
-                    <KybReadOnlyText
-                      label="Account name"
-                      value={bank.account_name ?? ''}
-                    />
-                    <KybReadOnlyText
-                      label="Account number"
-                      value={bank.account_number ?? ''}
                     />
                   </fieldset>
 

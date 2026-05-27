@@ -15,7 +15,9 @@ const STATUS_OPTIONS: { value: AdminKybStatusFilter; label: string }[] = [
 ]
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  individual: 'Individual',
   sole_proprietor: 'Sole proprietorship',
+  partnership: 'Partnership',
   corporation: 'Corporation',
 }
 

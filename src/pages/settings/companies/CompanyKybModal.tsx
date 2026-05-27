@@ -3,6 +3,7 @@ import {
   fetchCompanyKyb,
   startPaymongoKybOnboarding,
   updateCompanyKyb,
+  KYB_BUSINESS_TYPE_OPTIONS,
   type CompanyKybRecord,
   type KybBusinessType,
 } from '../../../services/companyKyb'
@@ -21,23 +22,14 @@ type KybFormState = {
   merchant_business_name: string
   merchant_email: string
   merchant_mobile_number: string
-  business_website: string
-  bank_name: string
-  bank_account_name: string
-  bank_account_number: string
 }
 
 function recordToForm(record: CompanyKybRecord, companyName: string): KybFormState {
-  const bank = record.bank_details ?? {}
   return {
     business_type: record.business_type ?? '',
     merchant_business_name: record.merchant_business_name || companyName,
     merchant_email: record.merchant_email ?? '',
     merchant_mobile_number: record.merchant_mobile_number ?? '',
-    business_website: record.business_website ?? '',
-    bank_name: bank.bank_name ?? '',
-    bank_account_name: bank.account_name ?? '',
-    bank_account_number: bank.account_number ?? '',
   }
 }
 
@@ -47,12 +39,6 @@ function formToPayload(form: KybFormState) {
     merchant_business_name: form.merchant_business_name.trim(),
     merchant_email: form.merchant_email.trim(),
     merchant_mobile_number: form.merchant_mobile_number.trim(),
-    business_website: form.business_website.trim(),
-    bank_details: {
-      bank_name: form.bank_name.trim(),
-      account_name: form.bank_account_name.trim(),
-      account_number: form.bank_account_number.trim(),
-    },
   }
 }
 
@@ -82,13 +68,24 @@ const CompanyKybModal = ({
         merchant_business_name: companyName,
         merchant_email: '',
         merchant_mobile_number: '',
-        business_website: '',
-        bank_details: {},
       } as CompanyKybRecord,
       companyName,
     ),
   )
   const [missingFields, setMissingFields] = useState<string[]>([])
+  const [activeOnboardingUrl, setActiveOnboardingUrl] = useState('')
+
+  const openOnboardingUrl = (url: string) => {
+    const trimmed = url.trim()
+    if (!trimmed) {
+      const message =
+        'PayMongo did not return an onboarding link. Please try again or contact support.'
+      setFormError(message)
+      showErrorToast(message)
+      return
+    }
+    window.open(trimmed, '_blank', 'noopener,noreferrer')
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -96,6 +93,7 @@ const CompanyKybModal = ({
     try {
       const data = await fetchCompanyKyb(companyId)
       setRecord(data)
+      setActiveOnboardingUrl((data.onboarding_url ?? '').trim())
       setForm(recordToForm(data, companyName))
       setMissingFields(data.missing_fields ?? [])
     } catch (e) {
@@ -110,6 +108,14 @@ const CompanyKybModal = ({
   }, [load])
 
   const readOnly = record?.status === 'approved'
+  const continueToPayMongoDisabled =
+    saving ||
+    redirecting ||
+    loading ||
+    (Boolean(activeOnboardingUrl) && record?.status !== 'rejected')
+  const showSaveDraft =
+    !readOnly &&
+    (!activeOnboardingUrl || record?.status === 'rejected')
 
   const patchForm = (patch: Partial<KybFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -140,7 +146,7 @@ const CompanyKybModal = ({
     }
   }
 
-  const handleContinueToPayMongo = async (regenerate = false) => {
+  const handleContinueToPayMongo = async () => {
     if (!form.business_type) {
       setFormError('Select a business type.')
       return
@@ -150,18 +156,12 @@ const CompanyKybModal = ({
     try {
       const data = await startPaymongoKybOnboarding(companyId, {
         ...formToPayload(form),
-        regenerate_link: regenerate,
       })
       setRecord(data)
+      const url = (data.onboarding_url ?? '').trim()
+      setActiveOnboardingUrl(url)
       onSaved()
-      const url = data.onboarding_url?.trim()
-      if (!url) {
-        showSuccessToast(
-          'PayMongo onboarding started. Refresh status after completing verification on PayMongo.',
-        )
-        return
-      }
-      window.location.assign(url)
+      openOnboardingUrl(url)
     } catch (e) {
       const message =
         e instanceof Error ? e.message : 'Failed to start PayMongo verification'
@@ -207,7 +207,7 @@ const CompanyKybModal = ({
                   <p className="text-muted small">
                     Collect your business details here, then continue to PayMongo to
                     upload documents and complete verification on their secure site.
-                    We no longer collect KYB documents inside Planning With You.
+                    We do not collect your documents inside Planning With You.
                   </p>
 
                   {record && (
@@ -232,13 +232,13 @@ const CompanyKybModal = ({
                     </div>
                   )}
 
-                  {record?.onboarding_url && record.status === 'pending_paymongo' && (
+                  {activeOnboardingUrl && record?.status === 'pending_paymongo' && (
                     <div className="alert alert-info py-2 small">
                       Verification is in progress on PayMongo.{' '}
                       <button
                         type="button"
                         className="btn btn-link btn-sm p-0 align-baseline"
-                        onClick={() => void handleContinueToPayMongo(true)}
+                        onClick={() => openOnboardingUrl(activeOnboardingUrl)}
                         disabled={redirecting}
                       >
                         Open onboarding again
@@ -253,43 +253,32 @@ const CompanyKybModal = ({
                       role="radiogroup"
                       aria-label="Business type"
                     >
-                      <li>
-                        <label className="settings-radio">
-                          <input
-                            type="radio"
-                            name="kyb-business-type"
-                            value="sole_proprietor"
-                            checked={form.business_type === 'sole_proprietor'}
-                            disabled={readOnly}
-                            onChange={() =>
-                              patchForm({ business_type: 'sole_proprietor' })
-                            }
-                          />
-                          <span>Sole proprietorship</span>
-                        </label>
-                      </li>
-                      <li>
-                        <label className="settings-radio">
-                          <input
-                            type="radio"
-                            name="kyb-business-type"
-                            value="corporation"
-                            checked={form.business_type === 'corporation'}
-                            disabled={readOnly}
-                            onChange={() =>
-                              patchForm({ business_type: 'corporation' })
-                            }
-                          />
-                          <span>Corporation</span>
-                        </label>
-                      </li>
+                      {KYB_BUSINESS_TYPE_OPTIONS.map((opt) => (
+                        <li key={opt.value}>
+                          <label className="settings-radio">
+                            <input
+                              type="radio"
+                              name="kyb-business-type"
+                              value={opt.value}
+                              checked={form.business_type === opt.value}
+                              disabled={readOnly}
+                              onChange={() =>
+                                patchForm({
+                                  business_type: opt.value as KybBusinessType,
+                                })
+                              }
+                            />
+                            <span>{opt.label}</span>
+                          </label>
+                        </li>
+                      ))}
                     </ul>
                   </div>
 
                   <div className="row g-3">
                     <div className="col-md-6">
                       <label className="form-label" htmlFor="kyb-business-name">
-                        Business name *
+                        Business legal name (as per BIR) *
                       </label>
                       <input
                         id="kyb-business-name"
@@ -333,76 +322,7 @@ const CompanyKybModal = ({
                         }
                       />
                     </div>
-                    <div className="col-md-6">
-                      <label className="form-label" htmlFor="kyb-website">
-                        Website (optional)
-                      </label>
-                      <input
-                        id="kyb-website"
-                        type="url"
-                        className="form-control"
-                        placeholder="https://"
-                        value={form.business_website}
-                        disabled={readOnly}
-                        onChange={(e) =>
-                          patchForm({ business_website: e.target.value })
-                        }
-                      />
-                    </div>
                   </div>
-
-                  <fieldset
-                    className="border-0 p-0 mt-2"
-                    disabled={readOnly}
-                  >
-                    <legend className="form-label fs-6">
-                      Payout bank details (optional)
-                    </legend>
-                    <div className="row g-3">
-                      <div className="col-md-4">
-                        <label className="form-label" htmlFor="kyb-bank">
-                          Bank
-                        </label>
-                        <input
-                          id="kyb-bank"
-                          type="text"
-                          className="form-control"
-                          value={form.bank_name}
-                          onChange={(e) =>
-                            patchForm({ bank_name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="col-md-4">
-                        <label className="form-label" htmlFor="kyb-acct-name">
-                          Account name
-                        </label>
-                        <input
-                          id="kyb-acct-name"
-                          type="text"
-                          className="form-control"
-                          value={form.bank_account_name}
-                          onChange={(e) =>
-                            patchForm({ bank_account_name: e.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="col-md-4">
-                        <label className="form-label" htmlFor="kyb-acct-num">
-                          Account number
-                        </label>
-                        <input
-                          id="kyb-acct-num"
-                          type="text"
-                          className="form-control"
-                          value={form.bank_account_number}
-                          onChange={(e) =>
-                            patchForm({ bank_account_number: e.target.value })
-                          }
-                        />
-                      </div>
-                    </div>
-                  </fieldset>
 
                   {missingFields.length > 0 && (
                     <div className="alert alert-warning py-2 mt-3 mb-0 small">
@@ -429,19 +349,21 @@ const CompanyKybModal = ({
               </button>
               {!readOnly && (
                 <>
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary"
-                    onClick={() => void handleSaveDraft()}
-                    disabled={saving || redirecting || loading}
-                  >
-                    {saving ? 'Saving…' : 'Save draft'}
-                  </button>
+                  {showSaveDraft && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => void handleSaveDraft()}
+                      disabled={saving || redirecting || loading}
+                    >
+                      {saving ? 'Saving…' : 'Save draft'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => void handleContinueToPayMongo(false)}
-                    disabled={saving || redirecting || loading}
+                    onClick={() => void handleContinueToPayMongo()}
+                    disabled={continueToPayMongoDisabled}
                   >
                     {redirecting ? 'Redirecting…' : 'Continue to PayMongo'}
                   </button>

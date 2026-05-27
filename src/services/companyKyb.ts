@@ -1,18 +1,27 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 
-export type KybBusinessType = 'sole_proprietor' | 'corporation' | ''
+export type KybBusinessType =
+  | 'individual'
+  | 'sole_proprietor'
+  | 'partnership'
+  | 'corporation'
+  | ''
+
+export const KYB_BUSINESS_TYPE_OPTIONS: {
+  value: Exclude<KybBusinessType, ''>
+  label: string
+}[] = [
+  { value: 'individual', label: 'Individual' },
+  { value: 'sole_proprietor', label: 'Sole proprietorship' },
+  { value: 'partnership', label: 'Partnership' },
+  { value: 'corporation', label: 'Corporation' },
+]
 
 export type KybStatus =
   | 'draft'
   | 'pending_paymongo'
   | 'approved'
   | 'rejected'
-
-export type BankDetails = {
-  bank_name?: string
-  account_name?: string
-  account_number?: string
-}
 
 export type CompanyKybRecord = {
   id: number
@@ -25,8 +34,6 @@ export type CompanyKybRecord = {
   merchant_business_name: string
   merchant_email: string
   merchant_mobile_number: string
-  bank_details: BankDetails
-  business_website: string
   submitted_at: string | null
   reviewed_at: string | null
   reviewed_by: number | null
@@ -45,8 +52,6 @@ export type CompanyKybPayload = Partial<
     | 'merchant_business_name'
     | 'merchant_email'
     | 'merchant_mobile_number'
-    | 'bank_details'
-    | 'business_website'
     | 'status'
     | 'rejection_notes'
   >
