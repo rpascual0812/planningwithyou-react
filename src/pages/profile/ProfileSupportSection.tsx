@@ -166,7 +166,7 @@ const ProfileSupportSection = () => {
                 <tr>
                   <th>Title</th>
                   <th>Status</th>
-                  <th>Filed</th>
+                  <th>Last activity</th>
                   <th className="text-end">Actions</th>
                 </tr>
               </thead>
@@ -194,7 +194,7 @@ const ProfileSupportSection = () => {
                       {SUPPORT_TICKET_STATUS_LABELS[row.status] ?? row.status}
                     </td>
                     <td className="text-muted small">
-                      {formatDateTime(row.created_at)}
+                      {formatDateTime(row.last_message_at || row.created_at)}
                     </td>
                     <td className="text-end text-nowrap">
                       <button

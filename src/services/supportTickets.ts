@@ -29,6 +29,7 @@ export type SupportTicketRecord = {
   can_delete: boolean
   message_count: number
   last_message_preview: string
+  last_message_at: string
 }
 
 export type SupportTicketDetailRecord = SupportTicketRecord & {

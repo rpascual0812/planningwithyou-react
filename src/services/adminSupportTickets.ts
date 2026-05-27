@@ -1,6 +1,7 @@
 import {
   apiErrorFromResponse,
   apiFetch,
+  apiPathWithQuery,
   authHeaders,
   buildApiUrl,
   readJsonResponse,
@@ -12,10 +13,19 @@ import type {
   SupportTicketStatus,
 } from './supportTickets'
 
-export async function fetchAdminSupportTickets(): Promise<SupportTicketRecord[]> {
-  const res = await apiFetch(buildApiUrl('/admin/support-tickets/'), {
-    headers: authHeaders(),
-  })
+export async function fetchAdminSupportTickets(
+  search = '',
+  status = '',
+): Promise<SupportTicketRecord[]> {
+  const params: Record<string, string> = {}
+  if (search.trim()) params.search = search.trim()
+  if (status) params.status = status
+  const res = await apiFetch(
+    buildApiUrl(apiPathWithQuery('/admin/support-tickets', params)),
+    {
+      headers: authHeaders(),
+    },
+  )
   if (!res.ok) {
     throw await apiErrorFromResponse(res, 'Failed to load support tickets')
   }

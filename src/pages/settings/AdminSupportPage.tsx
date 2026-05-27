@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import SupportTicketChatModal from '../../components/SupportTicketChatModal'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import {
@@ -13,6 +13,14 @@ import {
   type SupportTicketStatus,
 } from '../../services/supportTickets'
 
+const STATUS_OPTIONS: { value: '' | SupportTicketStatus; label: string }[] = [
+  { value: '', label: 'All statuses' },
+  { value: 'open', label: 'Open' },
+  { value: 'in_progress', label: 'In progress' },
+  { value: 'resolved', label: 'Resolved' },
+  { value: 'closed', label: 'Closed' },
+]
+
 function formatDateTime(iso: string): string {
   const parsed = new Date(iso)
   if (Number.isNaN(parsed.getTime())) return iso
@@ -25,12 +33,24 @@ const AdminSupportPage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [chatTicket, setChatTicket] = useState<SupportTicketRecord | null>(null)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'' | SupportTicketStatus>('')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const loadRows = useCallback(async () => {
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [search])
+
+  const loadRows = useCallback(async (q = '', status = '') => {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchAdminSupportTickets()
+      const data = await fetchAdminSupportTickets(q, status)
       setRows(data)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load support tickets')
@@ -41,8 +61,8 @@ const AdminSupportPage = () => {
   }, [])
 
   useEffect(() => {
-    void loadRows()
-  }, [loadRows])
+    void loadRows(debouncedSearch, statusFilter)
+  }, [debouncedSearch, statusFilter, loadRows])
 
   const handleTicketUpdated = useCallback(
     (summary: { id: number; status: SupportTicketStatus; is_read: boolean }) => {
@@ -64,6 +84,31 @@ const AdminSupportPage = () => {
 
   return (
     <>
+      <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <input
+          type="search"
+          className="form-control"
+          placeholder="Search title, user, or message…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ maxWidth: '280px' }}
+        />
+        <select
+          className="form-select"
+          value={statusFilter}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as '' | SupportTicketStatus)
+          }
+          style={{ maxWidth: '180px' }}
+        >
+          {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value || 'all'} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {error && (
         <p className="text-danger small" role="alert">
           {error}
@@ -73,7 +118,7 @@ const AdminSupportPage = () => {
       {loading ? (
         <p className="text-muted small mb-0">Loading support tickets…</p>
       ) : rows.length === 0 ? (
-        <p className="text-muted small mb-0">No support tickets filed yet.</p>
+        <p className="text-muted small mb-0">No support tickets match your filters.</p>
       ) : (
         <div className="table-responsive">
           <table className="table table-sm align-middle mb-0 support-tickets-table">
@@ -82,7 +127,7 @@ const AdminSupportPage = () => {
                 <th>Title</th>
                 <th>From</th>
                 <th>Status</th>
-                <th>Filed</th>
+                <th>Last activity</th>
                 <th className="text-end">Actions</th>
               </tr>
             </thead>
@@ -111,7 +156,7 @@ const AdminSupportPage = () => {
                     {SUPPORT_TICKET_STATUS_LABELS[row.status] ?? row.status}
                   </td>
                   <td className="text-muted small">
-                    {formatDateTime(row.created_at)}
+                    {formatDateTime(row.last_message_at || row.created_at)}
                   </td>
                   <td className="text-end">
                     <button
@@ -144,7 +189,7 @@ const AdminSupportPage = () => {
           }
           onClose={() => {
             setChatTicket(null)
-            void loadRows()
+            void loadRows(debouncedSearch, statusFilter)
           }}
           onTicketUpdated={handleTicketUpdated}
         />
