@@ -111,7 +111,7 @@ function bodyPreview(body: string, max = 80): string {
   return text.length > max ? `${text.slice(0, max)}…` : text
 }
 
-const EmailTemplatesPanel = ({
+export const EmailTemplatesPanel = ({
   typeLabel,
   emptyMessage,
   fetchTemplates,

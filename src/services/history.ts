@@ -31,6 +31,7 @@ export const historyPaths = {
   formTemplate: (id: number) => `/form-templates/${id}/history/`,
   emailTemplateUsers: (id: number) => `/email-templates/users/${id}/history/`,
   emailTemplateBookings: (id: number) => `/email-templates/bookings/${id}/history/`,
+  emailTemplateCalendar: (id: number) => `/email-templates/calendar/${id}/history/`,
   supplierSetting: (companyId: number) =>
     `/companies/${companyId}/supplier-setting/history/`,
 } as const
