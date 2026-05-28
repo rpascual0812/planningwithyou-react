@@ -41,6 +41,7 @@ export type CalendarStatusRecord = {
 export type CalendarEventRecord = {
   id: number
   title: string
+  location: string
   start: string
   end: string
   repeat_type: string | null
@@ -55,6 +56,7 @@ export type CalendarEventRecord = {
 
 export type CalendarEventPayload = {
   title: string
+  location?: string
   start: string
   end: string
   repeat_type?: string | null

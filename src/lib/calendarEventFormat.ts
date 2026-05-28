@@ -50,6 +50,7 @@ export function appointmentPayloadFromForm(form: AppointmentFormState): Calendar
   }
   return {
     title: form.title.trim() || 'Untitled',
+    location: form.location.trim(),
     start: datetimeLocalToIso(form.startValue),
     end: datetimeLocalToIso(form.endValue),
     repeat_type: form.repeatType || null,

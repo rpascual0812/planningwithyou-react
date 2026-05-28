@@ -12,6 +12,7 @@ import type { ContactRecord } from '../services/contacts'
 export type AppointmentFormState = {
   eventId: number | null
   title: string
+  location: string
   startValue: string
   endValue: string
   repeatType: RepeatTypeValue
@@ -24,6 +25,7 @@ export type AppointmentFormState = {
 export const EMPTY_APPOINTMENT_FORM: AppointmentFormState = {
   eventId: null,
   title: '',
+  location: '',
   startValue: '',
   endValue: '',
   repeatType: '',
@@ -130,6 +132,8 @@ const AppointmentEditModal = ({
                     disabled={saving || deleting}
                   />
                 </div>
+
+                
 
                 <div className="row g-3 mb-3">
                   <div className="col-md-6">
@@ -263,6 +267,21 @@ const AppointmentEditModal = ({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="mb-3">
+                  <label htmlFor="appointment-location" className="form-label">
+                    Location
+                  </label>
+                  <textarea
+                    id="appointment-location"
+                    className="form-control"
+                    rows={2}
+                    value={form.location}
+                    onChange={(e) => onChange({ ...form, location: e.target.value })}
+                    placeholder="Enter appointment location"
+                    disabled={saving || deleting}
+                  />
                 </div>
 
                 <div className="mb-0">

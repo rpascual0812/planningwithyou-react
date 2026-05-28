@@ -75,6 +75,7 @@ function formFromCalendarRecord(ev: CalendarEventRecord): AppointmentFormState {
   return {
     eventId: ev.id,
     title: ev.title,
+    location: ev.location ?? '',
     startValue: isoToDatetimeLocalValue(ev.start),
     endValue: isoToDatetimeLocalValue(ev.end),
     repeatType: (ev.repeat_type ?? '') as RepeatTypeValue,
