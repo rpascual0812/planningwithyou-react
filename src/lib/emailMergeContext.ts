@@ -39,6 +39,10 @@ export function buildEmailMergeContext(options: {
   bookingTitle?: string | null
   transactionId?: string | null
   amountPaid?: string | number | null
+  eventTitle?: string | null
+  eventStart?: string | null
+  eventEnd?: string | null
+  eventLocation?: string | null
 }): EmailMergeContext {
   const bookingId =
     options.bookingId == null ? '' : String(options.bookingId).trim()
@@ -54,5 +58,9 @@ export function buildEmailMergeContext(options: {
     booking_title: options.bookingTitle?.trim() ?? '',
     transaction_id: options.transactionId?.trim() ?? '',
     amount_paid: amountPaid,
+    event_title: options.eventTitle?.trim() ?? '',
+    event_start: options.eventStart?.trim() ?? '',
+    event_end: options.eventEnd?.trim() ?? '',
+    event_location: options.eventLocation?.trim() ?? '',
   }
 }

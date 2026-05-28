@@ -22,6 +22,10 @@ export type EmailMergeVariableKey =
   | 'booking_title'
   | 'transaction_id'
   | 'amount_paid'
+  | 'event_title'
+  | 'event_start'
+  | 'event_end'
+  | 'event_location'
 
 export type EmailMergeVariableDef = {
   key: EmailMergeVariableKey
@@ -53,6 +57,10 @@ export const EMAIL_MERGE_VARIABLES: readonly EmailMergeVariableDef[] = [
   { key: 'booking_title', label: 'Booking title' },
   { key: 'transaction_id', label: 'Transaction ID' },
   { key: 'amount_paid', label: 'Amount paid' },
+  { key: 'event_title', label: 'Event title' },
+  { key: 'event_start', label: 'Event start' },
+  { key: 'event_end', label: 'Event end' },
+  { key: 'event_location', label: 'Event location' },
 ]
 
 /** Placeholder token inserted into HTML/text (e.g. for later replacement). */
