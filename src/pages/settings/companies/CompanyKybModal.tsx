@@ -112,7 +112,7 @@ const CompanyKybModal = ({
     saving ||
     redirecting ||
     loading ||
-    (Boolean(activeOnboardingUrl) && record?.status !== 'rejected')
+    (Boolean(activeOnboardingUrl) && record?.status === 'pending_paymongo')
   const showSaveDraft =
     !readOnly &&
     (!activeOnboardingUrl || record?.status === 'rejected')
@@ -120,6 +120,14 @@ const CompanyKybModal = ({
   const patchForm = (patch: Partial<KybFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
   }
+
+  const visibleMissingFields = missingFields.filter((field) => {
+    if (field === 'Business type' && form.business_type) return false
+    if (field === 'Business name' && form.merchant_business_name.trim()) return false
+    if (field === 'Business email' && form.merchant_email.trim()) return false
+    if (field === 'Mobile number' && form.merchant_mobile_number.trim()) return false
+    return true
+  })
 
   const handleSaveDraft = async () => {
     if (!form.business_type) {
@@ -324,9 +332,9 @@ const CompanyKybModal = ({
                     </div>
                   </div>
 
-                  {missingFields.length > 0 && (
+                  {visibleMissingFields.length > 0 && (
                     <div className="alert alert-warning py-2 mt-3 mb-0 small">
-                      Missing: {missingFields.join(', ')}
+                      Missing: {visibleMissingFields.join(', ')}
                     </div>
                   )}
 
