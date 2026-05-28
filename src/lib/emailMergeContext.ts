@@ -35,12 +35,24 @@ export function buildEmailMergeContext(options: {
   user?: UserRecord | null
   company?: CompanyRecord | null
   paymentLinkUrl?: string
+  bookingId?: string | number | null
+  bookingTitle?: string | null
+  transactionId?: string | null
+  amountPaid?: string | number | null
 }): EmailMergeContext {
+  const bookingId =
+    options.bookingId == null ? '' : String(options.bookingId).trim()
+  const amountPaid =
+    options.amountPaid == null ? '' : String(options.amountPaid).trim()
   return {
     ...userEmailMergeContext(options.user),
     ...companyEmailMergeContext(options.company),
     ...(options.paymentLinkUrl?.trim()
       ? { payment_link: options.paymentLinkUrl.trim() }
       : {}),
+    booking_id: bookingId,
+    booking_title: options.bookingTitle?.trim() ?? '',
+    transaction_id: options.transactionId?.trim() ?? '',
+    amount_paid: amountPaid,
   }
 }

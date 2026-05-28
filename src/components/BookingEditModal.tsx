@@ -530,6 +530,9 @@ const BookingEditModal = ({
         user: emailMergeUser,
         company: emailMergeCompany,
         paymentLinkUrl: paymentUrl,
+        bookingId: form.uniqueId?.trim() || form.id,
+        bookingTitle: form.title,
+        amountPaid: form.paidChargeAmount || form.paidAmount || '0',
       })
       const payload: EmailPayload = {
         ...data,
@@ -2187,6 +2190,9 @@ const BookingEditModal = ({
             emailPaymentLinkMode ? 'payment_link' : undefined
           }
           paymentLinkUrl={paymentLinkUrlForEmail ?? undefined}
+          bookingId={form.uniqueId?.trim() || form.id}
+          bookingTitle={form.title}
+          amountPaid={form.paidChargeAmount || form.paidAmount || '0'}
           bookingTemplateCompanyId={userCompanyId}
           onSend={handleBookingEmailSend}
           onClose={() => {

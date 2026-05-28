@@ -18,6 +18,10 @@ export type EmailMergeVariableKey =
   | 'verify_url'
   | 'lifetime'
   | 'payment_link'
+  | 'booking_id'
+  | 'booking_title'
+  | 'transaction_id'
+  | 'amount_paid'
 
 export type EmailMergeVariableDef = {
   key: EmailMergeVariableKey
@@ -45,6 +49,10 @@ export const EMAIL_MERGE_VARIABLES: readonly EmailMergeVariableDef[] = [
   { key: 'verify_url', label: 'Verification URL' },
   { key: 'lifetime', label: 'Link lifetime (hours)' },
   { key: 'payment_link', label: 'Payment link' },
+  { key: 'booking_id', label: 'Booking ID' },
+  { key: 'booking_title', label: 'Booking title' },
+  { key: 'transaction_id', label: 'Transaction ID' },
+  { key: 'amount_paid', label: 'Amount paid' },
 ]
 
 /** Placeholder token inserted into HTML/text (e.g. for later replacement). */
