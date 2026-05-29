@@ -22,6 +22,7 @@ type ElementButton = {
 
 const ElementsSidebar = () => {
   const addElement = useTemplateStudioStore((s) => s.addElement)
+  const openRsvpFormEditor = useTemplateStudioStore((s) => s.openRsvpFormEditor)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const buttons: ElementButton[] = [
@@ -37,7 +38,15 @@ const ElementsSidebar = () => {
     { label: 'Video', icon: 'bi-camera-video', onAdd: () => addElement(createVideoElement()) },
     { label: 'Map', icon: 'bi-geo-alt', onAdd: () => addElement(createMapElement()) },
     { label: 'Countdown', icon: 'bi-hourglass-split', onAdd: () => addElement(createCountdownWidget()) },
-    { label: 'RSVP', icon: 'bi-envelope-check', onAdd: () => addElement(createRsvpWidget()) },
+    {
+      label: 'RSVP',
+      icon: 'bi-envelope-check',
+      onAdd: () => {
+        const el = createRsvpWidget()
+        addElement(el)
+        openRsvpFormEditor(el.id)
+      },
+    },
     { label: 'Gallery', icon: 'bi-images', onAdd: () => addElement(createGalleryWidget()) },
     { label: 'Music', icon: 'bi-music-note-beamed', onAdd: () => addElement(createMusicWidget()) },
   ]

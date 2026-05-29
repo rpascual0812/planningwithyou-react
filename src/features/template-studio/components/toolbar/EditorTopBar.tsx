@@ -195,9 +195,19 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
         </button>
 
         {isPublished && savedSlug && (
-          <a className="ts-btn ts-btn--ghost" href={`/invitations/${savedSlug}`} target="_blank" rel="noreferrer">
-            Preview
-          </a>
+          <>
+            <a className="ts-btn ts-btn--ghost" href={`/invitations/${savedSlug}`} target="_blank" rel="noreferrer">
+              Preview
+            </a>
+            <a
+              className="ts-btn ts-btn--ghost"
+              href={`/invitations/${savedSlug}/rsvp`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              RSVPs
+            </a>
+          </>
         )}
       </div>
 

@@ -1,4 +1,5 @@
 import { scaleFontFromLegacy, scaleLayoutFromLegacy } from './pageSize'
+import { DEFAULT_RSVP_FIELDS } from './rsvpFields'
 import {
   DEFAULT_PAGE_SIZE,
   DEFAULT_TEXT_STYLE,
@@ -181,6 +182,8 @@ export const SAMPLE_WEDDING_TEMPLATE: WeddingTemplateDocument = {
           name: 'RSVP form',
           heading: 'Kindly respond by 1 May 2026',
           submitLabel: 'Send RSVP',
+          successMessage: 'Thank you! We look forward to celebrating with you.',
+          fields: DEFAULT_RSVP_FIELDS.map((f) => ({ ...f })),
           transform: st({ x: 24, y: 80, width: 342, height: 420, zIndex: 1 }),
         },
       ],

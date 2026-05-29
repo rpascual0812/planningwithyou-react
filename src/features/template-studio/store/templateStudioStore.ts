@@ -60,6 +60,8 @@ export type TemplateStudioState = {
   suppressFabricRebuild: boolean
   /** Bumped when the document is replaced (load template, blank canvas) to refresh Fabric */
   canvasRevision: number
+  /** RSVP form editor modal — element id on canvas */
+  rsvpFormEditorId: string | null
 
   getActivePage: () => TemplatePage
   setDocument: (doc: WeddingTemplateDocument, opts?: { pushHistory?: boolean }) => void
@@ -105,6 +107,8 @@ export type TemplateStudioState = {
   redo: () => void
   markSaved: () => void
   pushHistorySnapshot: () => void
+  openRsvpFormEditor: (elementId: string) => void
+  closeRsvpFormEditor: () => void
 }
 
 function pushPast(state: TemplateStudioState): Pick<TemplateStudioState, 'past' | 'future'> {
@@ -134,6 +138,7 @@ export const useTemplateStudioStore = create<TemplateStudioState>()(
     suppressHistory: false,
     suppressFabricRebuild: false,
     canvasRevision: 0,
+    rsvpFormEditorId: null,
 
     getActivePage: () => activePageFromDoc(get().document, get().activePageId),
 
@@ -435,6 +440,10 @@ export const useTemplateStudioStore = create<TemplateStudioState>()(
       set({ isDirty: false, lastSavedAt: new Date().toISOString() }),
 
     pushHistorySnapshot: () => set((s) => pushPast(s)),
+
+    openRsvpFormEditor: (elementId) => set({ rsvpFormEditorId: elementId }),
+
+    closeRsvpFormEditor: () => set({ rsvpFormEditorId: null }),
   })),
 )
 

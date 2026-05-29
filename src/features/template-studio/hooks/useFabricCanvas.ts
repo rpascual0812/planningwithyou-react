@@ -26,7 +26,8 @@ type UseFabricCanvasOptions = {
  * Syncs element CRUD and selection both ways.
  */
 export function useFabricCanvas({ width, height, displayScale, enabled }: UseFabricCanvasOptions) {
-  const canvasElRef = useRef<HTMLCanvasElement | null>(null)
+  /** React-owned mount point; Fabric creates/wraps the canvas inside imperatively. */
+  const hostRef = useRef<HTMLDivElement | null>(null)
   const fabricRef = useRef<Canvas | null>(null)
   const syncingRef = useRef(false)
   const rebuildTokenRef = useRef(0)
@@ -168,10 +169,15 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
   scheduleFullRebuildRef.current = scheduleFullRebuild
 
   useEffect(() => {
-    if (!enabled || !canvasElRef.current) return
+    const host = hostRef.current
+    if (!enabled || !host) return
+
+    const el = document.createElement('canvas')
+    el.className = 'ts-fabric-canvas'
+    host.appendChild(el)
 
     const scale = Math.max(displayScaleRef.current, 0.01)
-    const canvas = new Canvas(canvasElRef.current, {
+    const canvas = new Canvas(el, {
       width: Math.round(width * scale),
       height: Math.round(height * scale),
       preserveObjectStacking: true,
@@ -280,6 +286,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
     return () => {
       canvas.dispose()
       fabricRef.current = null
+      host.replaceChildren()
     }
   }, [width, height, enabled, gridSize, snapToGrid, selectElements, updateElement, updateElementTransform])
 
@@ -327,7 +334,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
   }, [selectedIds, restoreCanvasSelection])
 
   return {
-    canvasRef: canvasElRef,
+    hostRef,
     showGrid,
     gridSize,
     fabricCanvas: fabricRef,

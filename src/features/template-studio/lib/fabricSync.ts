@@ -258,8 +258,9 @@ export async function createFabricObject(
       })
     }
     case 'countdown':
-    case 'music':
     case 'rsvp':
+      return placeholderRect(element, element.type, displayScale, 'rgba(0,0,0,0)', '#c4b5a0', true)
+    case 'music':
     case 'gallery':
       return widgetPlaceholder(element, displayScale)
     default:

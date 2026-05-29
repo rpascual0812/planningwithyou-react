@@ -1,11 +1,16 @@
+import { fromDatetimeLocalValue, toDatetimeLocalValue } from '../../lib/countdownDate'
+import { COUNTDOWN_STYLE_OPTIONS, normalizeCountdownStyle } from '../../lib/countdownStyles'
 import { GOOGLE_FONTS } from '../../hooks/useGoogleFonts'
+import { normalizeRsvpElement } from '../../lib/rsvpFields'
 import { useTemplateStudioStore } from '../../store/templateStudioStore'
 import LayerControls from './LayerControls'
 import type {
   CanvasElement,
+  CountdownElement,
   ImageElement,
   MapElement,
   PageBackground,
+  RsvpElement,
   TextElement,
   VideoElement,
 } from '../../types/schema'
@@ -17,6 +22,7 @@ const PropertiesPanel = ({ embedded = false }: { embedded?: boolean }) => {
   const updatePageBackground = useTemplateStudioStore((s) => s.updatePageBackground)
   const deleteSelected = useTemplateStudioStore((s) => s.deleteSelected)
   const duplicateSelected = useTemplateStudioStore((s) => s.duplicateSelected)
+  const openRsvpFormEditor = useTemplateStudioStore((s) => s.openRsvpFormEditor)
 
   const selected =
     selectedIds.length === 1
@@ -85,25 +91,14 @@ const PropertiesPanel = ({ embedded = false }: { embedded?: boolean }) => {
             <MapProperties element={selected} onChange={(patch) => patchElement(patch)} />
           )}
           {selected.type === 'countdown' && (
-            <>
-              <div className="mb-2">
-                <label className="form-label small">Label</label>
-                <input
-                  className="form-control form-control-sm"
-                  value={selected.label}
-                  onChange={(e) => patchElement({ label: e.target.value })}
-                />
-              </div>
-              <div className="mb-2">
-                <label className="form-label small">Target date</label>
-                <input
-                  type="datetime-local"
-                  className="form-control form-control-sm"
-                  value={selected.targetDate.slice(0, 16)}
-                  onChange={(e) => patchElement({ targetDate: new Date(e.target.value).toISOString() })}
-                />
-              </div>
-            </>
+            <CountdownProperties element={selected} onChange={(patch) => patchElement(patch)} />
+          )}
+          {selected.type === 'rsvp' && (
+            <RsvpProperties
+              element={selected}
+              onChange={(patch) => patchElement(patch)}
+              onEditForm={() => openRsvpFormEditor(selected.id)}
+            />
           )}
 
           <LayerControls />
@@ -119,6 +114,91 @@ const PropertiesPanel = ({ embedded = false }: { embedded?: boolean }) => {
         </>
       )}
     </div>
+  )
+}
+
+function CountdownProperties({
+  element,
+  onChange,
+}: {
+  element: CountdownElement
+  onChange: (patch: Partial<CountdownElement>) => void
+}) {
+  const style = normalizeCountdownStyle(element.style)
+  return (
+    <>
+      <div className="mb-2">
+        <label className="form-label small">Style</label>
+        <select
+          className="form-select form-select-sm"
+          value={style}
+          onChange={(e) => onChange({ style: normalizeCountdownStyle(e.target.value as CountdownElement['style']) })}
+        >
+          {COUNTDOWN_STYLE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="mb-2">
+        <label className="form-label small">Label</label>
+        <input
+          className="form-control form-control-sm"
+          value={element.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          placeholder="e.g. Days until our wedding"
+        />
+      </div>
+      <div className="mb-2">
+        <label className="form-label small">Target date &amp; time</label>
+        <input
+          type="datetime-local"
+          className="form-control form-control-sm"
+          value={toDatetimeLocalValue(element.targetDate)}
+          onChange={(e) => onChange({ targetDate: fromDatetimeLocalValue(e.target.value) })}
+        />
+        <div className="form-text">Countdown runs until this date and time.</div>
+      </div>
+    </>
+  )
+}
+
+function RsvpProperties({
+  element,
+  onChange,
+  onEditForm,
+}: {
+  element: RsvpElement
+  onChange: (patch: Partial<RsvpElement>) => void
+  onEditForm: () => void
+}) {
+  const fieldCount = normalizeRsvpElement(element).fields.length
+  return (
+    <>
+      <div className="mb-2">
+        <label className="form-label small">Heading</label>
+        <input
+          className="form-control form-control-sm"
+          value={element.heading}
+          onChange={(e) => onChange({ heading: e.target.value })}
+        />
+      </div>
+      <div className="mb-2">
+        <label className="form-label small">Submit label</label>
+        <input
+          className="form-control form-control-sm"
+          value={element.submitLabel}
+          onChange={(e) => onChange({ submitLabel: e.target.value })}
+        />
+      </div>
+      <div className="mb-3">
+        <button type="button" className="btn btn-sm btn-outline-primary w-100" onClick={onEditForm}>
+          <i className="bi bi-ui-checks me-1" aria-hidden="true" />
+          Edit form ({fieldCount} field{fieldCount === 1 ? '' : 's'})
+        </button>
+      </div>
+    </>
   )
 }
 

@@ -8,17 +8,24 @@ import '../styles/page-viewport.css'
 
 type InvitationRendererProps = {
   document: WeddingTemplateDocument
+  invitationSlug?: string
 }
 
-const InvitationRenderer = ({ document }: InvitationRendererProps) => (
+const InvitationRenderer = ({ document, invitationSlug }: InvitationRendererProps) => (
   <article className="invitation-renderer">
     {document.pages.map((page) => (
-      <InvitationPageSection key={page.id} page={page} />
+      <InvitationPageSection key={page.id} page={page} invitationSlug={invitationSlug} />
     ))}
   </article>
 )
 
-function InvitationPageSection({ page }: { page: TemplatePage }) {
+function InvitationPageSection({
+  page,
+  invitationSlug,
+}: {
+  page: TemplatePage
+  invitationSlug?: string
+}) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const sorted = visiblePageElements(page)
   const { scale, ready } = usePageScale(page.width, viewportRef)
@@ -39,7 +46,12 @@ function InvitationPageSection({ page }: { page: TemplatePage }) {
         layout="fluid"
       >
         {sorted.map((el) => (
-          <RenderedElement key={el.id} element={el} pageScale={scale} />
+          <RenderedElement
+            key={el.id}
+            element={el}
+            pageScale={scale}
+            invitationSlug={invitationSlug}
+          />
         ))}
       </PageViewport>
     </section>

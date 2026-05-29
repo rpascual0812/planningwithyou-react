@@ -184,3 +184,77 @@ export async function fetchPublicInvitation(slug: string): Promise<PublicInvitat
   if (!res.ok) throw new Error('Invitation not found')
   return res.json()
 }
+
+export type SubmitRsvpPayload = {
+  element_id: string
+  fields: Record<string, string>
+}
+
+export type SubmitRsvpResult = {
+  id: number
+  success_message: string
+}
+
+export class RsvpSubmitError extends Error {
+  fieldErrors?: Record<string, string>
+
+  constructor(message: string, fieldErrors?: Record<string, string>) {
+    super(message)
+    this.name = 'RsvpSubmitError'
+    this.fieldErrors = fieldErrors
+  }
+}
+
+export async function submitPublicRsvp(
+  slug: string,
+  payload: SubmitRsvpPayload,
+): Promise<SubmitRsvpResult> {
+  const res = await fetch(buildApiUrl(`/public/invitations/${slug}/rsvp/`), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  const body = await res.json().catch(() => null)
+  if (!res.ok) {
+    const fieldErrors =
+      body && typeof body === 'object' && body.fields && typeof body.fields === 'object'
+        ? (body.fields as Record<string, string>)
+        : undefined
+    throw new RsvpSubmitError(extractError(body) || 'Failed to submit RSVP', fieldErrors)
+  }
+  return body as SubmitRsvpResult
+}
+
+export type PublicRsvpFieldColumn = {
+  id: string
+  label: string
+}
+
+export type PublicRsvpRecord = {
+  id: number
+  element_id: string
+  fields_data: Record<string, string>
+  created_at: string
+}
+
+export type PublicRsvpListResponse = {
+  title: string
+  slug: string
+  field_columns: PublicRsvpFieldColumn[]
+  results: PublicRsvpRecord[]
+}
+
+export async function fetchPublicRsvpList(slug: string): Promise<PublicRsvpListResponse> {
+  const res = await fetch(buildApiUrl(`/public/invitations/${slug}/rsvp/`), {
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error('RSVP list not found')
+  return res.json()
+}
+
+export function getPublicRsvpExportUrl(slug: string): string {
+  return buildApiUrl(`/public/invitations/${slug}/rsvp/export/`)
+}

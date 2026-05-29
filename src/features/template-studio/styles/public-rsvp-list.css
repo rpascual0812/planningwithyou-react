@@ -1,0 +1,84 @@
+.public-rsvp-page {
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 2.5rem;
+  box-sizing: border-box;
+  background: #f8f9fa;
+}
+
+.public-rsvp-page--loading,
+.public-rsvp-page--error {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  background: #fff;
+}
+
+.public-rsvp-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.public-rsvp-eyebrow {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c757d;
+}
+
+.public-rsvp-title {
+  color: var(--brand-navy, #1f3a5f);
+}
+
+.public-rsvp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.public-rsvp-table-wrap {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  overflow: auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.public-rsvp-table th {
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #495057;
+  background: #f1f3f5;
+}
+
+.public-rsvp-table td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.public-rsvp-footer {
+  margin-top: 0.75rem;
+  padding-left: 0.125rem;
+}
+
+@media (max-width: 575.98px) {
+  .public-rsvp-page {
+    padding: 1rem 0.75rem 2rem;
+  }
+
+  .public-rsvp-header {
+    flex-direction: column;
+  }
+}

@@ -40,6 +40,7 @@ const ResetPasswordConfirmPage = lazy(
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
 const PublicPayPage = lazy(() => import('./pages/PublicPayPage'))
 const PublicInvitationPage = lazy(() => import('./pages/PublicInvitationPage'))
+const PublicInvitationRsvpPage = lazy(() => import('./pages/PublicInvitationRsvpPage'))
 const LegalDocumentPage = lazy(() => import('./pages/LegalDocumentPage'))
 
 /** Matches AdminLTE 4's `sidebar-expand-lg` mobile breakpoint. */
@@ -387,6 +388,18 @@ function App() {
         }
       />
 
+      <Route
+        path="/invitations/:slug/rsvp"
+        element={
+          <Suspense
+            fallback={
+              <div className="public-rsvp-page public-rsvp-page--loading">Loading…</div>
+            }
+          >
+            <PublicInvitationRsvpPage />
+          </Suspense>
+        }
+      />
       <Route
         path="/invitations/:slug"
         element={

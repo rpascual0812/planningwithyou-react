@@ -37,6 +37,7 @@ const WIDGET_ITEMS = [
 
 const LeftPanel = ({ tool }: LeftPanelProps) => {
   const addElement = useTemplateStudioStore((s) => s.addElement)
+  const openRsvpFormEditor = useTemplateStudioStore((s) => s.openRsvpFormEditor)
   const pages = useTemplateStudioStore((s) => s.document.pages)
   const activePageId = useTemplateStudioStore((s) => s.activePageId)
   const setActivePageId = useTemplateStudioStore((s) => s.setActivePageId)
@@ -108,7 +109,15 @@ const LeftPanel = ({ tool }: LeftPanelProps) => {
                 key={item.label}
                 type="button"
                 className="ts-element-card"
-                onClick={() => addElement(item.create())}
+                onClick={() => {
+                  if (item.label === 'RSVP') {
+                    const el = createRsvpWidget()
+                    addElement(el)
+                    openRsvpFormEditor(el.id)
+                    return
+                  }
+                  addElement(item.create())
+                }}
               >
                 <span className="ts-element-card-icon">
                   <i className={`bi ${item.icon}`} aria-hidden="true" />

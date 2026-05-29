@@ -18,7 +18,7 @@ const FabricCanvasStage = () => {
   const displayScale = pageScale * zoom
   const isDesktop = previewMode === 'desktop'
 
-  const { canvasRef, showGrid: gridOn } = useFabricCanvas({
+  const { hostRef, showGrid: gridOn } = useFabricCanvas({
     width: page.width,
     height: page.height,
     displayScale,
@@ -44,16 +44,15 @@ const FabricCanvasStage = () => {
             : undefined
         }
       >
-        {scaleReady && (
-          <HtmlOverlayLayer
-            elements={page.elements}
-            selectedIds={selectedIds}
-            pageWidth={page.width}
-            pageHeight={page.height}
-            displayScale={displayScale}
-          />
-        )}
-        <canvas ref={canvasRef} className="ts-fabric-canvas" aria-label="Invitation canvas" />
+        <HtmlOverlayLayer
+          elements={page.elements}
+          selectedIds={selectedIds}
+          pageWidth={page.width}
+          pageHeight={page.height}
+          displayScale={displayScale}
+          visible={scaleReady}
+        />
+        <div ref={hostRef} className="ts-fabric-host" aria-label="Invitation canvas" />
       </PageViewport>
     </div>
   )

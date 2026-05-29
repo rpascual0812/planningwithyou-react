@@ -1,14 +1,17 @@
+import CountdownDisplay from '../components/countdown/CountdownDisplay'
 import { designPixelStyle, designTextStyle } from '../lib/pageLayout'
-import type { CanvasElement } from '../types/schema'
+import type { CanvasElement, RsvpElement } from '../types/schema'
+import RsvpLiveForm from '../components/rsvp/RsvpLiveForm'
 import { toVideoEmbedUrl, videoIframeSrc } from '../lib/videoEmbed'
 
 type RenderedElementProps = {
   element: CanvasElement
   pageScale: number
+  invitationSlug?: string
 }
 
 /** DOM rendering for one canvas element (shared contract with Fabric editor geometry). */
-const RenderedElement = ({ element: el, pageScale }: RenderedElementProps) => {
+const RenderedElement = ({ element: el, pageScale, invitationSlug }: RenderedElementProps) => {
   if (el.type === 'text') {
     return (
       <div
@@ -119,25 +122,32 @@ const RenderedElement = ({ element: el, pageScale }: RenderedElementProps) => {
 
   if (el.type === 'countdown') {
     return (
-      <div style={style} className="invitation-el invitation-el--countdown text-center">
-        <LiveCountdown targetDate={el.targetDate} label={el.label} pageScale={pageScale} />
+      <div style={style} className="invitation-el invitation-el--countdown">
+        <CountdownDisplay
+          targetDate={el.targetDate}
+          label={el.label}
+          style={el.style}
+          pageScale={pageScale}
+        />
       </div>
     )
   }
 
   if (el.type === 'rsvp') {
+    if (invitationSlug) {
+      return (
+        <RsvpLiveForm
+          element={el as RsvpElement}
+          invitationSlug={invitationSlug}
+          style={style}
+          pageScale={pageScale}
+        />
+      )
+    }
     return (
-      <form style={style} className="invitation-el invitation-el--rsvp p-3 bg-white rounded shadow-sm">
-        <h2 className="h6">{el.heading}</h2>
-        <input className="form-control form-control-sm mb-2" placeholder="Your name" />
-        <select className="form-select form-select-sm mb-2">
-          <option>Joyfully accept</option>
-          <option>Regretfully decline</option>
-        </select>
-        <button type="button" className="btn btn-primary btn-sm w-100">
-          {el.submitLabel}
-        </button>
-      </form>
+      <div style={style} className="invitation-el invitation-el--rsvp p-3 bg-white rounded shadow-sm">
+        <p className="small text-muted mb-0">RSVP form (publish to enable submissions)</p>
+      </div>
     )
   }
 
@@ -169,31 +179,6 @@ const RenderedElement = ({ element: el, pageScale }: RenderedElementProps) => {
   }
 
   return null
-}
-
-function LiveCountdown({
-  targetDate,
-  label,
-  pageScale,
-}: {
-  targetDate: string
-  label: string
-  pageScale: number
-}) {
-  const target = new Date(targetDate).getTime()
-  const diff = Math.max(0, target - Date.now())
-  const days = Math.floor(diff / 86400000)
-  const hours = Math.floor((diff % 86400000) / 3600000)
-  return (
-    <>
-      <div style={{ fontSize: 40 * pageScale, fontWeight: 600, lineHeight: 1.1 }}>
-        {days}d {hours}h
-      </div>
-      <div className="text-muted small" style={{ fontSize: 14 * pageScale }}>
-        {label}
-      </div>
-    </>
-  )
 }
 
 export default RenderedElement

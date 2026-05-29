@@ -8,9 +8,12 @@ import FabricCanvasStage from './components/canvas/FabricCanvasStage'
 import EditorTopBar from './components/toolbar/EditorTopBar'
 import MarketplaceModal from './components/modals/MarketplaceModal'
 import TemplatesListModal from './components/modals/TemplatesListModal'
+import RsvpFormEditorModal from './components/modals/RsvpFormEditorModal'
 import { useAutoSave } from './hooks/useAutoSave'
 import { useGoogleFonts } from './hooks/useGoogleFonts'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useTemplateStudioStore } from './store/templateStudioStore'
+import type { RsvpElement } from './types/schema'
 import './styles/template-studio.css'
 
 type TemplateStudioEditorProps = {
@@ -20,6 +23,17 @@ type TemplateStudioEditorProps = {
 const TemplateStudioEditor = ({ onTemplateSaved }: TemplateStudioEditorProps) => {
   const [leftTool, setLeftTool] = useState<LeftToolId>('elements')
   const [templatesOpen, setTemplatesOpen] = useState(false)
+
+  const page = useTemplateStudioStore((s) => s.getActivePage())
+  const rsvpFormEditorId = useTemplateStudioStore((s) => s.rsvpFormEditorId)
+  const updateElement = useTemplateStudioStore((s) => s.updateElement)
+  const closeRsvpFormEditor = useTemplateStudioStore((s) => s.closeRsvpFormEditor)
+
+  const rsvpEditorElement = (() => {
+    if (!rsvpFormEditorId) return null
+    const el = page.elements.find((e) => e.id === rsvpFormEditorId && e.type === 'rsvp')
+    return el ? (el as RsvpElement) : null
+  })()
 
   useAutoSave()
   useKeyboardShortcuts()
@@ -42,6 +56,15 @@ const TemplateStudioEditor = ({ onTemplateSaved }: TemplateStudioEditorProps) =>
       </div>
       <MarketplaceModal />
       <TemplatesListModal open={templatesOpen} onClose={() => setTemplatesOpen(false)} />
+      <RsvpFormEditorModal
+        open={Boolean(rsvpEditorElement)}
+        element={rsvpEditorElement}
+        onClose={closeRsvpFormEditor}
+        onSave={(patch) => {
+          if (!rsvpFormEditorId) return
+          updateElement(rsvpFormEditorId, patch, { preserveCanvas: true })
+        }}
+      />
     </div>
   )
 }

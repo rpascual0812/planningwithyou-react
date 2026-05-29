@@ -1,7 +1,10 @@
 import { useMemo, type CSSProperties } from 'react'
 import { designPixelStyle } from '../../lib/pageLayout'
+import { normalizeRsvpElement } from '../../lib/rsvpFields'
+import CountdownDisplay from '../countdown/CountdownDisplay'
 import { isElementVisibleOnPage } from '../../lib/pageBounds'
-import type { CanvasElement } from '../../types/schema'
+import type { CanvasElement, RsvpElement } from '../../types/schema'
+import RsvpFormFields from '../rsvp/RsvpFormFields'
 import { toVideoEmbedUrl, videoIframeSrc } from '../../lib/videoEmbed'
 
 const OVERLAY_TYPES = new Set([
@@ -19,6 +22,7 @@ type HtmlOverlayLayerProps = {
   pageWidth: number
   pageHeight: number
   displayScale: number
+  visible?: boolean
 }
 
 const HtmlOverlayLayer = ({
@@ -27,6 +31,7 @@ const HtmlOverlayLayer = ({
   pageWidth,
   pageHeight,
   displayScale,
+  visible = true,
 }: HtmlOverlayLayerProps) => {
   const overlayEls = useMemo(
     () =>
@@ -39,7 +44,11 @@ const HtmlOverlayLayer = ({
   if (!overlayEls.length) return null
 
   return (
-    <div className="ts-html-overlays" aria-hidden="true">
+    <div
+      className="ts-html-overlays"
+      aria-hidden={!visible}
+      style={{ visibility: visible ? 'visible' : 'hidden' }}
+    >
       {overlayEls.map((el) => {
         const selected = selectedIds.includes(el.id)
         const style: CSSProperties = {
@@ -78,25 +87,15 @@ const HtmlOverlayLayer = ({
               </div>
             )}
             {el.type === 'countdown' && (
-              <CountdownPreview
+              <CountdownDisplay
                 targetDate={el.targetDate}
                 label={el.label}
+                style={el.style}
                 pageScale={displayScale}
               />
             )}
             {el.type === 'rsvp' && (
-              <div className="h-100 p-2 bg-white border rounded small">
-                <strong>{el.heading}</strong>
-                <div className="mt-2">
-                  <input className="form-control form-control-sm mb-1" placeholder="Name" readOnly />
-                  <select className="form-select form-select-sm mb-1" disabled>
-                    <option>Attending</option>
-                  </select>
-                  <button type="button" className="btn btn-sm btn-primary w-100" disabled>
-                    {el.submitLabel}
-                  </button>
-                </div>
-              </div>
+              <RsvpPreview element={el as RsvpElement} pageScale={displayScale} />
             )}
             {el.type === 'gallery' && (
               <div
@@ -133,26 +132,16 @@ const HtmlOverlayLayer = ({
   )
 }
 
-function CountdownPreview({
-  targetDate,
-  label,
-  pageScale,
-}: {
-  targetDate: string
-  label: string
-  pageScale: number
-}) {
-  const target = new Date(targetDate).getTime()
-  const diff = Math.max(0, target - Date.now())
-  const days = Math.floor(diff / 86400000)
-  const hours = Math.floor((diff % 86400000) / 3600000)
+function RsvpPreview({ element, pageScale }: { element: RsvpElement; pageScale: number }) {
+  const rsvp = normalizeRsvpElement(element)
   return (
-    <div className="h-100 d-flex flex-column align-items-center justify-content-center bg-white bg-opacity-75 text-center p-1">
-      <div style={{ fontSize: 40 * pageScale, fontWeight: 600, lineHeight: 1.1 }}>
-        {days}d {hours}h
-      </div>
-      <div className="text-muted" style={{ fontSize: 14 * pageScale }}>
-        {label}
+    <div className="h-100 p-2 bg-white border rounded small overflow-auto">
+      <strong style={{ fontSize: 14 * pageScale }}>{rsvp.heading}</strong>
+      <div className="mt-2">
+        <RsvpFormFields element={rsvp} disabled readOnly />
+        <button type="button" className="btn btn-sm btn-primary w-100 mt-1" disabled>
+          {rsvp.submitLabel}
+        </button>
       </div>
     </div>
   )

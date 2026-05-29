@@ -8,7 +8,9 @@ import {
   type MapElement,
   type VideoElement,
 } from '../types/schema'
-import { createDefaultTextElement } from '../store/templateStudioStore'
+import { DEFAULT_RSVP_FIELDS } from './rsvpFields'
+import { defaultCountdownTargetDate } from './countdownDate'
+import { DEFAULT_COUNTDOWN_STYLE } from './countdownStyles'
 
 export function createHeadingText(): CanvasElement {
   return createDefaultTextElement('Your heading', {
@@ -73,9 +75,10 @@ export function createCountdownWidget(): CanvasElement {
     id: newElementId(),
     type: 'countdown',
     name: 'Countdown',
-    targetDate: new Date(Date.now() + 86400000 * 90).toISOString(),
+    targetDate: defaultCountdownTargetDate(),
     label: 'Days until our wedding',
-    transform: scaleLayoutFromLegacy({ x: 48, y: 360, width: 294, height: 64, zIndex: 2 }),
+    style: DEFAULT_COUNTDOWN_STYLE,
+    transform: scaleLayoutFromLegacy({ x: 48, y: 360, width: 294, height: 80, zIndex: 2 }),
   }
 }
 
@@ -86,6 +89,8 @@ export function createRsvpWidget(): CanvasElement {
     name: 'RSVP',
     heading: 'Please RSVP',
     submitLabel: 'Submit',
+    successMessage: 'Thank you! Your RSVP has been received.',
+    fields: DEFAULT_RSVP_FIELDS.map((f) => ({ ...f, id: f.id })),
     transform: scaleLayoutFromLegacy({ x: 24, y: 120, width: 342, height: 400, zIndex: 2 }),
   }
 }

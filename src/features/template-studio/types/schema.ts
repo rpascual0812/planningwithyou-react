@@ -145,10 +145,14 @@ export type ShapeElement = BaseElement & {
   strokeWidth: number
 }
 
+export type CountdownStyle = 'split' | 'cards' | 'classic' | 'minimal' | 'dark' | 'elegant'
+
 export type CountdownElement = BaseElement & {
   type: 'countdown'
   targetDate: string
   label: string
+  /** Visual layout preset for the live timer. */
+  style?: CountdownStyle
 }
 
 export type MusicElement = BaseElement & {
@@ -158,10 +162,24 @@ export type MusicElement = BaseElement & {
   autoplay: boolean
 }
 
+export type RsvpFieldType = 'text' | 'email' | 'tel' | 'textarea' | 'select'
+
+export type RsvpField = {
+  id: string
+  label: string
+  type: RsvpFieldType
+  required: boolean
+  placeholder?: string
+  /** Options for select fields. */
+  options?: string[]
+}
+
 export type RsvpElement = BaseElement & {
   type: 'rsvp'
   heading: string
   submitLabel: string
+  fields: RsvpField[]
+  successMessage?: string
 }
 
 export type GalleryElement = BaseElement & {

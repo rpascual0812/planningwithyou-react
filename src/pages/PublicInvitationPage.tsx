@@ -54,7 +54,7 @@ const PublicInvitationPage = () => {
 
   return (
     <div className="public-invitation-page">
-      <InvitationRenderer document={data.document} />
+      <InvitationRenderer document={data.document} invitationSlug={slug} />
     </div>
   )
 }
