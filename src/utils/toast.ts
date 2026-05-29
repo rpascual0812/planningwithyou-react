@@ -15,9 +15,10 @@ export function showSuccessToast(message: string): void {
   })
 }
 
-export function showErrorToast(message: string): void {
+export function showErrorToast(title: string, text?: string): void {
   void Toast.fire({
     icon: 'error',
-    title: message,
+    title,
+    ...(text ? { text } : {}),
   })
 }

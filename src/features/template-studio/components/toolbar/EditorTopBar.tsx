@@ -9,6 +9,8 @@ import {
   saveTemplateStudio,
   unpublishTemplateStudio,
 } from '../../../../services/templateStudioApi'
+import { notifyInvitationSaveError } from '../../lib/invitationSaveErrors'
+import { showErrorToast } from '../../../../utils/toast'
 
 type EditorTopBarProps = {
   onOpenTemplates: () => void
@@ -36,6 +38,7 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
   const selectedIds = useTemplateStudioStore((s) => s.selectedIds)
 
   const [saving, setSaving] = useState(false)
+  const [titleError, setTitleError] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -54,8 +57,13 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
   const title = document.meta.title || document.meta.name
 
   const handleSave = async () => {
-    if (!title.trim()) return
+    if (!title.trim()) {
+      setTitleError(true)
+      showErrorToast('Template title is required')
+      return
+    }
     setSaving(true)
+    setTitleError(false)
     try {
       const record = await saveTemplateStudio(
         {
@@ -72,6 +80,9 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
         is_published: record.is_published,
       })
       onTemplateSaved?.(record.id, record.title)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Save failed'
+      setTitleError(notifyInvitationSaveError(message))
     } finally {
       setSaving(false)
     }
@@ -85,8 +96,13 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
   })
 
   const handlePublish = async () => {
-    if (!title.trim()) return
+    if (!title.trim()) {
+      setTitleError(true)
+      showErrorToast('Template title is required')
+      return
+    }
     setSaving(true)
+    setTitleError(false)
     try {
       const payload = buildSavePayload()
       const saved = await saveTemplateStudio(payload, savedTemplateId ?? undefined)
@@ -99,6 +115,9 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
       const record = await publishTemplateStudio(saved.id, payload)
       setSavedRecord({ id: record.id, slug: record.slug, is_published: true })
       onTemplateSaved?.(record.id, record.title)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Publish failed'
+      setTitleError(notifyInvitationSaveError(message))
     } finally {
       setSaving(false)
     }
@@ -124,11 +143,15 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
 
       <div className="ts-topbar-left">
         <input
-          className="ts-doc-title"
+          className={`ts-doc-title${titleError ? ' ts-doc-title--error' : ''}`}
           value={title}
-          onChange={(e) => updateDocumentMeta({ title: e.target.value, name: e.target.value })}
+          onChange={(e) => {
+            setTitleError(false)
+            updateDocumentMeta({ title: e.target.value, name: e.target.value })
+          }}
           placeholder="Untitled design"
           aria-label="Design title"
+          aria-invalid={titleError || undefined}
           style={{width: '580px', maxWidth: '100%', flexShrink: 0}}
         />
         {isDirty && <span className="ts-save-dot" title="Unsaved changes" />}

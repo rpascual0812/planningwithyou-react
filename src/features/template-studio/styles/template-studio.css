@@ -122,6 +122,13 @@
   outline: none;
 }
 
+.ts-doc-title--error,
+.ts-doc-title--error:hover,
+.ts-doc-title--error:focus {
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.08);
+}
+
 .ts-save-dot {
   width: 8px;
   height: 8px;
