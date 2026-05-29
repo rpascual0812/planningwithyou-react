@@ -1,0 +1,118 @@
+@import './page-viewport.css';
+
+.public-invitation-page {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #fff;
+}
+
+html.public-invitation-active,
+html.public-invitation-active body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+html.public-invitation-active #root {
+  width: 100%;
+  max-width: none;
+}
+
+.public-invitation-page--loading,
+.public-invitation-page--error {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+.invitation-renderer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0;
+}
+
+.invitation-page {
+  position: relative;
+  width: 100%;
+  margin: 0;
+}
+
+.public-invitation-page .invitation-el,
+.public-invitation-page .invitation-el--image {
+  max-width: none;
+}
+
+/* Entrance animations use opacity/margin only so rotate() on elements is preserved */
+.inv-animate-fade {
+  animation: inv-fade 0.8s ease both;
+}
+
+.inv-animate-slide-up {
+  animation: inv-slide-up 0.7s ease both;
+}
+
+.inv-animate-slide-down {
+  animation: inv-slide-down 0.7s ease both;
+}
+
+.inv-animate-zoom {
+  animation: inv-zoom 0.7s ease both;
+}
+
+@keyframes inv-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes inv-slide-up {
+  from {
+    opacity: 0;
+    margin-top: 1.5rem;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+  }
+}
+
+@keyframes inv-slide-down {
+  from {
+    opacity: 0;
+    margin-top: -1.5rem;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+  }
+}
+
+@keyframes inv-zoom {
+  from {
+    opacity: 0;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-animate-fade,
+  .inv-animate-slide-up,
+  .inv-animate-slide-down,
+  .inv-animate-zoom {
+    animation: none;
+  }
+}

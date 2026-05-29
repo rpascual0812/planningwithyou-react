@@ -20,6 +20,7 @@ import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import AdminPage from './pages/settings/AdminPage'
+import InvitationsLabel from './features/template-studio/components/InvitationsLabel'
 
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const BookingsPage = lazy(() => import('./pages/BookingsPage'))
@@ -27,6 +28,7 @@ const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const UsersPage = lazy(() => import('./pages/UsersPage'))
 const EmailsPage = lazy(() => import('./pages/EmailsPage'))
 const FileManagerPage = lazy(() => import('./pages/FileManagerPage'))
+const TemplateStudioPage = lazy(() => import('./pages/TemplateStudioPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const ProjectPage = lazy(() => import('./pages/ProjectPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -37,6 +39,7 @@ const ResetPasswordConfirmPage = lazy(
 )
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
 const PublicPayPage = lazy(() => import('./pages/PublicPayPage'))
+const PublicInvitationPage = lazy(() => import('./pages/PublicInvitationPage'))
 const LegalDocumentPage = lazy(() => import('./pages/LegalDocumentPage'))
 
 /** Matches AdminLTE 4's `sidebar-expand-lg` mobile breakpoint. */
@@ -158,6 +161,17 @@ function RequireAdmin() {
   return <Outlet />
 }
 
+/** Keeps old `/template-studio` bookmarks working after the route was renamed. */
+function TemplateStudioLegacyRedirect() {
+  const location = useLocation()
+  return (
+    <Navigate
+      to={{ pathname: '/invitations', search: location.search, hash: location.hash }}
+      replace
+    />
+  )
+}
+
 function DashboardLayout() {
   const location = useLocation()
   const isMobile = useIsMobileViewport()
@@ -212,7 +226,9 @@ function DashboardLayout() {
   const pageTitle =
     location.pathname === '/profile' && profileTab === 'support'
       ? 'Support'
-      : pageTitleByPath[location.pathname] ?? 'Dashboard'
+      : location.pathname === '/invitations'
+        ? <InvitationsLabel />
+        : pageTitleByPath[location.pathname] ?? 'Dashboard'
 
   const wrapperClassName = [
     'app-wrapper',
@@ -294,6 +310,10 @@ function App() {
           <Route element={<RequireFeature featureKey="file_manager" />}>
             <Route path="/file-manager" element={<FileManagerPage />} />
           </Route>
+          <Route element={<RequireFeature featureKey="template_studio" />}>
+            <Route path="/invitations" element={<TemplateStudioPage />} />
+            <Route path="/template-studio" element={<TemplateStudioLegacyRedirect />} />
+          </Route>
           <Route path="/profile" element={<ProfilePage />} />
           <Route element={<RequireFeature featureKey="reports" />}>
             <Route path="/reports" element={<ReportsPage />} />
@@ -367,6 +387,18 @@ function App() {
         }
       />
 
+      <Route
+        path="/invitations/:slug"
+        element={
+          <Suspense
+            fallback={
+              <div className="public-invitation-page public-invitation-page--loading">Loading…</div>
+            }
+          >
+            <PublicInvitationPage />
+          </Suspense>
+        }
+      />
       <Route
         path="/pay/:token"
         element={

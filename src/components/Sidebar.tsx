@@ -6,6 +6,7 @@ import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
 import { canRead, canWrite } from '../lib/featureAccess'
 import { canAccessAdmin } from '../lib/adminNavAccess'
 import { canAccessAnySettings } from '../lib/settingsNavAccess'
+import InvitationsLabel from '../features/template-studio/components/InvitationsLabel'
 
 const Sidebar = () => {
   const { currentUser } = useAuthSession()
@@ -116,6 +117,16 @@ const Sidebar = () => {
                 <NavLink to="/file-manager" className={linkClassName}>
                   <i className="nav-icon bi bi-folder2-open" />
                   <p>File Manager</p>
+                </NavLink>
+              </li>
+            )}
+            {canRead(currentUser, 'template_studio') && (
+              <li className="nav-item">
+                <NavLink to="/invitations" className={linkClassName}>
+                  <i className="nav-icon bi bi-envelope-heart" />
+                  <p>
+                    <InvitationsLabel />
+                  </p>
                 </NavLink>
               </li>
             )}

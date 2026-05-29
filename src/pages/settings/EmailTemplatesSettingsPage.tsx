@@ -27,12 +27,22 @@ import {
   type EmailUserTemplatePayload,
   type EmailUserTemplateRecord,
 } from '../../services/emailUserTemplates'
+import type {
+  EmailCalendarTemplatePayload,
+  EmailCalendarTemplateRecord,
+} from '../../services/emailCalendarTemplates'
 import CompanyFilterSelect from '../../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
-type EmailTemplateRecord = EmailUserTemplateRecord | EmailBookingTemplateRecord
-type EmailTemplatePayload = EmailUserTemplatePayload | EmailBookingTemplatePayload
+type EmailTemplateRecord =
+  | EmailUserTemplateRecord
+  | EmailBookingTemplateRecord
+  | EmailCalendarTemplateRecord
+type EmailTemplatePayload =
+  | EmailUserTemplatePayload
+  | EmailBookingTemplatePayload
+  | EmailCalendarTemplatePayload
 
 /** Form state shown in the UI; `name` is derived from `title` when saving (hidden from user). */
 type EmailTemplateFormFields = Omit<EmailTemplatePayload, 'name'>

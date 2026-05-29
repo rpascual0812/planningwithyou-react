@@ -22,12 +22,14 @@
     "admin-lte": "^4.0.0-rc7",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
+    "fabric": "^7.4.0",
     "libphonenumber-js": "^1.13.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.15.0",
     "sweetalert2": "^11.26.24",
-    "tinymce": "^8.5.0"
+    "tinymce": "^8.5.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

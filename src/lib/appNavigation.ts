@@ -12,6 +12,7 @@ const NAV_ROUTES: { feature: string; path: string }[] = [
   { feature: 'users', path: '/users' },
   { feature: 'emails', path: '/emails' },
   { feature: 'file_manager', path: '/file-manager' },
+  { feature: 'template_studio', path: '/invitations' },
   { feature: 'reports', path: '/reports' },
   { feature: 'settings', path: '/settings' },
   { feature: 'platform_admin', path: '/admin' },

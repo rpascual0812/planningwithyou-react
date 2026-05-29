@@ -1,0 +1,21 @@
+/* Shared page viewport (editor + live) — design coords × scale inside a fixed artboard. */
+.pwy-page-viewport {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.pwy-page-viewport--fixed-width {
+  width: auto;
+  max-width: none;
+}
+
+.pwy-page-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
