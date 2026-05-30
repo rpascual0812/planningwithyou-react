@@ -29,7 +29,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'bookings', label: 'Booking Settings', icon: 'bi-bookmark-check' },
   { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock' },
-  { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
+  // { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
 ]
 
 const SettingsPage = () => {
