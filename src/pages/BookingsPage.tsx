@@ -433,6 +433,11 @@ const BookingsPage = () => {
     }
   }, [])
 
+  useEffect(() => {
+    const view = searchParams.get('view')
+    if (isBookingsView(view)) setActiveView(view)
+  }, [searchParams])
+
   const loadData = useCallback(async () => {
     try {
       const [cols, itms, tmpls, account] = await Promise.all([
@@ -1696,6 +1701,7 @@ const BookingsPage = () => {
                   role="tab"
                   className={`bookings-tab${activeView === tab.id ? ' is-active' : ''}`}
                   aria-selected={activeView === tab.id}
+                  data-tour={`bookings-view-${tab.id}`}
                   onClick={() => setActiveView(tab.id as BookingsView)}
                 >
                   {tab.label}

@@ -109,6 +109,13 @@ const LeftPanel = ({ tool }: LeftPanelProps) => {
                 key={item.label}
                 type="button"
                 className="ts-element-card"
+                data-tour={
+                  item.label === 'Countdown'
+                    ? 'invitations-widget-countdown'
+                    : item.label === 'RSVP'
+                      ? 'invitations-widget-rsvp'
+                      : undefined
+                }
                 onClick={() => {
                   if (item.label === 'RSVP') {
                     const el = createRsvpWidget()

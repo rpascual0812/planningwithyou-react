@@ -710,7 +710,7 @@ const SubscriptionSettingsPage = () => {
       )}
 
       {!currentSubscriptionLoading && currentSubscription && (
-        <section className="sub-current-plan">
+        <section className="sub-current-plan" data-tour="subscription-current-plan">
           <h6 className="sub-col-title">Current subscription</h6>
           <p className="sub-current-plan-detail">
             <strong>{currentSubscription.plan_name}</strong>
@@ -748,7 +748,7 @@ const SubscriptionSettingsPage = () => {
         </section>
       )}
 
-      <section className="sub-col">
+      <section className="sub-col" data-tour="subscription-choose-plan">
         <header className="sub-col-head">
           <h6 className="sub-col-title">Choose plan</h6>
           <div className="sub-pill-toggle" role="tablist" aria-label="Billing cycle">
@@ -888,7 +888,7 @@ const SubscriptionSettingsPage = () => {
         )}
       </section>
 
-      <section className="sub-col">
+      <section className="sub-col" data-tour="subscription-payment">
         <header className="sub-col-head">
           <h6 className="sub-col-title">Payment</h6>
         </header>

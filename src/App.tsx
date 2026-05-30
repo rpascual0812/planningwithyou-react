@@ -1,5 +1,5 @@
 import './App.css'
-import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
   Navigate,
   Outlet,
@@ -21,6 +21,7 @@ import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import AdminPage from './pages/settings/AdminPage'
 import InvitationsLabel from './features/template-studio/components/InvitationsLabel'
+import ProductTourRunner from './features/product-tour/ProductTourRunner'
 
 const CalendarPage = lazy(() => import('./pages/CalendarPage'))
 const BookingsPage = lazy(() => import('./pages/BookingsPage'))
@@ -209,6 +210,10 @@ function DashboardLayout() {
     setIsSidebarOpen(false)
   }
 
+  const ensureSidebarOpenForTour = useCallback(() => {
+    if (isMobile) setIsSidebarOpen(true)
+  }, [isMobile])
+
   const pageTitleByPath: Record<string, string> = {
     '/': 'Dashboard',
     '/calendar': 'Calendar',
@@ -248,6 +253,7 @@ function DashboardLayout() {
 
   return (
     <div className={wrapperClassName}>
+      <ProductTourRunner onEnsureSidebarOpen={ensureSidebarOpenForTour} />
       <Navbar onToggleSidebar={handleToggleSidebar} />
       <Sidebar />
 
@@ -266,7 +272,9 @@ function DashboardLayout() {
           <div className="container-fluid">
             <div className="row">
               <div className="col-sm-6">
-                <h3 className="mb-0">{pageTitle}</h3>
+                <h3 className="mb-0" data-tour="tour-finish">
+                  {pageTitle}
+                </h3>
               </div>
             </div>
           </div>

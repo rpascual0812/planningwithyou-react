@@ -90,6 +90,7 @@ const AdminPage = () => {
                     <button
                       type="button"
                       className={`settings-nav-link${isActive ? ' is-active' : ''}`}
+                      data-tour={`admin-${item.id}`}
                       onClick={() => setActiveNav(item.id)}
                     >
                       <i className={`bi ${item.icon}`} aria-hidden="true" />

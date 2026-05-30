@@ -5,7 +5,13 @@ import { resizeImageFileToSquare } from '../lib/resizeImageFile'
 import ProfilePasswordSection from './profile/ProfilePasswordSection'
 import ProfileSettingsNav, { useProfileTabNavigation } from './profile/ProfileSettingsNav'
 import ProfileSupportSection from './profile/ProfileSupportSection'
-import { fetchMe, updateMe, uploadMyPhoto, type UserRecord } from '../services/users'
+import {
+  fetchMe,
+  restartProductTour,
+  updateMe,
+  uploadMyPhoto,
+  type UserRecord,
+} from '../services/users'
 
 function getDisplayName(user: UserRecord): string {
   const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
@@ -25,6 +31,7 @@ const ProfilePage = () => {
     last_name: '',
   })
   const [saving, setSaving] = useState(false)
+  const [tourRestarting, setTourRestarting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
 
   useEffect(() => {
@@ -196,6 +203,39 @@ const ProfilePage = () => {
                             />
                           </label>
                         </div>
+                      </section>
+
+                      <section className="profile-form-section">
+                        <h5>Guided tour</h5>
+                        <p className="text-muted small mb-2">
+                          Walk through every menu and settings section again.
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          disabled={tourRestarting}
+                          onClick={async () => {
+                            setTourRestarting(true)
+                            setMessage(null)
+                            try {
+                              await restartProductTour()
+                              syncAuthState()
+                              window.location.assign('/')
+                            } catch (err) {
+                              setMessage({
+                                type: 'danger',
+                                text:
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'Could not restart the tour',
+                              })
+                            } finally {
+                              setTourRestarting(false)
+                            }
+                          }}
+                        >
+                          {tourRestarting ? 'Starting…' : 'Restart guided tour'}
+                        </button>
                       </section>
 
                       <div className="profile-form-actions">

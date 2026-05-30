@@ -47,6 +47,7 @@ const ReportsPage = () => {
                     <button
                       type="button"
                       className={`settings-nav-link${isActive ? ' is-active' : ''}`}
+                      data-tour="reports-payouts"
                       onClick={() => setActiveNav(item.id)}
                     >
                       <i className={`bi ${item.icon}`} aria-hidden="true" />

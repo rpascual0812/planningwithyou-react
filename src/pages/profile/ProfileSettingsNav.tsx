@@ -12,6 +12,7 @@ export const PROFILE_NAV_ITEMS: {
 }[] = [
   { id: 'profile', label: 'Profile', icon: 'bi-person' },
   { id: 'password', label: 'Reset Password', icon: 'bi-shield-lock' },
+  { id: 'support', label: 'Support', icon: 'bi-life-preserver' },
 ]
 
 export function resolveProfileTab(search: string): ProfileTab {
@@ -38,6 +39,7 @@ const ProfileSettingsNav = ({ activeTab, onTabChange }: ProfileSettingsNavProps)
               <button
                 type="button"
                 className={`settings-nav-link${isActive ? ' is-active' : ''}`}
+                data-tour={`profile-nav-${item.id}`}
                 onClick={() => onTabChange(item.id)}
               >
                 <i className={`bi ${item.icon}`} aria-hidden="true" />

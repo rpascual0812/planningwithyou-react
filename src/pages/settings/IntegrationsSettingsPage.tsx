@@ -242,6 +242,7 @@ const IntegrationsSettingsPage = () => {
             <button
               type="button"
               className="faq-toggle"
+              data-tour={`settings-integrations-${group.id}`}
               aria-expanded={isOpen}
               onClick={() => toggleGroup(group.id)}
             >

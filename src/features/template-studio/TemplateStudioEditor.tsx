@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { LeftToolId } from './components/sidebar/leftTools'
 import LeftToolRail from './components/sidebar/LeftToolRail'
 import LeftPanel from './components/sidebar/LeftPanel'
@@ -21,8 +22,14 @@ type TemplateStudioEditorProps = {
 }
 
 const TemplateStudioEditor = ({ onTemplateSaved }: TemplateStudioEditorProps) => {
+  const [searchParams] = useSearchParams()
   const [leftTool, setLeftTool] = useState<LeftToolId>('elements')
   const [templatesOpen, setTemplatesOpen] = useState(false)
+
+  useEffect(() => {
+    const tool = searchParams.get('tool')
+    if (tool === 'widgets') setLeftTool('widgets')
+  }, [searchParams])
 
   const page = useTemplateStudioStore((s) => s.getActivePage())
   const rsvpFormEditorId = useTemplateStudioStore((s) => s.rsvpFormEditorId)

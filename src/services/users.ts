@@ -19,6 +19,7 @@ export type UserRecord = {
   /** ``subscriptions.plan`` via user.account → account_subscriptions → subscriptions. */
   subscription_plan?: string
   last_login: string | null
+  tour_completed_at: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -39,6 +40,33 @@ export async function fetchMe(): Promise<UserRecord> {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load current user')
+  return res.json()
+}
+
+/** Mark the per-user product tour as completed (finish or skip). */
+export async function completeProductTour(): Promise<UserRecord> {
+  const res = await apiFetch(buildApiUrl('/users/me/'), {
+    method: 'PATCH',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ complete_product_tour: true }),
+  })
+  if (!res.ok) throw new Error('Failed to save tour progress')
+  return res.json()
+}
+
+export async function restartProductTour(): Promise<UserRecord> {
+  const res = await apiFetch(buildApiUrl('/users/me/'), {
+    method: 'PATCH',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ restart_product_tour: true }),
+  })
+  if (!res.ok) throw new Error('Failed to restart tour')
   return res.json()
 }
 

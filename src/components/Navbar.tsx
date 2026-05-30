@@ -116,6 +116,7 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               href="#"
               aria-label="User menu"
               aria-expanded="false"
+              data-tour="nav-profile"
             >
               <UserAvatar
                 user={user}
@@ -143,7 +144,7 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
               <Link to="/profile" className="dropdown-item">
                 <i className="bi bi-person me-2" /> Edit Profile
               </Link>
-              <Link to="/profile?tab=support" className="dropdown-item">
+              <Link to="/profile?tab=support" className="dropdown-item" data-tour="nav-support">
                 <i className="bi bi-life-preserver me-2" /> Support
               </Link>
               {canAccessAnySettings(user) && (

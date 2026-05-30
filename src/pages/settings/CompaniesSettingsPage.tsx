@@ -15,6 +15,7 @@ const CompaniesSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-companies-companies"
             aria-expanded={companiesOpen}
             onClick={() => setCompaniesOpen((prev) => !prev)}
           >
@@ -37,6 +38,7 @@ const CompaniesSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-companies-tiers"
             aria-expanded={tiersOpen}
             onClick={() => setTiersOpen((prev) => !prev)}
           >
@@ -59,6 +61,7 @@ const CompaniesSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-companies-packages"
             aria-expanded={packagesOpen}
             onClick={() => setPackagesOpen((prev) => !prev)}
           >

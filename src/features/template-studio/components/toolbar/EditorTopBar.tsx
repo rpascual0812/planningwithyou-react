@@ -184,7 +184,12 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
 
         
 
-        <button type="button" className="ts-btn ts-btn--ghost" onClick={onOpenTemplates}>
+        <button
+          type="button"
+          className="ts-btn ts-btn--ghost"
+          data-tour="invitations-open-templates"
+          onClick={onOpenTemplates}
+        >
           Open templates
         </button>
 

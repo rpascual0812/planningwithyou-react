@@ -1,25 +1,45 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import AccountInfoForm from './account/AccountInfoForm'
 import SubscriptionReceiptsSection from './account/SubscriptionReceiptsSection'
 import SubscriptionSettingsPage from './SubscriptionSettingsPage'
 
-type AccountSettingsAccordion = 'subscription' | 'receipts'
+type AccountSettingsAccordion = 'info' | 'subscription' | 'receipts'
 
 type AccountSettingsPageProps = {
   /** Open a section on load (e.g. `?tab=subscription` or `?section=receipts`). */
-  initialAccordion?: AccountSettingsAccordion
+  initialAccordion?: 'subscription' | 'receipts'
+}
+
+function resolveAccountSection(
+  search: URLSearchParams,
+  initialAccordion?: 'subscription' | 'receipts',
+): AccountSettingsAccordion | null {
+  const section = search.get('section')
+  if (section === 'info' || section === 'subscription' || section === 'receipts') {
+    return section
+  }
+  if (initialAccordion === 'subscription' || initialAccordion === 'receipts') {
+    return initialAccordion
+  }
+  if (search.get('tab') === 'subscription') return 'subscription'
+  return null
 }
 
 const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => {
+  const [searchParams] = useSearchParams()
   const { canRead: accountRead } = useFeatureAccess('account_settings')
   const [infoOpen, setInfoOpen] = useState(false)
-  const [subscriptionOpen, setSubscriptionOpen] = useState(
-    initialAccordion === 'subscription',
-  )
-  const [receiptsOpen, setReceiptsOpen] = useState(
-    initialAccordion === 'receipts',
-  )
+  const [subscriptionOpen, setSubscriptionOpen] = useState(false)
+  const [receiptsOpen, setReceiptsOpen] = useState(false)
+
+  useEffect(() => {
+    const section = resolveAccountSection(searchParams, initialAccordion)
+    setInfoOpen(section === 'info')
+    setSubscriptionOpen(section === 'subscription')
+    setReceiptsOpen(section === 'receipts')
+  }, [searchParams, initialAccordion])
 
   return (
     <div className="account-settings">
@@ -29,6 +49,7 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
           <button
             type="button"
             className="faq-toggle"
+            data-tour="account-info"
             aria-expanded={infoOpen}
             onClick={() => setInfoOpen((prev) => !prev)}
           >
@@ -53,6 +74,7 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
           <button
             type="button"
             className="faq-toggle"
+            data-tour="account-subscription"
             aria-expanded={subscriptionOpen}
             onClick={() => setSubscriptionOpen((prev) => !prev)}
           >
@@ -77,6 +99,7 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
           <button
             type="button"
             className="faq-toggle"
+            data-tour="account-receipts"
             aria-expanded={receiptsOpen}
             onClick={() => setReceiptsOpen((prev) => !prev)}
           >

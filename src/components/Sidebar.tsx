@@ -63,7 +63,7 @@ const Sidebar = () => {
           >
             {canRead(currentUser, 'dashboard') && (
               <li className="nav-item">
-                <NavLink to="/" end className={linkClassName}>
+                <NavLink to="/" end className={linkClassName} data-tour="nav-dashboard">
                   <i className="nav-icon bi bi-speedometer2" />
                   <p>Dashboard</p>
                 </NavLink>
@@ -71,7 +71,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'calendar') && (
               <li className="nav-item">
-                <NavLink to="/calendar" className={linkClassName}>
+                <NavLink to="/calendar" className={linkClassName} data-tour="nav-calendar">
                   <i className="nav-icon bi bi-calendar3" />
                   <p>Calendar</p>
                 </NavLink>
@@ -79,7 +79,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'bookings') && (
               <li className="nav-item">
-                <NavLink to="/bookings" className={linkClassName}>
+                <NavLink to="/bookings" className={linkClassName} data-tour="nav-bookings">
                   <i className="nav-icon bi bi-kanban" />
                   <p>Bookings</p>
                 </NavLink>
@@ -87,7 +87,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'contacts') && (
               <li className="nav-item">
-                <NavLink to="/contacts" className={linkClassName}>
+                <NavLink to="/contacts" className={linkClassName} data-tour="nav-contacts">
                   <i className="nav-icon bi bi-person-lines-fill" />
                   <p>Contacts</p>
                 </NavLink>
@@ -95,7 +95,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'users') && (
               <li className="nav-item">
-                <NavLink to="/users" className={linkClassName}>
+                <NavLink to="/users" className={linkClassName} data-tour="nav-users">
                   <i className="nav-icon bi bi-people" />
                   <p>Users</p>
                 </NavLink>
@@ -103,7 +103,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'emails') && (
               <li className="nav-item">
-                <NavLink to="/emails" className={linkClassName}>
+                <NavLink to="/emails" className={linkClassName} data-tour="nav-emails">
                   <i className="nav-icon bi bi-envelope" />
                   <p>Emails</p>
                 </NavLink>
@@ -111,7 +111,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'file_manager') && (
               <li className="nav-item">
-                <NavLink to="/file-manager" className={linkClassName}>
+                <NavLink to="/file-manager" className={linkClassName} data-tour="nav-file-manager">
                   <i className="nav-icon bi bi-folder2-open" />
                   <p>File Manager</p>
                 </NavLink>
@@ -119,7 +119,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'template_studio') && (
               <li className="nav-item">
-                <NavLink to="/invitations" className={linkClassName}>
+                <NavLink to="/invitations" className={linkClassName} data-tour="nav-invitations">
                   <i className="nav-icon bi bi-envelope-heart" />
                   <p>
                     <InvitationsLabel />
@@ -129,7 +129,7 @@ const Sidebar = () => {
             )}
             {canRead(currentUser, 'reports') && (
               <li className="nav-item">
-                <NavLink to="/reports" className={linkClassName}>
+                <NavLink to="/reports" className={linkClassName} data-tour="nav-reports">
                   <i className="nav-icon bi bi-file-earmark-text" />
                   <p>Reports</p>
                 </NavLink>
@@ -137,7 +137,7 @@ const Sidebar = () => {
             )}
             {canAccessAnySettings(currentUser) && (
               <li className="nav-item">
-                <NavLink to="/settings" className={linkClassName}>
+                <NavLink to="/settings" className={linkClassName} data-tour="nav-settings">
                   <i className="nav-icon bi bi-gear" />
                   <p>Settings</p>
                 </NavLink>
@@ -145,7 +145,7 @@ const Sidebar = () => {
             )}
             {showAdmin && (
               <li className="nav-item">
-                <NavLink to="/admin" className={linkClassName}>
+                <NavLink to="/admin" className={linkClassName} data-tour="nav-admin">
                   <i className="nav-icon bi bi-shield-lock" />
                   <p>Admin</p>
                 </NavLink>

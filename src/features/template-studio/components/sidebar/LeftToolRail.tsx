@@ -15,6 +15,7 @@ const LeftToolRail = ({ active, onSelect }: LeftToolRailProps) => (
           key={tool.id}
           type="button"
           className={`ts-rail-btn${isActive ? ' is-active' : ''}`}
+          data-tour={tool.id === 'widgets' ? 'invitations-widgets-tool' : undefined}
           onClick={() => onSelect(isActive ? null : tool.id)}
           title={tool.label}
         >

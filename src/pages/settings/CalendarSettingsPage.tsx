@@ -14,6 +14,7 @@ const CalendarSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-calendar-statuses"
             aria-expanded={statusesOpen}
             onClick={() => setStatusesOpen((prev) => !prev)}
           >
@@ -38,6 +39,7 @@ const CalendarSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-calendar-email-templates"
             aria-expanded={templatesOpen}
             onClick={() => setTemplatesOpen((prev) => !prev)}
           >

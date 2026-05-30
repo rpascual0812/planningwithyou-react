@@ -22,13 +22,13 @@ const VALID_TABS = new Set<SettingsSection>([
 ])
 
 const NAV_ITEMS: SettingsNavItem[] = [
-  { id: 'account', label: 'Account Settings', icon: 'bi-person-vcard' },
-  { id: 'companies', label: 'Company Settings', icon: 'bi-building' },
-  { id: 'suppliers', label: 'Supplier Settings', icon: 'bi-truck' },
-  { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3' },
-  { id: 'bookings', label: 'Booking Settings', icon: 'bi-bookmark-check' },
-  { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper' },
-  { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock' },
+  { id: 'account', label: 'Account Settings', icon: 'bi-person-vcard', description: 'Account Settings lets you manage your account information, subscription, and receipts.' },
+  { id: 'companies', label: 'Company Settings', icon: 'bi-building', description: 'Company Settings lets you manage your companies and their settings.' },
+  { id: 'suppliers', label: 'Supplier Settings', icon: 'bi-truck', description: 'Supplier Settings lets you manage your suppliers and their settings.' },
+  { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3', description: 'Calendar Settings lets you manage your appointment statuses and email templates.' },
+  { id: 'bookings', label: 'Booking Settings', icon: 'bi-bookmark-check', description: 'Booking Settings lets you manage your booking view, group name, statuses, and form templates.' },
+  { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper', description: 'Email Templates lets you manage your user and booking email templates.' },
+  { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock', description: 'Roles and Permissions lets you manage your roles and permissions.' },
   // { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
 ]
 
@@ -102,6 +102,7 @@ const SettingsPage = () => {
                     <button
                       type="button"
                       className={`settings-nav-link${isActive ? ' is-active' : ''}`}
+                      data-tour={`settings-${item.id}`}
                       onClick={() => setActiveNav(item.id)}
                     >
                       <i className={`bi ${item.icon}`} aria-hidden="true" />

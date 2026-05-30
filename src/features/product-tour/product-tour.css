@@ -1,0 +1,23 @@
+/* Keep tour UI above AdminLTE sidebar and header */
+.driver-active .driver-overlay {
+  z-index: 10050 !important;
+}
+
+.driver-active-element {
+  z-index: 10051 !important;
+}
+
+.driver-popover.product-tour-popover {
+  z-index: 10052 !important;
+  max-width: 22rem;
+}
+
+.driver-popover.product-tour-popover .driver-popover-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.driver-popover.product-tour-popover .driver-popover-description {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}

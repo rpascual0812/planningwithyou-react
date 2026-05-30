@@ -11,7 +11,8 @@ export type SettingsSection =
 export type SettingsNavItem = {
   id: SettingsSection
   label: string
-  icon: string
+  icon: string,
+  description: string
 }
 
 export type AdminSection =

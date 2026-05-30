@@ -526,14 +526,16 @@ type AccordionItemProps = {
   onToggle: () => void
   icon: string
   title: string
+  tourId?: string
   children: React.ReactNode
 }
 
-const EmailTemplatesAccordionItem = ({ open, onToggle, icon, title, children }: AccordionItemProps) => (
+const EmailTemplatesAccordionItem = ({ open, onToggle, icon, title, tourId, children }: AccordionItemProps) => (
   <li className={`faq-item${open ? ' is-open' : ''}`}>
     <button
       type="button"
       className="faq-toggle"
+      data-tour={tourId}
       aria-expanded={open}
       onClick={onToggle}
     >
@@ -581,6 +583,7 @@ const EmailTemplatesSettingsPage = () => {
           onToggle={() => setUsersOpen((prev) => !prev)}
           icon="bi bi-people"
           title="Users"
+          tourId="settings-email-templates-users"
         >
           <EmailTemplatesPanel {...USERS_PANEL_CONFIG} />
         </EmailTemplatesAccordionItem>
@@ -589,6 +592,7 @@ const EmailTemplatesSettingsPage = () => {
           onToggle={() => setBookingsOpen((prev) => !prev)}
           icon="bi bi-calendar-check"
           title="Bookings"
+          tourId="settings-email-templates-bookings"
         >
           <EmailTemplatesPanel {...BOOKINGS_PANEL_CONFIG} />
         </EmailTemplatesAccordionItem>

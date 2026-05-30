@@ -335,6 +335,7 @@ const BookingsSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-bookings-view"
             aria-expanded={viewOpen}
             onClick={() => setViewOpen((prev) => !prev)}
           >
@@ -357,6 +358,7 @@ const BookingsSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-bookings-group-name"
             aria-expanded={groupNameOpen}
             onClick={() => setGroupNameOpen((prev) => !prev)}
           >
@@ -379,6 +381,7 @@ const BookingsSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-bookings-statuses"
             aria-expanded={statusesOpen}
             onClick={() => setStatusesOpen((prev) => !prev)}
           >
@@ -402,6 +405,7 @@ const BookingsSettingsPage = () => {
           <button
             type="button"
             className="faq-toggle"
+            data-tour="settings-bookings-form-templates"
             aria-expanded={templatesOpen}
             onClick={() => setTemplatesOpen((prev) => !prev)}
           >
