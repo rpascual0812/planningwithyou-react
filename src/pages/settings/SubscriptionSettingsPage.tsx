@@ -9,6 +9,7 @@ import {
   fetchCurrentAccountSubscription,
   fetchSubscriptionPlans,
   previewSubscriptionCheckout,
+  subscribeToFreePlan,
   type AccountSubscriptionRecord,
   type SubscriptionCheckoutPreview,
   type SubscriptionPlanRecord,
@@ -227,6 +228,16 @@ function buildCheckoutConfirmHtml(
     )
   }
 
+  if (preview.checkout_kind === 'downgrade_scheduled') {
+    return (
+      '<div class="text-start">' +
+      '<p class="mb-2">No payment is due today.</p>' +
+      `<p class="mb-0">Your current plan stays active until <strong>${nextDate}</strong>. ` +
+      'The new plan takes effect after your prepaid period ends.</p>' +
+      '</div>'
+    )
+  }
+
   return (
     '<div class="text-start">' +
     `<p class="mb-0">Amount due now: <strong>${dueNow}</strong>. Next billing: <strong>${nextBill}</strong> on ${nextDate}.</p>` +
@@ -238,9 +249,12 @@ function checkoutConfirmButtonText(preview: SubscriptionCheckoutPreview): string
   if (
     preview.checkout_kind === 'seat_reduction_only' ||
     preview.checkout_kind === 'seat_upgrade_applied' ||
-    preview.checkout_kind === 'plan_change_only'
+    preview.checkout_kind === 'plan_change_only' ||
+    preview.checkout_kind === 'downgrade_scheduled'
   ) {
-    return 'Apply changes'
+    return preview.checkout_kind === 'downgrade_scheduled'
+      ? 'Schedule change'
+      : 'Apply changes'
   }
   return 'Continue to PayMongo'
 }
@@ -283,13 +297,23 @@ const SubscriptionSettingsPage = () => {
   const cycleSuffix = billingCycle === 'monthly' ? 'monthly' : 'yearly'
   const billingCycleLabel = billingCycle === 'monthly' ? 'Monthly' : 'Yearly'
   const isFreePlan = selectedPlanId === 'free'
+  const currentPlanIsFree = currentSubscription?.plan === 'free'
 
   const selectPlan = (plan: SubscriptionPlan) => {
-    if (!plan.isSelectable) return
+    if (!plan.isSelectable && plan.id !== 'free') return
     setSelectedPlanId(plan.id)
     setTeamSeats(1)
+    if (plan.id === 'free') {
+      setBillingCycle('monthly')
+    }
     setCheckoutError(null)
   }
+
+  useEffect(() => {
+    if (isFreePlan && billingCycle === 'yearly') {
+      setBillingCycle('monthly')
+    }
+  }, [billingCycle, isFreePlan])
 
   const handleApplyDiscount = () => {
     setDiscountMessage('Discount code invalid')
@@ -334,6 +358,20 @@ const SubscriptionSettingsPage = () => {
     !plansLoading
   const payNowDisabled = !payNowClickable
 
+  const switchingToFree =
+    isFreePlan &&
+    !currentPlanIsFree &&
+    selectionReady &&
+    initialSelection !== null &&
+    selectedPlanId !== initialSelection.selectedPlanId
+
+  const freeSubscribeClickable =
+    subscriptionWrite &&
+    switchingToFree &&
+    !checkoutLoading &&
+    !currentSubscriptionLoading &&
+    !plansLoading
+
   const executeCheckout = useCallback(async () => {
     setCheckoutError(null)
     setCheckoutLoading(true)
@@ -355,6 +393,10 @@ const SubscriptionSettingsPage = () => {
         setCheckoutNotice('Additional users applied. No prorated charge was required.')
       } else if (result.checkout_kind === 'plan_change_only') {
         setCheckoutNotice('Plan updated. Your recurring billing amount has been updated for the next cycle.')
+      } else if (result.checkout_kind === 'downgrade_scheduled') {
+        setCheckoutNotice(
+          'Plan change scheduled. You keep your current plan until the end of your prepaid period.',
+        )
       }
       lastAppliedSubscriptionKeyRef.current = ''
       setSelectionReady(false)
@@ -376,6 +418,53 @@ const SubscriptionSettingsPage = () => {
     syncAuthState,
     teamSeats,
   ])
+
+  const handleSubscribeToFreePlan = async () => {
+    if (!freeSubscribeClickable) return
+    setCheckoutError(null)
+
+    const prepaidEnd = currentSubscription?.end_date
+      ? formatAccountSubscriptionEndDate(currentSubscription.end_date)
+      : 'the end of your billing period'
+    const confirmed = await Swal.fire({
+      title: 'Switch to Free plan?',
+      html:
+        '<div class="text-start">' +
+        `<p class="mb-2">You will keep <strong>${currentSubscription?.plan_name ?? 'your current plan'}</strong> until <strong>${prepaidEnd}</strong>.</p>` +
+        '<p class="mb-0">After that, your account moves to the Free plan (1 user, no charge).</p>' +
+        '</div>',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Schedule Free plan',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+      reverseButtons: true,
+    })
+    if (!confirmed.isConfirmed) return
+
+    setCheckoutLoading(true)
+    try {
+      const row = await subscribeToFreePlan('monthly')
+      if (row.scheduled_plan === 'free' && row.end_date) {
+        setCheckoutNotice(
+          `Free plan scheduled for ${formatBillingDate(row.end_date)}. Your paid features remain until then.`,
+        )
+      } else {
+        setCheckoutNotice('You are now on the Free plan.')
+      }
+      lastAppliedSubscriptionKeyRef.current = ''
+      setSelectionReady(false)
+      setInitialSelection(null)
+      await loadCurrentSubscription()
+      syncAuthState()
+    } catch (e) {
+      setCheckoutError(
+        e instanceof Error ? e.message : 'Failed to switch to the Free plan',
+      )
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
 
   const handlePayNow = async () => {
     if (isFreePlan || !payNowClickable) return
@@ -449,6 +538,8 @@ const SubscriptionSettingsPage = () => {
         currentSubscription.plan,
         currentSubscription.billing_cycle,
         currentSubscription.team_seats,
+        currentSubscription.scheduled_plan ?? '',
+        currentSubscription.end_date ?? '',
       ].join(':')
     : ''
 
@@ -478,8 +569,10 @@ const SubscriptionSettingsPage = () => {
     const needsInitialSync =
       lastAppliedSubscriptionKeyRef.current !== accountSubscriptionKey
 
-    if (needsInitialSync && billingCycle !== currentSubscription.billing_cycle) {
-      setBillingCycle(currentSubscription.billing_cycle)
+    const syncedCycle: BillingCycle =
+      currentSubscription.plan === 'free' ? 'monthly' : currentSubscription.billing_cycle
+    if (needsInitialSync && billingCycle !== syncedCycle) {
+      setBillingCycle(syncedCycle)
       return
     }
 
@@ -621,14 +714,37 @@ const SubscriptionSettingsPage = () => {
           <h6 className="sub-col-title">Current subscription</h6>
           <p className="sub-current-plan-detail">
             <strong>{currentSubscription.plan_name}</strong>
-            {' · '}
-            {currentSubscription.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'}
+            {currentSubscription.plan !== 'free' && (
+              <>
+                {' · '}
+                {currentSubscription.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'}
+              </>
+            )}
             {' · '}
             {subscriptionStatusLabel(currentSubscription.status)}
             {' · '}
             {currentSubscription.team_seats}{' '}
             allowed {currentSubscription.team_seats === 1 ? 'user' : 'users'}
+            {currentSubscription.plan !== 'free' && currentSubscription.end_date && (
+              <>
+                {' · '}
+                prepaid through{' '}
+                {formatAccountSubscriptionEndDate(currentSubscription.end_date)}
+              </>
+            )}
+            {currentSubscription.plan === 'free' && (
+              <> · Free forever (1 user)</>
+            )}
           </p>
+          {currentSubscription.scheduled_plan && currentSubscription.end_date && (
+            <p className="sub-scheduled-notice">
+              Scheduled change to{' '}
+              <strong>
+                {currentSubscription.scheduled_plan_name ?? currentSubscription.scheduled_plan}
+              </strong>{' '}
+              on {formatAccountSubscriptionEndDate(currentSubscription.end_date)}.
+            </p>
+          )}
         </section>
       )}
 
@@ -636,7 +752,9 @@ const SubscriptionSettingsPage = () => {
         <header className="sub-col-head">
           <h6 className="sub-col-title">Choose plan</h6>
           <div className="sub-pill-toggle" role="tablist" aria-label="Billing cycle">
-            {(['monthly', 'yearly'] as const).map((cycle) => (
+            {(['monthly', 'yearly'] as const)
+              .filter((cycle) => cycle === 'monthly' || !isFreePlan)
+              .map((cycle) => (
               <button
                 key={cycle}
                 type="button"
@@ -681,13 +799,13 @@ const SubscriptionSettingsPage = () => {
                 }`}
               >
                 <label
-                  className={`sub-plan-head${isDisabled ? ' is-disabled' : ''}`}
+                  className={`sub-plan-head${isDisabled && plan.id !== 'free' ? ' is-disabled' : ''}`}
                 >
                   <input
                     type="radio"
                     name="sub-plan"
                     checked={isSelected}
-                    disabled={isDisabled}
+                    disabled={isDisabled && plan.id !== 'free'}
                     onChange={() => selectPlan(plan)}
                   />
                   <div className="sub-plan-name-wrap">
@@ -777,9 +895,9 @@ const SubscriptionSettingsPage = () => {
 
         <div className="sub-paymongo-note">
           <p className="mb-2">
-            Subscriptions are billed securely through PayMongo. You will be redirected
-            to complete card authorization; your payment method is saved for recurring
-            {billingCycle === 'monthly' ? ' monthly' : ' yearly'} charges.
+            Subscriptions are prepaid through PayMongo. You authorize payment upfront for
+            each billing period; recurring charges run on your renewal date. Seat upgrades
+            mid-period may require a one-time prorated payment before your next bill.
           </p>
           <p className="text-muted small mb-0">
             Supported methods include Visa, Mastercard, and Maya.
@@ -865,33 +983,47 @@ const SubscriptionSettingsPage = () => {
             <span className="sub-total-amount">{formatPrice(totals.total)}</span>
           </div>
 
+          {switchingToFree && (
+            <button
+              type="button"
+              className={`sub-pay-btn${!freeSubscribeClickable ? ' is-disabled' : ''}`}
+              disabled={!freeSubscribeClickable}
+              aria-disabled={!freeSubscribeClickable}
+              onClick={() => {
+                if (!freeSubscribeClickable) return
+                void handleSubscribeToFreePlan()
+              }}
+            >
+              {checkoutLoading ? 'Saving…' : 'Schedule Free plan'}
+            </button>
+          )}
+
           {!isFreePlan && (
-            <>
-              <button
-                type="button"
-                className={`sub-pay-btn${payNowDisabled ? ' is-disabled' : ''}`}
-                disabled={payNowDisabled}
-                aria-disabled={payNowDisabled}
-                title={
-                  !selectionReady
-                    ? 'Loading subscription details…'
-                    : !subscriptionHasChanges
-                      ? 'Change billing cycle, plan, or allowed users to pay'
-                      : undefined
-                }
-                onClick={() => {
-                  if (!payNowClickable) return
-                  void handlePayNow()
-                }}
-              >
-                {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
-              </button>
-              {checkoutError && (
-                <p className="sub-pay-error" role="alert">
-                  {checkoutError}
-                </p>
-              )}
-            </>
+            <button
+              type="button"
+              className={`sub-pay-btn${payNowDisabled ? ' is-disabled' : ''}`}
+              disabled={payNowDisabled}
+              aria-disabled={payNowDisabled}
+              title={
+                !selectionReady
+                  ? 'Loading subscription details…'
+                  : !subscriptionHasChanges
+                    ? 'Change billing cycle, plan, or allowed users to pay'
+                    : undefined
+              }
+              onClick={() => {
+                if (!payNowClickable) return
+                void handlePayNow()
+              }}
+            >
+              {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
+            </button>
+          )}
+
+          {(switchingToFree || !isFreePlan) && checkoutError && (
+            <p className="sub-pay-error" role="alert">
+              {checkoutError}
+            </p>
           )}
         </div>
       </section>

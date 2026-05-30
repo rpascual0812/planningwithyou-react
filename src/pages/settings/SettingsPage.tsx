@@ -52,8 +52,13 @@ const SettingsPage = () => {
     ? requestedNav
     : firstAccessibleSettingsTab(currentUser)
 
+  const sectionParam = searchParams.get('section')
   const accountAccordionOpen =
-    rawTab === 'subscription' ? 'subscription' : undefined
+    rawTab === 'subscription' || sectionParam === 'subscription'
+      ? 'subscription'
+      : sectionParam === 'receipts'
+        ? 'receipts'
+        : undefined
 
   useEffect(() => {
     if (requestedNav === activeNav) return
@@ -123,7 +128,7 @@ const SettingsPage = () => {
 
 type ActiveSettingsPageProps = {
   activeNav: SettingsSection
-  accountAccordionOpen?: 'subscription'
+  accountAccordionOpen?: 'subscription' | 'receipts'
 }
 
 const ActiveSettingsPage = ({

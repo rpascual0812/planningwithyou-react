@@ -6376,6 +6376,25 @@ body,
   color: #4b5563;
 }
 
+.sub-scheduled-notice {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.375rem;
+  background: #eff6ff;
+  color: #1e40af;
+  font-size: 0.85rem;
+}
+
+.sub-receipts-intro {
+  margin-bottom: 0.75rem;
+}
+
+.sub-receipts-table th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
 .sub-paymongo-note {
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;

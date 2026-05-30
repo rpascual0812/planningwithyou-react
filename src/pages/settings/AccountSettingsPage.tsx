@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import AccountInfoForm from './account/AccountInfoForm'
+import SubscriptionReceiptsSection from './account/SubscriptionReceiptsSection'
 import SubscriptionSettingsPage from './SubscriptionSettingsPage'
 
+type AccountSettingsAccordion = 'subscription' | 'receipts'
+
 type AccountSettingsPageProps = {
-  /** Open a section on load (e.g. legacy `?tab=subscription`). */
-  initialAccordion?: 'subscription'
+  /** Open a section on load (e.g. `?tab=subscription` or `?section=receipts`). */
+  initialAccordion?: AccountSettingsAccordion
 }
 
 const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => {
@@ -13,6 +16,9 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
   const [infoOpen, setInfoOpen] = useState(false)
   const [subscriptionOpen, setSubscriptionOpen] = useState(
     initialAccordion === 'subscription',
+  )
+  const [receiptsOpen, setReceiptsOpen] = useState(
+    initialAccordion === 'receipts',
   )
 
   return (
@@ -61,6 +67,30 @@ const AccountSettingsPage = ({ initialAccordion }: AccountSettingsPageProps) => 
           {subscriptionOpen && (
             <div className="faq-answer faq-answer--form">
               <SubscriptionSettingsPage />
+            </div>
+          )}
+        </li>
+        )}
+
+        {accountRead && (
+        <li className={`faq-item${receiptsOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            aria-expanded={receiptsOpen}
+            onClick={() => setReceiptsOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-receipt" />
+            </span>
+            <span className="faq-question">Receipts</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {receiptsOpen && (
+            <div className="faq-answer faq-answer--form">
+              <SubscriptionReceiptsSection />
             </div>
           )}
         </li>
