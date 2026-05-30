@@ -227,7 +227,9 @@ function DashboardLayout() {
   const pageTitle =
     location.pathname === '/profile' && profileTab === 'support'
       ? 'Support'
-      : location.pathname === '/invitations'
+      : location.pathname === '/profile' && profileTab === 'password'
+        ? 'Reset Password'
+        : location.pathname === '/invitations'
         ? <InvitationsLabel />
         : pageTitleByPath[location.pathname] ?? 'Dashboard'
 

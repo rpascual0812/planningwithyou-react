@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { UserAvatar } from '../components/UserAvatar'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { resizeImageFileToSquare } from '../lib/resizeImageFile'
+import ProfilePasswordSection from './profile/ProfilePasswordSection'
+import ProfileSettingsNav, { useProfileTabNavigation } from './profile/ProfileSettingsNav'
 import ProfileSupportSection from './profile/ProfileSupportSection'
 import { fetchMe, updateMe, uploadMyPhoto, type UserRecord } from '../services/users'
-
-const TAB_PARAM = 'tab'
 
 function getDisplayName(user: UserRecord): string {
   const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
@@ -15,7 +14,7 @@ function getDisplayName(user: UserRecord): string {
 
 const ProfilePage = () => {
   const { syncAuthState } = useAuthSession()
-  const [searchParams] = useSearchParams()
+  const { activeTab, setActiveTab, activeLabel } = useProfileTabNavigation()
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [user, setUser] = useState<UserRecord | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -27,8 +26,6 @@ const ProfilePage = () => {
   })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null)
-
-  const showSupport = searchParams.get(TAB_PARAM) === 'support'
 
   useEffect(() => {
     fetchMe()
@@ -87,120 +84,131 @@ const ProfilePage = () => {
   return (
     <div className="app-content">
       <div className="container-fluid">
-        <div className="profile-page-layout profile-page-layout--single">
-          <main className="profile-main-card">
-            {showSupport ? (
+        <div className="settings-layout">
+          <ProfileSettingsNav activeTab={activeTab} onTabChange={setActiveTab} />
+
+          <section
+            className={`settings-main-card${activeTab === 'profile' ? ' profile-main-card' : ''}`}
+          >
+            {activeTab === 'support' ? (
               <ProfileSupportSection />
             ) : (
               <>
-                <header className="profile-main-header">
-                  <h5 className="profile-panel-title">Profile</h5>
-                </header>
-
-                <div className="profile-cover">
-                  <img
-                    src="https://picsum.photos/seed/profile-cover-sail/1400/360"
-                    alt=""
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-
-                <div className="profile-identity">
-                  <div className="profile-photo-wrap">
-                    <UserAvatar
-                      user={user}
-                      className="profile-photo"
-                      initialsClassName="profile-photo-initials"
-                      alt={user ? `${getDisplayName(user)} profile photo` : ''}
-                    />
-                    <input
-                      ref={photoInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="visually-hidden"
-                      onChange={handlePhotoChange}
-                      disabled={photoUploading || !user}
-                    />
-                    <button
-                      type="button"
-                      className="profile-photo-action"
-                      aria-label="Change profile photo"
-                      disabled={photoUploading || !user}
-                      onClick={() => photoInputRef.current?.click()}
-                    >
-                      <i className={`bi ${photoUploading ? 'bi-arrow-repeat' : 'bi-camera'}`} />
-                    </button>
-                  </div>
-                  <div className="profile-name-row">
-                    <h4>{user ? getDisplayName(user) : ''}</h4>
-                    {user?.is_active && (
-                      <i className="bi bi-patch-check-fill" aria-label="Verified" />
-                    )}
-                  </div>
-                  <p>{user?.email ?? ''}</p>
-                </div>
-
-                <form className="profile-form" onSubmit={handleSave}>
-                  {message && (
-                    <div className={`alert alert-${message.type} alert-dismissible`}>
-                      {message.text}
-                      <button type="button" className="btn-close" onClick={() => setMessage(null)} />
+                <h5 className="settings-card-title">{activeLabel}</h5>
+                {activeTab === 'password' ? (
+                  <ProfilePasswordSection />
+                ) : (
+                  <>
+                    <div className="profile-cover">
+                      <img
+                        src="https://picsum.photos/seed/profile-cover-sail/1400/360"
+                        alt=""
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
-                  )}
 
-                  <section className="profile-form-section">
-                    <h5>User Info</h5>
-                    <div className="profile-form-grid profile-form-grid--single">
-                      <label className="profile-field">
-                        <span>Username</span>
-                        <input
-                          type="text"
-                          value={form.username}
-                          onChange={(e) => setForm({ ...form, username: e.target.value })}
+                    <div className="profile-identity">
+                      <div className="profile-photo-wrap">
+                        <UserAvatar
+                          user={user}
+                          className="profile-photo"
+                          initialsClassName="profile-photo-initials"
+                          alt={user ? `${getDisplayName(user)} profile photo` : ''}
                         />
-                      </label>
-                      <label className="profile-field">
-                        <span>Email address</span>
                         <input
-                          type="email"
-                          value={form.email}
-                          onChange={(e) => setForm({ ...form, email: e.target.value })}
+                          ref={photoInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="visually-hidden"
+                          onChange={handlePhotoChange}
+                          disabled={photoUploading || !user}
                         />
-                      </label>
+                        <button
+                          type="button"
+                          className="profile-photo-action"
+                          aria-label="Change profile photo"
+                          disabled={photoUploading || !user}
+                          onClick={() => photoInputRef.current?.click()}
+                        >
+                          <i className={`bi ${photoUploading ? 'bi-arrow-repeat' : 'bi-camera'}`} />
+                        </button>
+                      </div>
+                      <div className="profile-name-row">
+                        <h4>{user ? getDisplayName(user) : ''}</h4>
+                        {user?.is_active && (
+                          <i className="bi bi-patch-check-fill" aria-label="Verified" />
+                        )}
+                      </div>
+                      <p>{user?.email ?? ''}</p>
                     </div>
-                  </section>
 
-                  <section className="profile-form-section">
-                    <h5>Personal Info</h5>
-                    <div className="profile-form-grid">
-                      <label className="profile-field">
-                        <span>First Name</span>
-                        <input
-                          type="text"
-                          value={form.first_name}
-                          onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                        />
-                      </label>
-                      <label className="profile-field">
-                        <span>Last Name</span>
-                        <input
-                          type="text"
-                          value={form.last_name}
-                          onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                        />
-                      </label>
-                    </div>
-                  </section>
+                    <form className="profile-form" onSubmit={handleSave}>
+                      {message && (
+                        <div className={`alert alert-${message.type} alert-dismissible`}>
+                          {message.text}
+                          <button
+                            type="button"
+                            className="btn-close"
+                            onClick={() => setMessage(null)}
+                          />
+                        </div>
+                      )}
 
-                  <div className="profile-form-actions">
-                    <button type="submit" className="btn btn-primary" disabled={saving}>
-                      {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </div>
-                </form>
+                      <section className="profile-form-section">
+                        <h5>User Info</h5>
+                        <div className="profile-form-grid profile-form-grid--single">
+                          <label className="profile-field">
+                            <span>Username</span>
+                            <input
+                              type="text"
+                              value={form.username}
+                              onChange={(e) => setForm({ ...form, username: e.target.value })}
+                            />
+                          </label>
+                          <label className="profile-field">
+                            <span>Email address</span>
+                            <input
+                              type="email"
+                              value={form.email}
+                              onChange={(e) => setForm({ ...form, email: e.target.value })}
+                            />
+                          </label>
+                        </div>
+                      </section>
+
+                      <section className="profile-form-section">
+                        <h5>Personal Info</h5>
+                        <div className="profile-form-grid">
+                          <label className="profile-field">
+                            <span>First Name</span>
+                            <input
+                              type="text"
+                              value={form.first_name}
+                              onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                            />
+                          </label>
+                          <label className="profile-field">
+                            <span>Last Name</span>
+                            <input
+                              type="text"
+                              value={form.last_name}
+                              onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                            />
+                          </label>
+                        </div>
+                      </section>
+
+                      <div className="profile-form-actions">
+                        <button type="submit" className="btn btn-primary" disabled={saving}>
+                          {saving ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                )}
               </>
             )}
-          </main>
+          </section>
         </div>
       </div>
     </div>

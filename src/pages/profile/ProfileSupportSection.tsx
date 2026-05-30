@@ -134,8 +134,8 @@ const ProfileSupportSection = () => {
 
   return (
     <>
-      <header className="profile-main-header d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <h5 className="profile-panel-title mb-0">Support</h5>
+      <header className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h5 className="settings-card-title mb-0">Support</h5>
         <button
           type="button"
           className="btn btn-primary btn-sm"

@@ -4623,8 +4623,26 @@ body,
   text-align: center;
 }
 
-.profile-main-card {
+.settings-main-card.profile-main-card {
   overflow: hidden;
+}
+
+.settings-main-card.profile-main-card .settings-card-title {
+  margin-bottom: 0.85rem;
+}
+
+.settings-main-card.profile-main-card .profile-cover {
+  margin: 0 0 0;
+}
+
+.settings-main-card .profile-form,
+.settings-main-card .profile-form--settings {
+  padding: 0;
+}
+
+.settings-main-card .profile-form-section--first {
+  border-top: none;
+  padding-top: 0;
 }
 
 .profile-main-header .profile-panel-title {
@@ -4777,6 +4795,20 @@ body,
   padding: 0.68rem 0.85rem;
   outline: none;
   transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.profile-field .auth-password-input input {
+  border: 1px solid rgba(31, 58, 95, 0.22);
+  border-radius: 0.45rem;
+  color: var(--brand-navy);
+  font-size: 0.86rem;
+  font-weight: 500;
+  padding: 0.68rem 2.75rem 0.68rem 0.85rem;
+}
+
+.profile-field .auth-password-input input:focus {
+  border-color: var(--brand-green, #52b585);
+  box-shadow: 0 0 0 0.2rem rgba(82, 181, 133, 0.18);
 }
 
 .profile-field textarea {

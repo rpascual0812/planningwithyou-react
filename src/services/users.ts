@@ -123,6 +123,24 @@ export async function uploadMyPhoto(photo: File): Promise<UserRecord> {
   return res.json()
 }
 
+export async function changeMyPassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const res = await apiFetch(buildApiUrl('/users/me/change-password/'), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(extractError(body) || 'Failed to update password')
+  }
+}
+
 export async function updateUser(
   id: number,
   data: Partial<UserPayload>,
