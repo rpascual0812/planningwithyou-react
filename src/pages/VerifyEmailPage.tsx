@@ -3,6 +3,8 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { verifyEmailToken } from '../services/verifyEmail'
 
+import logo from '/assets/images/logo.png';
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -79,7 +81,7 @@ const VerifyEmailPage = () => {
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
           <img
-            src="/src/assets/images/logo.png"
+            src={logo}
             alt="Planning With You"
             width="84"
           />

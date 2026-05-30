@@ -2,6 +2,8 @@ import { useState, type SubmitEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthLegalLinks from '../components/AuthLegalLinks'
 
+import logo from '/assets/images/logo.png';
+
 const generateUuid = (): string => {
   const c =
     typeof globalThis !== 'undefined'
@@ -62,7 +64,7 @@ const ResetPasswordPage = () => {
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
           <img 
-                src="/src/assets/images/logo.png"
+                src={logo}
                 alt="Planning With You"
                 width="84"
               />

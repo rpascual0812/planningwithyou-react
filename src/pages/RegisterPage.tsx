@@ -13,6 +13,8 @@ import { registerAccount } from '../services/register'
 import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/supplierTypes'
 import { LEGAL_DOCUMENT_ROUTES } from '../services/systemLegal'
 
+import logo from '/assets/images/logo.png';
+
 const RegisterPage = () => {
   const [companyName, setCompanyName] = useState('')
   const [supplierTypeId, setSupplierTypeId] = useState('')
@@ -141,7 +143,7 @@ const RegisterPage = () => {
         <div className="auth-card-wrap">
           <div className="auth-logo" aria-hidden="true">
             <img
-              src="/src/assets/images/logo.png"
+              src={logo}
               alt="Planning With You"
               width="84"
             />
@@ -191,7 +193,7 @@ const RegisterPage = () => {
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
           <img
-            src="/src/assets/images/logo.png"
+            src={logo}
             alt="Planning With You"
             width="84"
           />

@@ -2,6 +2,8 @@ import { useMemo, useState, type SubmitEvent } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import AuthLegalLinks from '../components/AuthLegalLinks'
 
+import logo from '/assets/images/logo.png';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 function buildApiUrl(path: string): string {
@@ -97,7 +99,7 @@ const ResetPasswordConfirmPage = () => {
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
           <img
-            src="/src/assets/images/logo.png"
+            src={logo}
             alt="Planning With You"
             width="84"
           />
