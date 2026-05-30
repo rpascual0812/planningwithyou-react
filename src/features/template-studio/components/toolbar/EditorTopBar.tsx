@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import InvitationsLabel from '../InvitationsLabel'
 import LayerControls from '../sidebar/LayerControls'
 import { useTemplateStudioStore } from '../../store/templateStudioStore'
 import { downloadTemplateJson, importTemplateJson } from '../../lib/templateSerializer'
 import {
   publishTemplateStudio,
   saveTemplateStudio,
-  unpublishTemplateStudio,
 } from '../../../../services/templateStudioApi'
 import { notifyInvitationSaveError } from '../../lib/invitationSaveErrors'
 import { showErrorToast } from '../../../../utils/toast'
@@ -26,7 +23,7 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
   const setZoom = useTemplateStudioStore((s) => s.setZoom)
   const previewMode = useTemplateStudioStore((s) => s.previewMode)
   const setPreviewMode = useTemplateStudioStore((s) => s.setPreviewMode)
-  const document = useTemplateStudioStore((s) => s.document)
+  const templateDocument = useTemplateStudioStore((s) => s.document)
   const setDocument = useTemplateStudioStore((s) => s.setDocument)
   const updateDocumentMeta = useTemplateStudioStore((s) => s.updateDocumentMeta)
   const isDirty = useTemplateStudioStore((s) => s.isDirty)
@@ -54,7 +51,7 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
     return () => document.removeEventListener('mousedown', close)
   }, [menuOpen])
 
-  const title = document.meta.title || document.meta.name
+  const title = templateDocument.meta.title || templateDocument.meta.name
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -68,9 +65,9 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
       const record = await saveTemplateStudio(
         {
           title: title.trim(),
-          description: document.meta.description,
-          category: document.meta.category,
-          document,
+          description: templateDocument.meta.description,
+          category: templateDocument.meta.category,
+          document: templateDocument,
         },
         savedTemplateId ?? undefined,
       )
@@ -90,9 +87,9 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
 
   const buildSavePayload = () => ({
     title: title.trim(),
-    description: document.meta.description,
-    category: document.meta.category,
-    document,
+    description: templateDocument.meta.description,
+    category: templateDocument.meta.category,
+    document: templateDocument,
   })
 
   const handlePublish = async () => {
@@ -200,7 +197,7 @@ const EditorTopBar = ({ onOpenTemplates, onTemplateSaved }: EditorTopBarProps) =
               <button type="button" onClick={() => { setMarketplaceOpen(true); setMenuOpen(false) }}>
                 Marketplace
               </button>
-              <button type="button" onClick={() => { downloadTemplateJson(document); setMenuOpen(false) }}>
+              <button type="button" onClick={() => { downloadTemplateJson(templateDocument); setMenuOpen(false) }}>
                 Export JSON
               </button>
               <button type="button" onClick={() => { fileRef.current?.click(); setMenuOpen(false) }}>

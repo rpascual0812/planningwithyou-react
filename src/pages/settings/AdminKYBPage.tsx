@@ -14,13 +14,6 @@ const STATUS_OPTIONS: { value: AdminKybStatusFilter; label: string }[] = [
   { value: 'draft', label: 'Draft' },
 ]
 
-const BUSINESS_TYPE_LABELS: Record<string, string> = {
-  individual: 'Individual',
-  sole_proprietor: 'Sole proprietorship',
-  partnership: 'Partnership',
-  corporation: 'Corporation',
-}
-
 const STATUS_BADGE: Record<string, string> = {
   draft: 'text-bg-secondary',
   pending_paymongo: 'text-bg-warning',

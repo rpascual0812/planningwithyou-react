@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import AuthLegalLinks from '../components/AuthLegalLinks'
 import PasswordInput from '../components/PasswordInput'
@@ -14,7 +14,6 @@ import { fetchPublicSupplierTypes, type SupplierTypeRecord } from '../services/s
 import { LEGAL_DOCUMENT_ROUTES } from '../services/systemLegal'
 
 const RegisterPage = () => {
-  const navigate = useNavigate()
   const [companyName, setCompanyName] = useState('')
   const [supplierTypeId, setSupplierTypeId] = useState('')
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])

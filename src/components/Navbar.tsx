@@ -7,7 +7,6 @@ import {
   fetchActiveSystemNotifications,
   type ActiveSystemNotification,
 } from '../services/systemNotifications'
-import { canRead } from '../lib/featureAccess'
 import { canAccessAdmin } from '../lib/adminNavAccess'
 import { canAccessAnySettings } from '../lib/settingsNavAccess'
 import { UserAvatar } from './UserAvatar'

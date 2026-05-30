@@ -816,14 +816,6 @@ const TemplateFormModal = ({
       fields: form.fields.filter((_, i) => i !== idx),
     })
 
-  const moveField = (idx: number, dir: -1 | 1) => {
-    const target = idx + dir
-    if (target < 0 || target >= form.fields.length) return
-    const next = [...form.fields]
-    ;[next[idx], next[target]] = [next[target], next[idx]]
-    persistForm({ ...form, fields: next })
-  }
-
   const addOption = (fieldIdx: number) =>
     updateField(fieldIdx, {
       options: [
@@ -847,15 +839,6 @@ const TemplateFormModal = ({
     updateField(fieldIdx, {
       options: form.fields[fieldIdx].options.filter((_, i) => i !== optIdx),
     })
-
-  const moveOption = (fieldIdx: number, optIdx: number, dir: -1 | 1) => {
-    const opts = form.fields[fieldIdx].options
-    const target = optIdx + dir
-    if (target < 0 || target >= opts.length) return
-    const next = [...opts]
-    ;[next[optIdx], next[target]] = [next[target], next[optIdx]]
-    updateField(fieldIdx, { options: next })
-  }
 
   /* -- drag-and-drop: fields -- */
   const fieldDragIdx = useRef<number | null>(null)

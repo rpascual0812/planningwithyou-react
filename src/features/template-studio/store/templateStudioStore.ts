@@ -10,14 +10,9 @@ import type {
   ElementTransform,
   PageBackground,
   TemplatePage,
-  TextElement,
   WeddingTemplateDocument,
 } from '../types/schema'
-import {
-  DEFAULT_PAGE_SIZE,
-  DEFAULT_TEXT_STYLE,
-  DEFAULT_TRANSFORM,
-} from '../types/schema'
+import { DEFAULT_PAGE_SIZE } from '../types/schema'
 
 const HISTORY_LIMIT = 50
 const AUTOSAVE_KEY = 'template-studio:draft'
@@ -474,17 +469,3 @@ export function clearDraft() {
   }
 }
 
-export function createDefaultTextElement(
-  content: string,
-  partial?: Partial<TextElement>,
-): TextElement {
-  return {
-    id: newElementId(),
-    type: 'text',
-    name: partial?.name ?? 'Text',
-    content,
-    style: { ...DEFAULT_TEXT_STYLE, ...partial?.style },
-    transform: DEFAULT_TRANSFORM(partial?.transform),
-    ...partial,
-  }
-}

@@ -6,11 +6,27 @@ import {
   type CanvasElement,
   type ImageElement,
   type MapElement,
+  type TextElement,
   type VideoElement,
 } from '../types/schema'
 import { DEFAULT_RSVP_FIELDS } from './rsvpFields'
 import { defaultCountdownTargetDate } from './countdownDate'
 import { DEFAULT_COUNTDOWN_STYLE } from './countdownStyles'
+
+export function createDefaultTextElement(
+  content: string,
+  partial?: Partial<TextElement>,
+): TextElement {
+  return {
+    id: newElementId(),
+    type: 'text',
+    name: partial?.name ?? 'Text',
+    content,
+    style: { ...DEFAULT_TEXT_STYLE, ...partial?.style },
+    transform: DEFAULT_TRANSFORM(partial?.transform),
+    ...partial,
+  }
+}
 
 export function createHeadingText(): CanvasElement {
   return createDefaultTextElement('Your heading', {

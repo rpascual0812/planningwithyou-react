@@ -66,7 +66,6 @@ export default function SupplierFieldInput({
   required = false,
   dateOfEvent = '',
   excludeBookingId = null,
-  tierLabel = 'Tier',
   packageLabel = 'Package',
   supplierLabel = 'Supplier',
   supplierTypeLabel = 'Supplier type',

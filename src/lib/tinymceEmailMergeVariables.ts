@@ -1,3 +1,4 @@
+import type { InitOptions } from '@tinymce/tinymce-react/lib/es2015/main/ts/components/Editor'
 import type { Editor } from 'tinymce'
 
 import {
@@ -61,7 +62,7 @@ export type EmailBodyEditorInitOptions = {
 }
 
 /** Shared TinyMCE init for email HTML bodies (no image plugin/button). */
-export function createEmailBodyEditorInit(options: EmailBodyEditorInitOptions) {
+export function createEmailBodyEditorInit(options: EmailBodyEditorInitOptions): InitOptions {
   const height = options.height ?? 350
   return {
     ...TINYMCE_SELF_HOSTED_FREE_INIT,
@@ -96,4 +97,4 @@ export const SUBJECT_VARIABLES_ONLY_EDITOR_INIT = {
   setup: (editor: Editor) => {
     registerEmailMergeVariablesToolbar(editor)
   },
-}
+} satisfies InitOptions

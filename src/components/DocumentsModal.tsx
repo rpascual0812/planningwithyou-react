@@ -49,7 +49,7 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
   const [search, setSearch] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>()
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(null)
   const folderIdRef = useRef<number | null>(null)
   folderIdRef.current = selectedFolderId
 
@@ -93,7 +93,7 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
 
   const handleSearch = (val: string) => {
     setSearch(val)
-    clearTimeout(searchTimer.current)
+    clearTimeout(searchTimer.current ?? undefined)
     searchTimer.current = setTimeout(() => load(val), 300)
   }
 

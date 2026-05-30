@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { useAuthSession } from '../../context/AuthSessionContext'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'

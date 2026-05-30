@@ -11,7 +11,7 @@ import {
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
 import { useAuthSession } from './context/AuthSessionContext'
-import { accessFor, canWrite } from './lib/featureAccess'
+import { accessFor } from './lib/featureAccess'
 import { canAccessAdmin, canAccessAnyAdminTab } from './lib/adminNavAccess'
 import { firstAccessiblePath } from './lib/appNavigation'
 import { canAccessAnySettings } from './lib/settingsNavAccess'

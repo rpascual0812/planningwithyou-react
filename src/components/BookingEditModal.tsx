@@ -11,7 +11,7 @@ import {
   mergeBookingFieldGroups,
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
-import type { BookingField, BookingFieldOption } from '../lib/bookingFieldTypes'
+import type { BookingField } from '../lib/bookingFieldTypes'
 import {
   bookingPriceSummaryRequiredDownpayment,
   bookingStoredTotalAmountHasValue,

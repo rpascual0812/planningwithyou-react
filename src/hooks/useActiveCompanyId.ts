@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type Dispatch, type SetStateAction } from 'react'
 import { useAuthSession } from '../context/AuthSessionContext'
 import {
   activeCompanyIdForUser,
@@ -15,7 +15,7 @@ import type { CompanyRecord } from '../services/companies'
 export function useActiveCompanyId(
   companies: CompanyRecord[],
   selectedCompanyId: number | null,
-  setSelectedCompanyId: (id: number | null) => void,
+  setSelectedCompanyId: Dispatch<SetStateAction<number | null>>,
 ) {
   const { currentUser } = useAuthSession()
   const userCompanyId = lockedCompanyId(currentUser)

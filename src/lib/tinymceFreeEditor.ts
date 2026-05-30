@@ -5,9 +5,8 @@
 
 export const TINYMCE_GPL_LICENSE_KEY = 'gpl'
 
-/** Pass to TinyMCE `init` for every self-hosted editor instance. */
+/** Pass to TinyMCE `init` for every self-hosted editor instance (use with {@link TINYMCE_EDITOR_SHARED_PROPS}). */
 export const TINYMCE_SELF_HOSTED_FREE_INIT = {
-  license_key: TINYMCE_GPL_LICENSE_KEY,
   branding: false,
   promotion: false,
 } as const

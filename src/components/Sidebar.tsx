@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import defaultBrandLogo from '../assets/images/logo.png'
+import defaultBrandLogo from '/assets/images/logo.png'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { fetchSecuredFileBlobUrl } from '../lib/securedFileUrl'
-import { canRead, canWrite } from '../lib/featureAccess'
+import { canRead } from '../lib/featureAccess'
 import { canAccessAdmin } from '../lib/adminNavAccess'
 import { canAccessAnySettings } from '../lib/settingsNavAccess'
 import InvitationsLabel from '../features/template-studio/components/InvitationsLabel'
@@ -14,8 +14,6 @@ const Sidebar = () => {
   const [companyLogoSrc, setCompanyLogoSrc] = useState<string | null>(null)
 
   const companyLogoUrl = (currentUser?.company_logo_url ?? '').trim()
-  const companyName = (currentUser?.company_name ?? '').trim()
-  const brandTitle = companyName || 'Planning With You'
 
   useEffect(() => {
     if (!companyLogoUrl) {
@@ -43,7 +41,6 @@ const Sidebar = () => {
   }, [companyLogoUrl])
 
   const brandImageSrc = companyLogoSrc ?? defaultBrandLogo
-  const hasCompanyLogo = Boolean(companyLogoSrc)
 
   const linkClassName = ({ isActive }: { isActive: boolean }) =>
     `nav-link${isActive ? ' active' : ''}`

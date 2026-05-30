@@ -10,6 +10,8 @@ import AuthLegalLinks from '../components/AuthLegalLinks'
 import PasswordInput from '../components/PasswordInput'
 import { loginWithJwt, LoginThrottledError } from '../services/auth'
 
+import logo from '/assets/images/logo.png';
+
 const LoginPage = () => {
   const navigate = useNavigate()
   const { syncAuthState } = useAuthSession()
@@ -88,7 +90,7 @@ const LoginPage = () => {
       <div className="auth-card-wrap">
         <div className="auth-logo" aria-hidden="true">
           <img 
-                src="/src/assets/images/logo.png"
+                src={logo}
                 alt="Planning With You"
                 width="84"
               />
