@@ -21,7 +21,7 @@ const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; descrip
   { id: 'account', label: 'Account Settings', tour: 'settings-account', description: 'Account Settings lets you manage your account information, subscription, and receipts.' },
   { id: 'companies', label: 'Company Settings', tour: 'settings-companies', description: 'Company Settings lets you manage your companies, tiers, and packages.' },
   { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when booking.' },
-  { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage your appointment statuses and email templates. This is where you can define the statuses that your appointments can be in, and the email templates that will be sent to your clients when their appointments are created or updated.' },
+  { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
   { id: 'bookings', label: 'Booking Settings', tour: 'settings-bookings', description: 'Booking Settings lets you manage your booking view, group name, statuses, and form templates.' },
   { id: 'email-templates', label: 'Email Templates', tour: 'settings-email-templates', description: 'Email Templates lets you manage your user and booking email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', tour: 'settings-permissions', description: 'Roles and Permissions lets you manage your user\'s roles and permissions.' },
@@ -99,6 +99,11 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       tour: 'settings-calendar-email-templates',
       title: 'Email templates',
       description: 'Edit emails sent when appointments are created or updated.',
+    },
+    {
+      tour: 'settings-calendar-integrations',
+      title: 'Calendar Integrations',
+      description: 'Connect Google, Microsoft, Apple, or Yahoo calendars to sync events.',
     },
   ],
   bookings: [

@@ -5695,6 +5695,23 @@ body,
   box-shadow: 0 6px 16px rgba(31, 58, 95, 0.06);
 }
 
+.connection-card--unavailable {
+  opacity: 0.72;
+}
+
+.connection-card--unavailable:hover {
+  border-color: rgba(31, 58, 95, 0.10);
+  box-shadow: none;
+}
+
+.connection-coming-soon {
+  font-weight: 600;
+}
+
+.integration-modal-two-way .form-check-input {
+  cursor: pointer;
+}
+
 .connection-card-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
