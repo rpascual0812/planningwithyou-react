@@ -23,6 +23,7 @@ type AuthSessionContextValue = {
   subscriptionPlan: string | null
   userLoading: boolean
   syncAuthState: () => void
+  updateCurrentUser: (user: UserRecord) => void
 }
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null)
@@ -37,6 +38,12 @@ function isPublicAuthPath(pathname: string): boolean {
   if (PUBLIC_AUTH_PATHS.has(pathname)) return true
   if (pathname.startsWith('/reset-password/')) return true
   if (pathname.startsWith('/verify-email/')) return true
+  return false
+}
+
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === 'AbortError') return true
+  if (err instanceof Error && err.name === 'AbortError') return true
   return false
 }
 
@@ -65,7 +72,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       setCurrentUser(user)
       setSubscriptionPlan(user.subscription_plan ?? 'free')
       hasLoadedUserRef.current = true
-    } catch {
+    } catch (err) {
+      if (isAbortError(err)) return
       hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
@@ -88,6 +96,13 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       setUserLoading(false)
     }
   }, [loadCurrentUser])
+
+  const updateCurrentUser = useCallback((user: UserRecord) => {
+    setCurrentUser(user)
+    setSubscriptionPlan(user.subscription_plan ?? 'free')
+    hasLoadedUserRef.current = true
+    setUserLoading(false)
+  }, [])
 
   useEffect(() => {
     return startAuthSessionKeepAlive()
@@ -125,8 +140,9 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       subscriptionPlan,
       userLoading,
       syncAuthState,
+      updateCurrentUser,
     }),
-    [isAuthenticated, currentUser, subscriptionPlan, userLoading, syncAuthState],
+    [isAuthenticated, currentUser, subscriptionPlan, userLoading, syncAuthState, updateCurrentUser],
   )
 
   return (

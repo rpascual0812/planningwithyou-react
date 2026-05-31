@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { UserAvatar } from '../components/UserAvatar'
 import { useAuthSession } from '../context/AuthSessionContext'
 import { resizeImageFileToSquare } from '../lib/resizeImageFile'
@@ -19,7 +20,8 @@ function getDisplayName(user: UserRecord): string {
 }
 
 const ProfilePage = () => {
-  const { syncAuthState } = useAuthSession()
+  const navigate = useNavigate()
+  const { syncAuthState, updateCurrentUser } = useAuthSession()
   const { activeTab, setActiveTab, activeLabel } = useProfileTabNavigation()
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [user, setUser] = useState<UserRecord | null>(null)
@@ -218,9 +220,9 @@ const ProfilePage = () => {
                             setTourRestarting(true)
                             setMessage(null)
                             try {
-                              await restartProductTour()
-                              syncAuthState()
-                              window.location.assign('/')
+                              const updatedUser = await restartProductTour()
+                              updateCurrentUser(updatedUser)
+                              navigate('/')
                             } catch (err) {
                               setMessage({
                                 type: 'danger',
