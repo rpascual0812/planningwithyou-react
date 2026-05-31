@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import {
+  fetchGmailIntegration,
+  type GmailIntegrationStatus,
+} from '../../../services/gmailIntegration'
+import {
   fetchGoogleCalendarIntegration,
   type GoogleCalendarIntegrationStatus,
 } from '../../../services/googleCalendarIntegration'
+import GmailIntegrationCard from './GmailIntegrationCard'
 import GoogleCalendarIntegrationCard from './GoogleCalendarIntegrationCard'
 import IntegrationDetailsModal from './IntegrationDetailsModal'
 import {
@@ -87,34 +92,51 @@ const IntegrationGroupContent = ({ purpose }: IntegrationGroupContentProps) => {
   const [selectedIntegration, setSelectedIntegration] = useState<Integration | null>(
     null,
   )
-  const [googleStatus, setGoogleStatus] = useState<GoogleCalendarIntegrationStatus | null>(
-    null,
+  const [googleCalendarStatus, setGoogleCalendarStatus] =
+    useState<GoogleCalendarIntegrationStatus | null>(null)
+  const [gmailStatus, setGmailStatus] = useState<GmailIntegrationStatus | null>(null)
+  const [googleLoading, setGoogleLoading] = useState(
+    purpose === 'calendar' || purpose === 'email',
   )
-  const [googleLoading, setGoogleLoading] = useState(purpose === 'calendar')
 
-  const loadGoogleStatus = useCallback(async () => {
-    if (purpose !== 'calendar') return
+  const loadGoogleIntegrations = useCallback(async () => {
+    if (purpose !== 'calendar' && purpose !== 'email') return
     setGoogleLoading(true)
     try {
-      const data = await fetchGoogleCalendarIntegration()
-      setGoogleStatus(data)
+      if (purpose === 'calendar') {
+        const data = await fetchGoogleCalendarIntegration()
+        setGoogleCalendarStatus(data)
+      }
+      if (purpose === 'email') {
+        const data = await fetchGmailIntegration()
+        setGmailStatus(data)
+      }
     } catch {
-      setGoogleStatus({
-        connected: false,
-        configured: false,
-        google_email: '',
-        sync_mode: 'one_way',
-        two_way_sync: false,
-        last_synced_at: null,
-      })
+      if (purpose === 'calendar') {
+        setGoogleCalendarStatus({
+          connected: false,
+          configured: false,
+          google_email: '',
+          sync_mode: 'one_way',
+          two_way_sync: false,
+          last_synced_at: null,
+        })
+      }
+      if (purpose === 'email') {
+        setGmailStatus({
+          connected: false,
+          configured: false,
+          google_email: '',
+        })
+      }
     } finally {
       setGoogleLoading(false)
     }
   }, [purpose])
 
   useEffect(() => {
-    void loadGoogleStatus()
-  }, [loadGoogleStatus])
+    void loadGoogleIntegrations()
+  }, [loadGoogleIntegrations])
 
   const toggleIntegration = (id: IntegrationId) => {
     if (!settingsWrite) return
@@ -144,7 +166,7 @@ const IntegrationGroupContent = ({ purpose }: IntegrationGroupContentProps) => {
         {items.map((integration) => {
           const available = isIntegrationAvailable(integration)
           if (integration.id === 'google-calendar' && purpose === 'calendar') {
-            if (googleLoading || !googleStatus) {
+            if (googleLoading || !googleCalendarStatus) {
               return (
                 <li key={integration.id} className="connection-card">
                   <p className="connection-desc text-muted small mb-0">
@@ -157,9 +179,29 @@ const IntegrationGroupContent = ({ purpose }: IntegrationGroupContentProps) => {
               <GoogleCalendarIntegrationCard
                 key={integration.id}
                 integration={integration}
-                status={googleStatus}
+                status={googleCalendarStatus}
                 writeDisabled={!settingsWrite}
-                onStatusChange={setGoogleStatus}
+                onStatusChange={setGoogleCalendarStatus}
+              />
+            )
+          }
+          if (integration.id === 'gmail' && purpose === 'email') {
+            if (googleLoading || !gmailStatus) {
+              return (
+                <li key={integration.id} className="connection-card">
+                  <p className="connection-desc text-muted small mb-0">
+                    Loading Gmail…
+                  </p>
+                </li>
+              )
+            }
+            return (
+              <GmailIntegrationCard
+                key={integration.id}
+                integration={integration}
+                status={gmailStatus}
+                writeDisabled={!settingsWrite}
+                onStatusChange={setGmailStatus}
               />
             )
           }

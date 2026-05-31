@@ -8,6 +8,7 @@ import {
 import AccountSettingsPage from './AccountSettingsPage'
 import BookingsSettingsPage from './BookingsSettingsPage'
 import CalendarSettingsPage from './CalendarSettingsPage'
+import EmailSettingsPage from './EmailSettingsPage'
 import CompaniesSettingsPage from './CompaniesSettingsPage'
 import EmailTemplatesSettingsPage from './EmailTemplatesSettingsPage'
 import IntegrationsSettingsPage from './IntegrationsSettingsPage'
@@ -17,7 +18,7 @@ import type { SettingsNavItem, SettingsSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<SettingsSection>([
-  'account', 'companies', 'suppliers', 'calendar', 'bookings',
+  'account', 'companies', 'suppliers', 'calendar', 'email-settings', 'bookings',
   'email-templates', 'permissions', 'connection',
 ])
 
@@ -26,6 +27,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'companies', label: 'Company Settings', icon: 'bi-building', description: 'Company Settings lets you manage your companies and their settings.' },
   { id: 'suppliers', label: 'Supplier Settings', icon: 'bi-truck', description: 'Supplier Settings lets you manage your suppliers and their settings.' },
   { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
+  { id: 'email-settings', label: 'Email Settings', icon: 'bi-envelope-at', description: 'Email Settings lets you connect email providers to send and receive messages from your account.' },
   { id: 'bookings', label: 'Booking Settings', icon: 'bi-bookmark-check', description: 'Booking Settings lets you manage your booking view, group name, statuses, and form templates.' },
   { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper', description: 'Email Templates lets you manage your user and booking email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock', description: 'Roles and Permissions lets you manage your roles and permissions.' },
@@ -147,6 +149,8 @@ const ActiveSettingsPage = ({
       return <EmailTemplatesSettingsPage />
     case 'calendar':
       return <CalendarSettingsPage />
+    case 'email-settings':
+      return <EmailSettingsPage />
     case 'bookings':
       return <BookingsSettingsPage />
     case 'permissions':

@@ -38,7 +38,7 @@ export type IntegrationGroupMeta = {
 export const INTEGRATION_GROUP_META: IntegrationGroupMeta[] = [
   {
     id: 'email',
-    title: 'Email',
+    title: 'Email Integration',
     description: 'Connect inboxes to send and receive messages from your account.',
     iconClass: 'bi-envelope',
     permissions: 'Email, and messaging access',
@@ -63,7 +63,7 @@ export const INTEGRATIONS: Integration[] = [
   {
     id: 'gmail',
     name: 'Gmail',
-    description: 'Connect Gmail to send and receive messages from your inbox.',
+    description: 'Connect Gmail to send emails from the app using your Google account.',
     iconClass: 'bi-envelope-fill',
     color: '#ea4335',
     purpose: 'email',
@@ -86,6 +86,7 @@ export const INTEGRATIONS: Integration[] = [
     color: '#0078d4',
     purpose: 'email',
     permissions: 'Email access',
+    available: false,
   },
   {
     id: 'microsoft-calendar',
@@ -105,6 +106,7 @@ export const INTEGRATIONS: Integration[] = [
     color: '#555555',
     purpose: 'email',
     permissions: 'Email access',
+    available: false,
   },
   {
     id: 'apple-calendar',
@@ -124,6 +126,7 @@ export const INTEGRATIONS: Integration[] = [
     color: '#6001d2',
     purpose: 'email',
     permissions: 'Email access',
+    available: false,
   },
   {
     id: 'yahoo-calendar',
@@ -159,7 +162,7 @@ export function integrationsForPurpose(purpose: IntegrationPurpose): Integration
 export function initialIntegrationEnabledState(): Record<IntegrationId, boolean> {
   return INTEGRATIONS.reduce<Record<IntegrationId, boolean>>(
     (acc, integration) => {
-      if (integration.id === 'google-calendar') {
+      if (integration.id === 'google-calendar' || integration.id === 'gmail') {
         acc[integration.id] = false
       } else {
         acc[integration.id] = isIntegrationAvailable(integration)

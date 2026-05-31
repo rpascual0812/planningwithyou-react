@@ -4,6 +4,7 @@ export type SettingsSection =
   | 'suppliers'
   | 'email-templates'
   | 'calendar'
+  | 'email-settings'
   | 'bookings'
   | 'permissions'
   | 'connection'
