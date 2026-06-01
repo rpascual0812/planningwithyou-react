@@ -12,6 +12,7 @@ import {
   normalizeBookingGroupName,
 } from '../lib/bookingFieldGroups'
 import type { BookingField } from '../lib/bookingFieldTypes'
+import { finalizeBookingFieldDefinitions } from '../lib/bookingFieldSave'
 import {
   bookingPriceSummaryRequiredDownpayment,
   bookingStoredTotalAmountHasValue,
@@ -19,8 +20,6 @@ import {
   getBookingPriceGroups,
   resolveBookingFieldPriceRaw,
   sumBookingPriceGroups,
-  validateBookingFieldDownpayment,
-  validateBookingSupplierFieldDownpayment,
 } from '../lib/bookingPriceSummary'
 import { fetchBookingsGroupNameConfig } from '../services/config'
 import { fetchCurrentAccount } from '../services/accounts'
@@ -116,6 +115,7 @@ export type BookingTemplate = {
   id: number
   name: string
   is_default: boolean
+  is_active?: boolean
   fields: BookingTemplateField[]
 }
 
@@ -216,6 +216,10 @@ const BookingEditModal = ({
 
   useEffect(() => {
     setModalTab('details')
+    setManagingGroup(null)
+    setContactDetailsOpen(false)
+    setFooterMoreOpen(false)
+    createSeededRef.current = false
   }, [form.id, form.mode])
   const readOnlyFieldProps = viewOnly
     ? ({ readOnly: true, disabled: true } as const)
@@ -256,6 +260,11 @@ const BookingEditModal = ({
     form.extraGroupNames ?? [],
   )
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  /** Group whose field definitions (schema) are being edited. */
+  const [managingGroup, setManagingGroup] = useState<string | null>(null)
+  const [contactDetailsOpen, setContactDetailsOpen] = useState(false)
+  const [footerMoreOpen, setFooterMoreOpen] = useState(false)
+  const createSeededRef = useRef(false)
   type GroupNameModal =
     | { type: 'add' }
     | { type: 'edit'; originalName: string }
@@ -718,6 +727,12 @@ const BookingEditModal = ({
     [fieldGroups],
   )
 
+  const activeFormTemplates = useMemo(
+    () =>
+      templates.filter((t) => t.is_active !== false && t.fields.length > 0),
+    [templates],
+  )
+
   const formatFieldPriceAmount = (raw: string | null | undefined): string | null => {
     if (raw === null || raw === undefined || raw === '') return null
     const amount = Number(raw)
@@ -747,6 +762,28 @@ const BookingEditModal = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // New bookings: pre-fill fields from the default form template when none exist.
+  useEffect(() => {
+    if (form.mode !== 'create' || createSeededRef.current || restoredDraft) return
+    if (form.fields.length > 0) return
+    const tpl =
+      templates.find((t) => t.is_default && t.is_active !== false) ??
+      templates.find((t) => t.is_active !== false)
+    if (!tpl?.fields?.length) return
+    createSeededRef.current = true
+    onChange({
+      ...form,
+      fields: templateFieldsToBookingFields(tpl, defaultGroupName),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    form.mode,
+    form.fields.length,
+    restoredDraft,
+    templates,
+    defaultGroupName,
+  ])
 
   // Auto-save draft on every form change (skip initial render)
   useEffect(() => {
@@ -810,6 +847,97 @@ const BookingEditModal = ({
         },
       ],
     })
+  }
+
+  const groupNameNormalized = (groupName: string) =>
+    normalizeBookingGroupName(groupName)
+
+  const isManagingGroup = (groupName: string) =>
+    managingGroup === groupNameNormalized(groupName)
+
+  const countUnsavedInGroup = (groupName: string) =>
+    form.fields.filter(
+      (f) =>
+        groupNameNormalized(f.group_name) === groupNameNormalized(groupName) &&
+        !f.saved,
+    ).length
+
+  const openManageGroup = (groupName: string) => {
+    const norm = groupNameNormalized(groupName)
+    setManagingGroup(norm)
+    setOpenGroups((prev) => ({ ...prev, [norm]: true }))
+  }
+
+  const addCustomFieldToGroup = (groupName: string) => {
+    openManageGroup(groupName)
+    addFieldToGroup(groupName)
+  }
+
+  const applyTemplateToGroup = (groupName: string, templateId: number) => {
+    const tpl = templates.find((t) => t.id === templateId)
+    if (!tpl?.fields.length) return
+    openManageGroup(groupName)
+    const normalized = groupNameNormalized(groupName)
+    const booking_group_id = groupIdByName.get(normalized) ?? null
+    const baseOrder = form.fields.length
+    const appended = tpl.fields.map((f, idx) => ({
+      label: f.label,
+      group_name: normalized,
+      booking_group_id,
+      field_type: f.field_type,
+      is_required: f.is_required,
+      options: f.options.map((o) => ({
+        label: o.label,
+        price: o.price,
+        sort_order: o.sort_order,
+      })),
+      price: f.price,
+      requiredDownpayment: null,
+      sort_order: baseOrder + idx,
+      saved: true,
+      value: '',
+    }))
+    onChange({ ...form, fields: [...form.fields, ...appended] })
+  }
+
+  const finishManagingGroup = (groupName: string) => {
+    const norm = groupNameNormalized(groupName)
+    const indices = form.fields
+      .map((f, i) => ({ f, i }))
+      .filter(({ f }) => groupNameNormalized(f.group_name) === norm)
+    const { fields: finalized, error } = finalizeBookingFieldDefinitions(
+      indices.map(({ f }) => f),
+    )
+    if (error) {
+      showErrorToast(error)
+      return
+    }
+    onChange({
+      ...form,
+      fields: form.fields.map((f, i) => {
+        const pos = indices.findIndex(({ i: fieldIdx }) => fieldIdx === i)
+        if (pos === -1) return f
+        return finalized[pos]
+      }),
+    })
+    setManagingGroup(null)
+  }
+
+  const cancelManagingGroup = () => {
+    const norm = managingGroup
+    if (!norm) return
+    const draftIndices = form.fields
+      .map((f, i) => ({ f, i }))
+      .filter(
+        ({ f }) => groupNameNormalized(f.group_name) === norm && !f.saved,
+      )
+    if (draftIndices.length > 0) {
+      onChange({
+        ...form,
+        fields: form.fields.filter((_, i) => !draftIndices.some((d) => d.i === i)),
+      })
+    }
+    setManagingGroup(null)
   }
 
   const removeGroupFromForm = (normalized: string) => {
@@ -1025,75 +1153,55 @@ const BookingEditModal = ({
     setFieldDragOver(null)
   }
 
-  const saveField = (idx: number) => {
-    const field = form.fields[idx]
-    if (!field.label.trim()) {
-      showErrorToast('Enter a field label before saving.')
-      return
-    }
-    if (
-      field.field_type === 'select' &&
-      field.options.filter((o) => o.label.trim()).length < 1
-    ) {
-      showErrorToast('Add at least one option for dropdown fields.')
-      return
-    }
-    const downpaymentError =
-      field.field_type === 'supplier'
-        ? validateBookingSupplierFieldDownpayment(field)
-        : validateBookingFieldDownpayment(field)
-    if (downpaymentError) {
-      showErrorToast(downpaymentError)
-      return
-    }
-    updateField(idx, { saved: true })
-  }
-
   const editField = (idx: number) => {
+    const field = form.fields[idx]
+    openManageGroup(field.group_name)
     updateField(idx, { saved: false })
   }
 
   const renderUnsavedFieldCard = (idx: number) => {
     const field = form.fields[idx]
-    return (
+    const showPricing =
+      field.field_type !== 'select' && field.field_type !== 'supplier'
+  return (
       <div
         key={idx}
-        className={`card card-body p-3 mb-2${fieldDragOver === idx ? ' border-primary' : ''}`}
+        className={`booking-field-builder${fieldDragOver === idx ? ' is-drag-over' : ''}`}
         draggable={!viewOnly}
         onDragStart={(e) => handleFieldDragStart(e, idx)}
         onDragOver={(e) => handleFieldDragOver(e, idx)}
         onDrop={(e) => handleFieldDrop(e, idx)}
         onDragEnd={handleFieldDragEnd}
       >
-        <div className="d-flex justify-content-between align-items-start mb-2">
-          <div className="d-flex align-items-center gap-2">
-            <i
-              className="bi bi-grip-vertical text-muted"
-              style={{ cursor: 'grab', fontSize: '1.1rem' }}
-              title="Drag to reorder"
-            />
-            <span className="badge bg-light text-dark">#{idx + 1}</span>
-          </div>
+        <div className="booking-field-builder__head">
+          <i
+            className="bi bi-grip-vertical booking-field-builder__grip"
+            title="Drag to reorder"
+            aria-hidden="true"
+          />
+          <span className="booking-field-builder__title">
+            {field.label.trim() || 'New field'}
+          </span>
           <button
             type="button"
-            className="btn btn-sm btn-outline-danger"
+            className="btn btn-sm btn-link text-danger p-0"
             title="Remove field"
             onClick={() => removeField(idx)}
           >
-            <i className="bi bi-x-lg" />
+            <i className="bi bi-trash" aria-hidden="true" />
           </button>
         </div>
         <div className="row g-2">
-          <div className="col-sm-4">
+          <div className="col-md-5">
             <label className="form-label">Label *</label>
             <input
               className="form-control form-control-sm"
-              placeholder="Field label"
+              placeholder="e.g. Venue package"
               value={field.label}
               onChange={(e) => updateField(idx, { label: e.target.value })}
             />
           </div>
-          <div className="col-sm-3">
+          <div className="col-md-4">
             <label className="form-label">Type</label>
             <select
               className="form-select form-select-sm"
@@ -1132,72 +1240,8 @@ const BookingEditModal = ({
               ))}
             </select>
           </div>
-          {field.field_type === 'select' && (
-            <div className="col-sm-3">
-              <label className="form-label">Downpayment</label>
-              <input
-                type="number"
-                className="form-control form-control-sm"
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                value={field.requiredDownpayment ?? ''}
-                onChange={(e) =>
-                  updateField(idx, {
-                    requiredDownpayment:
-                      e.target.value === '' ? null : e.target.value,
-                  })
-                }
-              />
-            </div>
-          )}
-          {field.field_type !== 'select' && field.field_type !== 'supplier' && (
-            <>
-              <div className="col-sm-2">
-                <label className="form-label">Price</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  value={field.price ?? ''}
-                  onChange={(e) =>
-                    updateField(idx, {
-                      price: e.target.value === '' ? null : e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="col-sm-2">
-                <label className="form-label">Downpayment</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  value={field.requiredDownpayment ?? ''}
-                  onChange={(e) =>
-                    updateField(idx, {
-                      requiredDownpayment:
-                        e.target.value === '' ? null : e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </>
-          )}
-          <div
-            className={`${
-              field.field_type === 'supplier'
-                ? 'col-sm-5'
-                : field.field_type === 'select'
-                  ? 'col-sm-2'
-                  : 'col-sm-2'
-            } d-flex align-items-end`}
-          >
-            <div className="form-check">
+          <div className="col-md-3 d-flex align-items-end">
+            <div className="form-check mb-1">
               <input
                 className="form-check-input"
                 type="checkbox"
@@ -1214,20 +1258,82 @@ const BookingEditModal = ({
           </div>
         </div>
 
+        {(showPricing || field.field_type === 'select') && (
+          <div className="row g-2 mt-0">
+            {showPricing && (
+              <>
+                <div className="col-sm-6">
+                  <label className="form-label">Price</label>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    value={field.price ?? ''}
+                    onChange={(e) =>
+                      updateField(idx, {
+                        price: e.target.value === '' ? null : e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="col-sm-6">
+                  <label className="form-label">Downpayment</label>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                    value={field.requiredDownpayment ?? ''}
+                    onChange={(e) =>
+                      updateField(idx, {
+                        requiredDownpayment:
+                          e.target.value === '' ? null : e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </>
+            )}
+            {field.field_type === 'select' && (
+              <div className="col-sm-6">
+                <label className="form-label">Downpayment</label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={field.requiredDownpayment ?? ''}
+                  onChange={(e) =>
+                    updateField(idx, {
+                      requiredDownpayment:
+                        e.target.value === '' ? null : e.target.value,
+                    })
+                  }
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {field.field_type === 'select' && (
-          <div className="mt-2">
-            <div className="d-flex align-items-center gap-2 mb-1">
-              <small className="text-muted fw-semibold">Options</small>
+          <div className="booking-field-builder__options mt-2">
+            <div className="d-flex align-items-center justify-content-between mb-1">
+              <small className="text-muted fw-semibold mb-0">Dropdown options</small>
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary py-0 px-1"
+                className="btn btn-sm btn-outline-secondary"
                 onClick={() => addOption(idx)}
               >
-                <i className="bi bi-plus" />
+                <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+                Add option
               </button>
             </div>
             {field.options.length === 0 && (
-              <div className="text-muted small">No options added.</div>
+              <p className="text-muted small mb-0">Add at least one option.</p>
             )}
             {field.options.map((opt, optIdx) => (
               <div key={optIdx} className="row g-1 mb-1 align-items-center">
@@ -1260,7 +1366,7 @@ const BookingEditModal = ({
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-danger"
-                    title="Remove"
+                    title="Remove option"
                     onClick={() => removeOption(idx, optIdx)}
                   >
                     <i className="bi bi-x-lg" />
@@ -1270,21 +1376,15 @@ const BookingEditModal = ({
             ))}
           </div>
         )}
-
-        <div className="mt-2 text-end">
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={() => saveField(idx)}
-          >
-            Save
-          </button>
-        </div>
       </div>
     )
   }
 
-  const renderSavedField = (field: BookingField, idx: number) => {
+  const renderSavedField = (
+    field: BookingField,
+    idx: number,
+    showSchemaActions: boolean,
+  ) => {
     const requiredMark = field.is_required ? ' *' : ''
     const fieldLabel = `${field.label}${requiredMark}`
     const displayPrice = getSavedFieldDisplayPrice(field)
@@ -1305,12 +1405,12 @@ const BookingEditModal = ({
             {displayPrice && (
               <span className="booking-field-price">{displayPrice}</span>
             )}
-            {!viewOnly && (
+            {showSchemaActions && (
               <div className="d-flex gap-1">
                 <button
                   type="button"
                   className="btn btn-sm btn-link p-0"
-                  title="Edit field"
+                  title="Edit field definition"
                   onClick={() => editField(idx)}
                 >
                   <i className="bi bi-pencil-square" />
@@ -1321,7 +1421,7 @@ const BookingEditModal = ({
                   title="Remove field"
                   onClick={() => removeField(idx)}
                 >
-                  <i className="bi bi-x-lg" />
+                  <i className="bi bi-trash" />
                 </button>
               </div>
             )}
@@ -1477,6 +1577,13 @@ const BookingEditModal = ({
                   e.preventDefault()
                   return
                 }
+                if (managingGroup) {
+                  e.preventDefault()
+                  showErrorToast(
+                    'Click Done on the section you are customizing before saving the booking.',
+                  )
+                  return
+                }
                 void onSubmit(e)
               }}
               noValidate
@@ -1614,6 +1721,11 @@ const BookingEditModal = ({
                       </div>
                     </div>
                     <div className="mb-3 booking-fields-groups">
+                      <p className="text-muted small mb-2">
+                        Fill in line items below. Use{' '}
+                        <span className="fw-semibold">Customize fields</span> to change
+                        labels, types, or pricing.
+                      </p>
                       {!viewOnly && (
                         <div className="booking-fields-groups-toolbar">
                           <button
@@ -1629,10 +1741,15 @@ const BookingEditModal = ({
                         {fieldGroups.map((group) => {
                           const isOpen = openGroups[group.groupName] ?? false
                           const subtotal = groupSubtotals.get(group.groupName) ?? 0
+                          const managing = isManagingGroup(group.groupName)
+                          const unsavedCount = countUnsavedInGroup(group.groupName)
+                          const savedItems = group.items.filter(({ field }) => field.saved)
                           return (
                             <li
                               key={group.groupName}
-                              className={`faq-item${isOpen ? ' is-open' : ''}`}
+                              className={`faq-item${isOpen ? ' is-open' : ''}${
+                                managing ? ' is-managing-fields' : ''
+                              }`}
                             >
                               <div className="booking-fields-group-head">
                                 <button
@@ -1646,15 +1763,23 @@ const BookingEditModal = ({
                                   </span>
                                   <span className="faq-question-row">
                                     <span className="faq-question">{group.groupName}</span>
-                                    <span className="booking-fields-group-subtotal">
-                                      {formatCurrency(subtotal, currencyOptions)}
+                                    <span className="booking-fields-group-meta">
+                                      {savedItems.length > 0 && (
+                                        <span className="booking-fields-group-count">
+                                          {savedItems.length} field
+                                          {savedItems.length !== 1 ? 's' : ''}
+                                        </span>
+                                      )}
+                                      <span className="booking-fields-group-subtotal">
+                                        {formatCurrency(subtotal, currencyOptions)}
+                                      </span>
                                     </span>
                                   </span>
                                   <span className="faq-chevron" aria-hidden="true">
                                     <i className="bi bi-chevron-down" />
                                   </span>
                                 </button>
-                                {!viewOnly && (
+                                {!viewOnly && !managing && (
                                   <button
                                     type="button"
                                     className="booking-fields-group-edit btn btn-link"
@@ -1668,35 +1793,183 @@ const BookingEditModal = ({
                               </div>
                               {isOpen && (
                                 <div className="faq-answer faq-answer--form">
-                                  {group.items.map(({ field, idx }) =>
-                                    field.saved ? (
-                                      renderSavedField(field, idx)
-                                    ) : (
-                                      renderUnsavedFieldCard(idx)
-                                    ),
-                                  )}
-                                  {group.items.length === 0 && (
-                                    <p className="text-muted small mb-0">
-                                      No fields in this group yet.
-                                    </p>
-                                  )}
-                                  {!viewOnly && (
-                                    <div className="booking-fields-group-actions">
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-danger"
-                                        onClick={() => void deleteFieldGroup(group.groupName)}
-                                      >
-                                        Delete
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-primary"
-                                        onClick={() => addFieldToGroup(group.groupName)}
-                                      >
-                                        + Add Field
-                                      </button>
-                                    </div>
+                                  {managing ? (
+                                    <>
+                                      <div className="booking-fields-manage-banner">
+                                        <span>
+                                          <i className="bi bi-sliders me-1" aria-hidden="true" />
+                                          Customizing fields in this {groupLabel.toLowerCase()}
+                                        </span>
+                                        <div className="booking-fields-manage-banner__actions">
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-link"
+                                            onClick={cancelManagingGroup}
+                                          >
+                                            Cancel
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-primary"
+                                            onClick={() =>
+                                              finishManagingGroup(group.groupName)
+                                            }
+                                          >
+                                            Done
+                                          </button>
+                                        </div>
+                                      </div>
+                                      {group.items.map(({ field, idx }) =>
+                                        field.saved ? (
+                                          <div key={idx} className="mb-2">
+                                            {renderSavedField(field, idx, true)}
+                                          </div>
+                                        ) : (
+                                          renderUnsavedFieldCard(idx)
+                                        ),
+                                      )}
+                                      <div className="booking-fields-group-actions booking-fields-group-actions--manage">
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-danger"
+                                          onClick={() =>
+                                            void deleteFieldGroup(group.groupName)
+                                          }
+                                        >
+                                          Delete {groupLabel.toLowerCase()}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-primary"
+                                          onClick={() =>
+                                            addCustomFieldToGroup(group.groupName)
+                                          }
+                                        >
+                                          + Add custom field
+                                        </button>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      {unsavedCount > 0 && !viewOnly && (
+                                        <div
+                                          className="alert alert-warning py-2 small mb-3 d-flex flex-wrap align-items-center gap-2"
+                                          role="status"
+                                        >
+                                          <span>
+                                            {unsavedCount} unfinished field
+                                            {unsavedCount !== 1 ? 's' : ''} need setup.
+                                          </span>
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-warning"
+                                            onClick={() =>
+                                              openManageGroup(group.groupName)
+                                            }
+                                          >
+                                            Continue setup
+                                          </button>
+                                        </div>
+                                      )}
+                                      {savedItems.map(({ field, idx }) =>
+                                        renderSavedField(field, idx, false),
+                                      )}
+                                      {savedItems.length === 0 && (
+                                        <div className="booking-fields-group-empty">
+                                          <p className="text-muted small mb-2">
+                                            No line items yet. Add fields from a template
+                                            or create custom fields.
+                                          </p>
+                                          {!viewOnly && (
+                                            <div className="booking-fields-group-empty__actions">
+                                              {activeFormTemplates.length > 0 && (
+                                                <select
+                                                  className="form-select form-select-sm"
+                                                  defaultValue=""
+                                                  aria-label={`Add template fields to ${group.groupName}`}
+                                                  onChange={(e) => {
+                                                    const id = Number(e.target.value)
+                                                    if (!id) return
+                                                    applyTemplateToGroup(
+                                                      group.groupName,
+                                                      id,
+                                                    )
+                                                    e.target.value = ''
+                                                  }}
+                                                >
+                                                  <option value="">
+                                                    Add from template…
+                                                  </option>
+                                                  {activeFormTemplates.map((t) => (
+                                                    <option key={t.id} value={t.id}>
+                                                      {t.name}
+                                                      {t.is_default ? ' (default)' : ''}
+                                                    </option>
+                                                  ))}
+                                                </select>
+                                              )}
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-primary"
+                                                onClick={() =>
+                                                  addCustomFieldToGroup(group.groupName)
+                                                }
+                                              >
+                                                + Custom field
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-secondary"
+                                                onClick={() =>
+                                                  openManageGroup(group.groupName)
+                                                }
+                                              >
+                                                Customize fields
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                      {!viewOnly && savedItems.length > 0 && (
+                                        <div className="booking-fields-group-actions booking-fields-group-actions--fill">
+                                          {activeFormTemplates.length > 0 && (
+                                            <select
+                                              className="form-select form-select-sm"
+                                              defaultValue=""
+                                              aria-label={`Add template fields to ${group.groupName}`}
+                                              onChange={(e) => {
+                                                const id = Number(e.target.value)
+                                                if (!id) return
+                                                applyTemplateToGroup(
+                                                  group.groupName,
+                                                  id,
+                                                )
+                                                e.target.value = ''
+                                              }}
+                                            >
+                                              <option value="">
+                                                Add from template…
+                                              </option>
+                                              {activeFormTemplates.map((t) => (
+                                                <option key={t.id} value={t.id}>
+                                                  {t.name}
+                                                  {t.is_default ? ' (default)' : ''}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          )}
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-secondary"
+                                            onClick={() =>
+                                              openManageGroup(group.groupName)
+                                            }
+                                          >
+                                            Customize fields
+                                          </button>
+                                        </div>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               )}
@@ -1784,43 +2057,62 @@ const BookingEditModal = ({
                     </div>
                     {selectedContact && (
                       <div className="booking-contact-summary mb-3">
-                        <div className="booking-contact-summary__heading fw-semibold mb-2">
-                          Contact Details
-                        </div>
-                        <div className="booking-contact-summary__row">
-                          <span className="booking-contact-summary__label">First name</span>
-                          <span className="booking-contact-summary__value">
-                            {selectedContact.first_name || '—'}
+                        <button
+                          type="button"
+                          className="booking-contact-summary__toggle"
+                          aria-expanded={contactDetailsOpen}
+                          onClick={() => setContactDetailsOpen((open) => !open)}
+                        >
+                          <span className="fw-semibold">Contact</span>
+                          <span className="booking-contact-summary__preview text-muted small">
+                            {contactDisplayName(selectedContact)}
+                            {selectedContact.email?.trim()
+                              ? ` · ${selectedContact.email.trim()}`
+                              : ''}
                           </span>
-                        </div>
-                        <div className="booking-contact-summary__row">
-                          <span className="booking-contact-summary__label">Last name</span>
-                          <span className="booking-contact-summary__value">
-                            {selectedContact.last_name || '—'}
-                          </span>
-                        </div>
-                        <div className="booking-contact-summary__row">
-                          <span className="booking-contact-summary__label">
-                            {defaultContactPhone
-                              ? contactPhoneLabel(defaultContactPhone)
-                              : 'Phone'}
-                          </span>
-                          <span className="booking-contact-summary__value">
-                            {defaultContactPhone?.number?.trim() || '—'}
-                          </span>
-                        </div>
-                        <div className="booking-contact-summary__row">
-                          <span className="booking-contact-summary__label">
-                            {defaultContactAddress
-                              ? contactAddressLabel(defaultContactAddress)
-                              : 'Address'}
-                          </span>
-                          <span className="booking-contact-summary__value">
-                            {defaultContactAddress
-                              ? formatContactAddress(defaultContactAddress) || '—'
-                              : '—'}
-                          </span>
-                        </div>
+                          <i
+                            className={`bi bi-chevron-${contactDetailsOpen ? 'up' : 'down'}`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                        {contactDetailsOpen && (
+                          <div className="booking-contact-summary__body">
+                            <div className="booking-contact-summary__row">
+                              <span className="booking-contact-summary__label">First name</span>
+                              <span className="booking-contact-summary__value">
+                                {selectedContact.first_name || '—'}
+                              </span>
+                            </div>
+                            <div className="booking-contact-summary__row">
+                              <span className="booking-contact-summary__label">Last name</span>
+                              <span className="booking-contact-summary__value">
+                                {selectedContact.last_name || '—'}
+                              </span>
+                            </div>
+                            <div className="booking-contact-summary__row">
+                              <span className="booking-contact-summary__label">
+                                {defaultContactPhone
+                                  ? contactPhoneLabel(defaultContactPhone)
+                                  : 'Phone'}
+                              </span>
+                              <span className="booking-contact-summary__value">
+                                {defaultContactPhone?.number?.trim() || '—'}
+                              </span>
+                            </div>
+                            <div className="booking-contact-summary__row">
+                              <span className="booking-contact-summary__label">
+                                {defaultContactAddress
+                                  ? contactAddressLabel(defaultContactAddress)
+                                  : 'Address'}
+                              </span>
+                              <span className="booking-contact-summary__value">
+                                {defaultContactAddress
+                                  ? formatContactAddress(defaultContactAddress) || '—'
+                                  : '—'}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                     <div className="booking-price-summary mt-auto">
@@ -1961,52 +2253,84 @@ const BookingEditModal = ({
                   <>
                     {form.mode === 'edit' && (
                       <>
-                        <div className="booking-edit-modal-footer__send">
-                          {showPaymentsButton && (
-                            <button
-                              type="button"
-                              className="btn btn-outline-secondary"
-                              onClick={() => setPaymentsModalOpen(true)}
-                            >
-                              <i className="bi bi-credit-card me-1" aria-hidden="true" />
-                              Payments
-                            </button>
-                          )}
+                        <div
+                          className={`dropdown booking-edit-modal-footer__more${
+                            footerMoreOpen ? ' show' : ''
+                          }`}
+                        >
                           <button
                             type="button"
-                            className="btn btn-outline-secondary"
-                            onClick={() => onSendToCalendar?.()}
-                            disabled={!onSendToCalendar}
+                            className="btn btn-outline-secondary dropdown-toggle"
+                            aria-expanded={footerMoreOpen}
+                            onClick={() => setFooterMoreOpen((open) => !open)}
                           >
-                            <i className="bi bi-calendar-event me-1" aria-hidden="true" />
-                            Send to Calendar
+                            More actions
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary"
-                            onClick={() => void openBookingEmailModal()}
+                          <ul
+                            className={`dropdown-menu dropdown-menu-end${
+                              footerMoreOpen ? ' show' : ''
+                            }`}
                           >
-                            <i className="bi bi-envelope me-1" aria-hidden="true" />
-                            Send Email to Client
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary"
-                            title="Download Quotation"
-                            aria-label="Download Quotation"
-                            disabled={pdfDownloading || form.id == null}
-                            onClick={() => void handleDownloadBookingPdf()}
-                          >
-                            {pdfDownloading ? (
-                              <span
-                                className="spinner-border spinner-border-sm"
-                                role="status"
-                                aria-hidden="true"
-                              />
-                            ) : (
-                              <i className="bi bi-file-earmark-arrow-down" aria-hidden="true" />
+                            {showPaymentsButton && (
+                              <li>
+                                <button
+                                  type="button"
+                                  className="dropdown-item"
+                                  onClick={() => {
+                                    setFooterMoreOpen(false)
+                                    setPaymentsModalOpen(true)
+                                  }}
+                                >
+                                  <i className="bi bi-credit-card me-2" aria-hidden="true" />
+                                  Payments
+                                </button>
+                              </li>
                             )}
-                          </button>
+                            <li>
+                              <button
+                                type="button"
+                                className="dropdown-item"
+                                disabled={!onSendToCalendar}
+                                onClick={() => {
+                                  setFooterMoreOpen(false)
+                                  onSendToCalendar?.()
+                                }}
+                              >
+                                <i className="bi bi-calendar-event me-2" aria-hidden="true" />
+                                Send to Calendar
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                className="dropdown-item"
+                                onClick={() => {
+                                  setFooterMoreOpen(false)
+                                  void openBookingEmailModal()
+                                }}
+                              >
+                                <i className="bi bi-envelope me-2" aria-hidden="true" />
+                                Send email to client
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                type="button"
+                                className="dropdown-item"
+                                disabled={pdfDownloading || form.id == null}
+                                onClick={() => {
+                                  setFooterMoreOpen(false)
+                                  void handleDownloadBookingPdf()
+                                }}
+                              >
+                                <i
+                                  className="bi bi-file-earmark-arrow-down me-2"
+                                  aria-hidden="true"
+                                />
+                                Download quotation PDF
+                              </button>
+                            </li>
+                          </ul>
                         </div>
                         <div
                           className="booking-edit-modal-footer__divider"

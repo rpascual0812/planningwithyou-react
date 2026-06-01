@@ -16,6 +16,7 @@ import {
   updateBookingItem,
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
+import { finalizeBookingFieldDefinitions } from '../lib/bookingFieldSave'
 import BookingPaymentStatusPill from '../components/BookingPaymentStatusPill'
 import { bookingPaymentStatus } from '../lib/bookingPaymentStatus'
 import AppointmentEditModal, {
@@ -1163,13 +1164,17 @@ const BookingsPage = () => {
         : `${itemModal.dateOfEvent}T00:00`
     }
 
-    const unsavedFields = itemModal.fields.filter((f) => !f.saved)
-    if (unsavedFields.length > 0) {
-      showErrorToast('Save or remove unsaved custom fields before saving the booking.')
+    const { fields: fieldsForSave, error: finalizeError } =
+      finalizeBookingFieldDefinitions(itemModal.fields)
+    if (finalizeError) {
+      showErrorToast(`Finish setting up custom fields: ${finalizeError}`)
       return
     }
+    if (fieldsForSave !== itemModal.fields) {
+      setItemModal({ ...itemModal, fields: fieldsForSave })
+    }
 
-    const missingRequired = itemModal.fields.filter((f) => {
+    const missingRequired = fieldsForSave.filter((f) => {
       if (!f.saved || !f.is_required) return false
       if (f.field_type === 'supplier') {
         const { tier_id, supplier_id } = parseSupplierFieldValue(f.value)
@@ -1185,7 +1190,7 @@ const BookingsPage = () => {
       return
     }
 
-    for (const field of itemModal.fields) {
+    for (const field of fieldsForSave) {
       if (!field.saved) continue
       const downpaymentError =
         field.field_type === 'supplier'
@@ -1200,9 +1205,9 @@ const BookingsPage = () => {
     }
 
     try {
-      const field_values = fieldsToFieldValues(itemModal.fields)
+      const field_values = fieldsToFieldValues(fieldsForSave)
       const groups = buildBookingGroupsPayload(
-        itemModal.fields,
+        fieldsForSave,
         itemModal.extraGroupNames ?? [],
       )
       const apiGroups =
@@ -1210,12 +1215,12 @@ const BookingsPage = () => {
           ? (items.find((i) => i.id === itemModal.id)?.groups ?? [])
           : []
       const total_amount = bookingPriceSummaryTotalAmount(
-        itemModal.fields,
+        fieldsForSave,
         itemModal.extraGroupNames ?? [],
         apiGroups,
       )
       const required_downpayment_amount = bookingPriceSummaryRequiredDownpaymentAmount(
-        itemModal.fields,
+        fieldsForSave,
       )
       if (itemModal.mode === 'create') {
         const created = await createBookingItem({
