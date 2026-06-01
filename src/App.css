@@ -7388,10 +7388,16 @@ body,
 }
 
 .booking-fields-group-fill-divider {
-  margin: 0.75rem 0;
+  margin: 0.75rem 0 0.5rem;
   border: 0;
   border-top: 1px solid var(--brand-line);
   opacity: 1;
+}
+
+.booking-fields-group-fill-hint {
+  margin-bottom: 0.5rem;
+  line-height: 1.45;
+  color: var(--brand-green);
 }
 
 .booking-fields-group-actions--fill {

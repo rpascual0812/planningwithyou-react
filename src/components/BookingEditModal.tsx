@@ -1933,6 +1933,10 @@ const BookingEditModal = ({
                                       {!viewOnly && savedItems.length > 0 && (
                                         <>
                                           <hr className="booking-fields-group-fill-divider" />
+                                          <p className="booking-fields-group-fill-hint small mb-2">
+                                            Need more line items? Add a set from a template,
+                                            or use Customize fields to create your own.
+                                          </p>
                                           <div className="booking-fields-group-actions booking-fields-group-actions--fill">
                                           {activeFormTemplates.length > 0 && (
                                             <select
