@@ -17,6 +17,7 @@ export type SettingsNavItem = {
 }
 
 export type AdminSection =
+  | 'accounts'
   | 'kyb'
   | 'emails'
   | 'payouts'

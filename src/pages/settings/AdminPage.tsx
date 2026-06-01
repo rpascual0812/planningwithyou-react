@@ -6,6 +6,7 @@ import {
   firstAccessibleAdminTab,
 } from '../../lib/adminNavAccess'
 import { firstAccessiblePath } from '../../lib/appNavigation'
+import AdminAccountsPage from './AdminAccountsPage'
 import AdminEmailPage from './AdminEmailPage'
 import AdminKYBPage from './AdminKYBPage'
 import AdminPayoutPage from './AdminPayoutPage'
@@ -16,6 +17,7 @@ import type { AdminNavItem, AdminSection } from './types'
 const TAB_PARAM = 'tab'
 
 const NAV_ITEMS: AdminNavItem[] = [
+  { id: 'accounts', label: 'Accounts', icon: 'bi-people' },
   { id: 'kyb', label: 'Company Verification', icon: 'bi-buildings' },
   { id: 'emails', label: 'Emails', icon: 'bi-envelope' },
   { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
@@ -49,24 +51,24 @@ const AdminPage = () => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
-        if (activeNav === 'kyb') next.delete(TAB_PARAM)
+        if (activeNav === defaultTab) next.delete(TAB_PARAM)
         else next.set(TAB_PARAM, activeNav)
         return next
       },
       { replace: true },
     )
-  }, [activeNav, currentUser, searchParams, setSearchParams, visibleNav])
+  }, [activeNav, currentUser, defaultTab, searchParams, setSearchParams, visibleNav])
 
   const setActiveNav = useCallback(
     (id: AdminSection) => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev)
-        if (id === 'kyb') next.delete(TAB_PARAM)
+        if (id === defaultTab) next.delete(TAB_PARAM)
         else next.set(TAB_PARAM, id)
         return next
       }, { replace: true })
     },
-    [setSearchParams],
+    [defaultTab, setSearchParams],
   )
 
   if (visibleNav.length === 0) {
@@ -127,6 +129,8 @@ const ActiveAdminPage = ({ activeNav }: ActiveAdminPageProps) => {
   }
 
   switch (activeNav) {
+    case 'accounts':
+      return <AdminAccountsPage />
     case 'kyb':
       return <AdminKYBPage />
     case 'emails':

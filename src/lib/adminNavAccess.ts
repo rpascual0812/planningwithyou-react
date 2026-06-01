@@ -3,6 +3,7 @@ import type { AdminSection } from '../pages/settings/types'
 import { canRead } from './featureAccess'
 
 const ADMIN_TAB_ORDER: AdminSection[] = [
+  'accounts',
   'kyb',
   'emails',
   'payouts',
@@ -12,6 +13,7 @@ const ADMIN_TAB_ORDER: AdminSection[] = [
 
 /** Feature key for each Admin sidebar tab. */
 const TAB_READ_FEATURES: Record<AdminSection, string> = {
+  accounts: 'admin_accounts',
   kyb: 'admin_company_verification',
   emails: 'admin_emails',
   payouts: 'admin_payouts',
@@ -41,7 +43,7 @@ export function firstAccessibleAdminTab(user: UserRecord | null): AdminSection {
   for (const tab of ADMIN_TAB_ORDER) {
     if (canAccessAdminTab(user, tab)) return tab
   }
-  return 'kyb'
+  return ADMIN_TAB_ORDER[0]
 }
 
 export function adminFeatureKeyForTab(tab: AdminSection): string {

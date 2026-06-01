@@ -1,6 +1,6 @@
 import type { UserRecord } from '../../services/users'
 import { canRead } from '../../lib/featureAccess'
-import { canAccessAdminTab, canAccessAnyAdminTab } from '../../lib/adminNavAccess'
+import { canAccessAdminTab, canAccessAnyAdminTab, firstAccessibleAdminTab } from '../../lib/adminNavAccess'
 import {
   canAccessAnySettings,
   canAccessSettingsTab,
@@ -29,6 +29,7 @@ const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; descrip
 ]
 
 const ADMIN_TABS: { id: AdminSection; label: string; tour: string, description: string }[] = [
+  { id: 'accounts', label: 'Accounts', tour: 'admin-accounts', description: 'Accounts lists every tenant account on the platform with company and user counts.' },
   { id: 'kyb', label: 'Company Verification', tour: 'admin-kyb', description: 'Company Verification lets you see each company that has been verified and their verification status.' },
   { id: 'emails', label: 'Admin Emails', tour: 'admin-emails', description: 'Admin Emails lets you see each company\'s sent emails and their status.' },
   { id: 'payouts', label: 'Payouts', tour: 'admin-payouts', description: 'Payouts lets you manage all the payouts that needs to be processed.' },
@@ -384,9 +385,11 @@ export function buildProductTourSteps(user: UserRecord): TourStepMeta[] {
         '/admin',
       ),
     )
+    const defaultAdminTab = firstAccessibleAdminTab(user)
     for (const tab of ADMIN_TABS) {
       if (!canAccessAdminTab(user, tab.id)) continue
-      const tabPath = tab.id === 'kyb' ? '/admin' : `/admin?tab=${tab.id}`
+      const tabPath =
+        tab.id === defaultAdminTab ? '/admin' : `/admin?tab=${tab.id}`
       steps.push(
         step(
           tab.tour,
