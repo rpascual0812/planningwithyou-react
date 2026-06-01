@@ -1931,7 +1931,9 @@ const BookingEditModal = ({
                                         </div>
                                       )}
                                       {!viewOnly && savedItems.length > 0 && (
-                                        <div className="booking-fields-group-actions booking-fields-group-actions--fill">
+                                        <>
+                                          <hr className="booking-fields-group-fill-divider" />
+                                          <div className="booking-fields-group-actions booking-fields-group-actions--fill">
                                           {activeFormTemplates.length > 0 && (
                                             <select
                                               className="form-select form-select-sm"
@@ -1968,6 +1970,7 @@ const BookingEditModal = ({
                                             Customize fields
                                           </button>
                                         </div>
+                                        </>
                                       )}
                                     </>
                                   )}
