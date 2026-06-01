@@ -7280,6 +7280,48 @@ body,
   font-size: 0.95rem;
 }
 
+.booking-fields-group-list .faq-item.is-open {
+  border-color: rgba(42, 142, 106, 0.35);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(28, 54, 90, 0.08);
+}
+
+.booking-fields-group-list .faq-item.is-open .booking-fields-group-head {
+  background: var(--brand-green-soft);
+  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+}
+
+.booking-fields-group-list .faq-item.is-open .booking-fields-group-toggle {
+  color: var(--brand-navy);
+}
+
+.booking-fields-group-list .faq-item.is-open .faq-icon {
+  background: rgba(42, 142, 106, 0.16);
+  color: var(--brand-green-dark);
+}
+
+.booking-fields-group-list .faq-item.is-open .faq-chevron {
+  color: var(--brand-green-dark);
+}
+
+.booking-fields-group-list .faq-item.is-open .booking-fields-group-subtotal {
+  color: var(--brand-green-dark);
+}
+
+.booking-fields-group-list .faq-item.is-open .booking-fields-group-edit {
+  background: rgba(42, 142, 106, 0.08);
+  border-left-color: rgba(42, 142, 106, 0.2);
+  color: var(--brand-green-dark);
+}
+
+.booking-fields-group-list .faq-item.is-managing-fields.is-open .booking-fields-group-head {
+  background: rgba(28, 54, 90, 0.07);
+}
+
+.booking-fields-group-list .faq-item.is-managing-fields.is-open {
+  border-color: rgba(28, 54, 90, 0.22);
+}
+
 .booking-fields-group-list .faq-answer--form {
   padding-top: 0.75rem;
 }
