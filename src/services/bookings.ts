@@ -37,6 +37,7 @@ export type BookingStatusTagRecord = {
 
 export type BookingStatusRecord = {
   id: number
+  company: number
   title: string
   description: string
   color: string
