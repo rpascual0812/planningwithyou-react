@@ -11,6 +11,7 @@ import {
   deleteBookingItem,
   fetchBookingStatuses,
   fetchBookingItems,
+  fetchBookingItemsPage,
   reorderBookingItems,
   updateBookingStatus,
   updateBookingItem,
@@ -409,7 +410,18 @@ const BookingsPage = () => {
   const [appointmentModalError, setAppointmentModalError] = useState<string | null>(null)
   const suppressEditFromUrl = useRef(false)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const isSearching = search.trim().length > 0
+  const [listItems, setListItems] = useState<BookingItem[]>([])
+  const [listTotal, setListTotal] = useState(0)
+  const [listPage, setListPage] = useState(0)
+  const [listHasMore, setListHasMore] = useState(false)
+  const [listLoading, setListLoading] = useState(false)
+  const [listLoadingMore, setListLoadingMore] = useState(false)
+  const listScrollRef = useRef<HTMLDivElement>(null)
+  const listSentinelRef = useRef<HTMLTableRowElement>(null)
+  const listLoadingMoreRef = useRef(false)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [currencyFormat, setCurrencyFormat] = useState<CurrencyFormatOptions>({
     currencyCode: 'USD',
@@ -443,7 +455,7 @@ const BookingsPage = () => {
     try {
       const [cols, itms, tmpls, account] = await Promise.all([
         fetchBookingStatuses(),
-        fetchBookingItems(),
+        fetchBookingItems(undefined, { all: true }),
         fetchFormTemplates(),
         fetchCurrentAccount().catch(() => null),
       ])
@@ -463,6 +475,94 @@ const BookingsPage = () => {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    }
+  }, [search])
+
+  const loadListPage = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) {
+        setListLoading(true)
+      } else {
+        if (listLoadingMoreRef.current) return
+        listLoadingMoreRef.current = true
+        setListLoadingMore(true)
+      }
+      try {
+        const data = await fetchBookingItemsPage(pageNum, {
+          search: debouncedSearch,
+        })
+        setListTotal(data.count)
+        setListHasMore(data.next !== null)
+        setListPage(pageNum)
+        setListItems((prev) =>
+          replace ? data.results : [...prev, ...data.results],
+        )
+      } catch {
+        if (replace) {
+          setListItems([])
+          setListTotal(0)
+          setListHasMore(false)
+          setListPage(0)
+        }
+      } finally {
+        if (replace) {
+          setListLoading(false)
+        } else {
+          listLoadingMoreRef.current = false
+          setListLoadingMore(false)
+        }
+      }
+    },
+    [debouncedSearch],
+  )
+
+  const reloadListBookings = useCallback(() => {
+    void loadListPage(1, true)
+  }, [loadListPage])
+
+  useEffect(() => {
+    if (activeView !== 'list') return
+    void loadListPage(1, true)
+  }, [activeView, loadListPage])
+
+  const loadNextListPage = useCallback(() => {
+    if (!listHasMore || listLoading || listLoadingMore) return
+    void loadListPage(listPage + 1, false)
+  }, [listHasMore, listLoading, listLoadingMore, listPage, loadListPage])
+
+  useEffect(() => {
+    if (activeView !== 'list') return
+    const sentinel = listSentinelRef.current
+    const root = listScrollRef.current
+    if (!sentinel || !listHasMore || listLoading || listLoadingMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadNextListPage()
+        }
+      },
+      { root, rootMargin: '160px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [
+    activeView,
+    listHasMore,
+    listLoading,
+    listLoadingMore,
+    listItems.length,
+    loadNextListPage,
+  ])
+
+  const listCanReorder =
+    !listHasMore && debouncedSearch.trim() === '' && listItems.length > 0
 
   const matchesSearch = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -669,7 +769,7 @@ const BookingsPage = () => {
     if (!current) {
       return
     }
-    setItems((prev) => {
+    const applyReorder = (prev: BookingItem[]) => {
       const sourceIdx = prev.findIndex((it) => it.id === current.itemId)
       if (sourceIdx < 0) {
         return prev
@@ -690,7 +790,11 @@ const BookingsPage = () => {
       }))
       reorderBookingItems(updates).catch(() => {})
       return next
-    })
+    }
+    setItems(applyReorder)
+    if (listCanReorder) {
+      setListItems(applyReorder)
+    }
     listDragRef.current = null
     setListDrag(null)
   }
@@ -1290,6 +1394,7 @@ const BookingsPage = () => {
       }
       clearBookingDraft(itemModal.id)
       setBookingHistoryRefresh((k) => k + 1)
+      reloadListBookings()
       showSuccessToast(
         itemModal.mode === 'create' ? 'Booking created.' : 'Booking saved.',
       )
@@ -1311,6 +1416,7 @@ const BookingsPage = () => {
     try {
       await deleteBookingItem(item.id)
       setItems((prev) => prev.filter((it) => it.id !== item.id))
+      reloadListBookings()
       if (itemModal?.id === item.id) {
         closeItemModal()
       } else if (searchParams.get(EDIT_PARAM) === String(item.id)) {
@@ -1755,10 +1861,18 @@ const BookingsPage = () => {
             )}
           </div>
 
-          {isSearching && (
+          {activeView === 'list' ? (
             <span className="bookings-search-count">
-              {filteredItems.length} of {items.length} bookings
+              {listTotal > 0
+                ? `${listItems.length} of ${listTotal} booking${listTotal !== 1 ? 's' : ''}`
+                : `${listItems.length} booking${listItems.length !== 1 ? 's' : ''}`}
             </span>
+          ) : (
+            isSearching && (
+              <span className="bookings-search-count">
+                {filteredItems.length} of {items.length} bookings
+              </span>
+            )
           )}
         </div>
 
@@ -1983,7 +2097,10 @@ const BookingsPage = () => {
 
         {activeView === 'list' && (
           <div className="bookings-list-card" role="tabpanel" aria-label="List">
-            <div className="bookings-list-scroll">
+            <div ref={listScrollRef} className="bookings-list-scroll">
+              {listLoading && listItems.length === 0 ? (
+                <p className="text-muted small p-3 mb-0">Loading bookings…</p>
+              ) : (
               <table className="bookings-list-table">
                 <thead>
                   <tr>
@@ -2003,11 +2120,11 @@ const BookingsPage = () => {
                   onDragOver={handleTbodyDragOver}
                   onDrop={handleTbodyDrop}
                 >
-                  {filteredItems.length === 0 && (
+                  {listItems.length === 0 && !listLoading && (
                     <tr>
                       <td colSpan={9} className="bookings-list-empty">
-                        {isSearching
-                          ? `No bookings match "${search}".`
+                        {debouncedSearch.trim()
+                          ? `No bookings match "${debouncedSearch}".`
                           : columns.length === 0
                             ? 'Add a status column on the Board to get started.'
                             : 'No bookings yet. Use Add booking in the toolbar.'}
@@ -2018,7 +2135,7 @@ const BookingsPage = () => {
                     type Row =
                       | { kind: 'item'; item: BookingItem; index: number }
                       | { kind: 'placeholder'; key: string }
-                    const rows: Row[] = filteredItems.map((item, index) => ({
+                    const rows: Row[] = listItems.map((item, index) => ({
                       kind: 'item',
                       item,
                       index,
@@ -2059,7 +2176,7 @@ const BookingsPage = () => {
                         <tr
                           key={item.id}
                           data-row-id={item.id}
-                          draggable={!isSearching && canMutate(item)}
+                          draggable={listCanReorder && canMutate(item)}
                           onDragStart={(e) => handleRowDragStart(e, item, row.index)}
                           onDragEnd={handleRowDragEnd}
                           className={`bookings-list-row${isDragging ? ' is-dragging' : ''}`}
@@ -2155,8 +2272,34 @@ const BookingsPage = () => {
                       )
                     })
                   })()}
+                  {listHasMore && listItems.length > 0 && (
+                    <tr ref={listSentinelRef} className="bookings-list-sentinel">
+                      <td colSpan={9} className="text-center text-muted small py-3">
+                        {listLoadingMore ? (
+                          <>
+                            <span
+                              className="spinner-border spinner-border-sm me-2"
+                              role="status"
+                              aria-hidden="true"
+                            />
+                            Loading more…
+                          </>
+                        ) : (
+                          'Scroll for more'
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {!listHasMore && listItems.length > 0 && !listLoading && (
+                    <tr className="bookings-list-end">
+                      <td colSpan={9} className="text-center text-muted small py-3">
+                        All {listTotal} booking{listTotal !== 1 ? 's' : ''} {listTotal !== 1 ? 'have' : 'has'} been loaded.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+              )}
             </div>
           </div>
         )}

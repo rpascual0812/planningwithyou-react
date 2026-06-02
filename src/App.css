@@ -2670,10 +2670,15 @@ body,
 }
 
 .bookings-list-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.bookings-list-sentinel td,
+.bookings-list-end td {
+  border-bottom: 0;
 }
 
 .bookings-list-table {

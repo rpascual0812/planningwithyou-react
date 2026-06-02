@@ -150,13 +150,39 @@ export async function reorderBookingStatuses(order: number[]): Promise<void> {
 
 /* ── Items ── */
 
-export async function fetchBookingItems(statusId?: number): Promise<BookingItemRecord[]> {
+export type BookingItemsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: BookingItemRecord[]
+}
+
+export async function fetchBookingItems(
+  statusId?: number,
+  options?: { all?: boolean },
+): Promise<BookingItemRecord[]> {
   const params = new URLSearchParams()
   if (statusId) params.set('status', String(statusId))
+  if (options?.all !== false) params.set('all', 'true')
   const qs = params.toString() ? `?${params}` : ''
   const res = await apiFetch(buildApiUrl(`/booking-items/${qs}`), {
     headers: authHeaders(),
   })
+  if (!res.ok) throw new Error('Failed to load booking items')
+  return res.json()
+}
+
+export async function fetchBookingItemsPage(
+  page = 1,
+  filters: { search?: string; statusId?: number } = {},
+): Promise<BookingItemsPage> {
+  const params = new URLSearchParams({ page: String(page) })
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  if (filters.statusId != null) params.set('status', String(filters.statusId))
+  const res = await apiFetch(
+    buildApiUrl(`/booking-items/?${params}`),
+    { headers: authHeaders() },
+  )
   if (!res.ok) throw new Error('Failed to load booking items')
   return res.json()
 }
