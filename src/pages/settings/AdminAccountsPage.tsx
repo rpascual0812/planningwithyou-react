@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
   fetchAdminAccountsPage,
   type AdminAccountsPage as AdminAccountsPageResponse,
@@ -21,6 +21,7 @@ const AdminAccountsPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [expandedAccountIds, setExpandedAccountIds] = useState<Set<number>>(new Set())
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadingMoreRef = useRef(false)
@@ -72,6 +73,10 @@ const AdminAccountsPage = () => {
     void loadPage(1, true)
   }, [loadPage])
 
+  useEffect(() => {
+    setExpandedAccountIds(new Set())
+  }, [debouncedSearch])
+
   const loadNextPage = useCallback(() => {
     if (!hasMore || loading || loadingMore) return
     void loadPage(page + 1, false)
@@ -104,6 +109,18 @@ const AdminAccountsPage = () => {
     window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
     return () => window.removeEventListener('scroll', maybeLoadNextPage)
   }, [maybeLoadNextPage])
+
+  const toggleExpanded = (accountId: number) => {
+    setExpandedAccountIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(accountId)) {
+        next.delete(accountId)
+      } else {
+        next.add(accountId)
+      }
+      return next
+    })
+  }
 
   return (
     <>
@@ -169,50 +186,113 @@ const AdminAccountsPage = () => {
                   <th>Users</th>
                   <th>Active</th>
                   <th>Created</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="emails-table-empty">
+                    <td colSpan={9} className="emails-table-empty">
                       No accounts match your search.
                     </td>
                   </tr>
                 ) : (
                   rows.map((row) => (
-                    <tr key={row.id} className="emails-table-row">
-                      <td className="emails-table-id">{row.id}</td>
-                      <td>{row.name}</td>
-                      <td>
-                        <div className="small">{row.contact_person || '—'}</div>
-                        {row.contact_email ? (
-                          <div className="text-muted small">{row.contact_email}</div>
-                        ) : null}
-                        {row.contact_mobile_number ? (
-                          <div className="text-muted small">
-                            {row.contact_mobile_number}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td>{row.country_name || '—'}</td>
-                      <td>{row.company_count}</td>
-                      <td>{row.user_count}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            row.is_active ? 'text-bg-success' : 'text-bg-secondary'
-                          }`}
-                        >
-                          {row.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td>{formatDateTime(row.created_at)}</td>
-                    </tr>
+                    <Fragment key={row.id}>
+                      <tr key={row.id} className="emails-table-row">
+                        <td className="emails-table-id">{row.id}</td>
+                        <td className="fw-semibold">{row.name}</td>
+                        <td>
+                          <div className="small">{row.contact_person || '—'}</div>
+                          {row.contact_email ? (
+                            <div className="text-muted small">{row.contact_email}</div>
+                          ) : null}
+                          {row.contact_mobile_number ? (
+                            <div className="text-muted small">
+                              {row.contact_mobile_number}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td>{row.country_name || '—'}</td>
+                        <td>{row.company_count}</td>
+                        <td>{row.user_count}</td>
+                        <td>
+                          <span
+                            className={`badge ${
+                              row.is_active ? 'text-bg-success' : 'text-bg-secondary'
+                            }`}
+                          >
+                            {row.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td>{formatDateTime(row.created_at)}</td>
+                        <td className="text-end">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => toggleExpanded(row.id)}
+                            aria-expanded={expandedAccountIds.has(row.id)}
+                            aria-label={
+                              expandedAccountIds.has(row.id)
+                                ? `Collapse ${row.name}`
+                                : `Expand ${row.name}`
+                            }
+                          >
+                            <i
+                              className={`bi ${
+                                expandedAccountIds.has(row.id)
+                                  ? 'bi-caret-up-fill'
+                                  : 'bi-caret-down-fill'
+                              }`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedAccountIds.has(row.id) && (
+                        <tr className="emails-table-row">
+                          <td colSpan={9} className="bg-light">
+                            {row.companies.length === 0 ? (
+                              <div className="small text-muted px-2 py-1">No companies under this account.</div>
+                            ) : (
+                              <div className="table-responsive">
+                                <table className="table table-sm mb-0 align-middle">
+                                  <thead>
+                                    <tr>
+                                      <th>Company name</th>
+                                      <th>Is main</th>
+                                      <th>Contact person</th>
+                                      <th>Contact email</th>
+                                      <th>KYB verified</th>
+                                      <th>Users</th>
+                                      <th>Max booking per day</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {row.companies.map((company) => (
+                                      <tr key={company.id}>
+                                        <td>{company.name}</td>
+                                        <td>{company.is_main ? 'Yes' : 'No'}</td>
+                                        <td>{company.contact_person || '—'}</td>
+                                        <td>{company.contact_email || '—'}</td>
+                                        <td>{company.kyb_verified ? 'Yes' : 'No'}</td>
+                                        <td>{company.user_count}</td>
+                                        <td>{company.max_booking_per_day ?? '—'}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))
                 )}
                 {hasMore && rows.length > 0 && (
                   <tr className="emails-list-sentinel">
-                    <td colSpan={8} className="text-center text-muted small py-3">
+                    <td colSpan={9} className="text-center text-muted small py-3">
                       {loadingMore ? (
                         <>
                           <span
@@ -230,7 +310,7 @@ const AdminAccountsPage = () => {
                 )}
                 {!hasMore && rows.length > 0 && !loading && (
                   <tr className="emails-list-end">
-                    <td colSpan={8} className="emails-table-empty">
+                    <td colSpan={9} className="emails-table-empty">
                       All {totalCount} account{totalCount !== 1 ? 's have' : ' has'} been loaded.
                     </td>
                   </tr>

@@ -20,8 +20,20 @@ export type AdminAccountRecord = {
   paymongo_customer_id: string
   company_count: number
   user_count: number
+  companies: AdminAccountCompanyRecord[]
   created_at: string
   updated_at: string
+}
+
+export type AdminAccountCompanyRecord = {
+  id: number
+  name: string
+  is_main: boolean
+  contact_person: string
+  contact_email: string
+  kyb_verified: boolean
+  user_count: number
+  max_booking_per_day: number
 }
 
 export type AdminAccountsPage = {

@@ -360,8 +360,7 @@ const AdminEmailPage = () => {
                 <thead>
                   <tr>
                     <th>Id</th>
-                    <th>From</th>
-                    <th>To</th>
+                    <th>From / To</th>
                     <th>Subject</th>
                     <th>Status</th>
                     <th>Attempts</th>
@@ -374,11 +373,15 @@ const AdminEmailPage = () => {
                   {emails.map((email) => (
                     <tr key={email.id} className="emails-table-row">
                       <td className="emails-table-id">{email.id}</td>
-                      <td className="emails-from">{email.email_from}</td>
                       <td>
-                        <span className="emails-recipient-email">
+                        <div className="small">
+                          <span className="text-muted me-1">From:</span>
+                          <span className="fw-semibold">{email.email_from}</span>
+                        </div>
+                        <div className="emails-recipient-email">
+                          <span className="text-muted me-1">To:</span>
                           {formatRecipients(email.to)}
-                        </span>
+                        </div>
                       </td>
                       <td className="emails-subject">{email.subject}</td>
                       <td>{statusBadge(email.status)}</td>
@@ -407,7 +410,7 @@ const AdminEmailPage = () => {
                   ))}
                   {emails.length === 0 && !loading && (
                     <tr>
-                      <td colSpan={9} className="emails-table-empty">
+                      <td colSpan={8} className="emails-table-empty">
                         {search || statusFilter || companyFilterId != null
                           ? 'No emails match your filters.'
                           : 'No emails recorded yet.'}
@@ -416,7 +419,7 @@ const AdminEmailPage = () => {
                   )}
                   {emailsHasMore && emails.length > 0 && (
                     <tr ref={emailsSentinelRef} className="emails-list-sentinel">
-                      <td colSpan={9} className="text-center text-muted small py-3">
+                      <td colSpan={8} className="text-center text-muted small py-3">
                         {emailsLoadingMore ? (
                           <>
                             <span
@@ -434,7 +437,7 @@ const AdminEmailPage = () => {
                   )}
                   {!emailsHasMore && emails.length > 0 && !loading && (
                     <tr className="emails-list-end">
-                      <td colSpan={9} className="emails-table-empty">
+                      <td colSpan={8} className="emails-table-empty">
                         All {emailsTotal} email{emailsTotal !== 1 ? 's have' : ' has'} been loaded.
                       </td>
                     </tr>
