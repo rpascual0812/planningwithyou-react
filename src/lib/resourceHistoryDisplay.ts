@@ -193,6 +193,9 @@ export function describeResourceHistoryEntry(entry: HistoryRecord): {
   if (entry.resource_type === 'form_template') {
     lines.push(...summarizeNestedRows('Fields', changes.template_fields as never))
   }
+  if (entry.resource_type === 'booking_status') {
+    lines.push(...summarizeNestedRows('Tags', changes.tags as never))
+  }
 
   if (entry.action === 'delete') {
     for (const [key, value] of Object.entries(changes)) {

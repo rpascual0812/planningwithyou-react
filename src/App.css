@@ -3161,6 +3161,22 @@ body,
   color: #b94343 !important;
 }
 
+.kanban-column-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.kanban-column-tag {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.2rem 0.5rem;
+  background: var(--brand-green);
+  color: #fff;
+  border: 1px solid var(--brand-green-dark);
+}
+
 .kanban-column-description {
   color: #6b7785;
   font-size: 0.78rem;

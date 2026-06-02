@@ -19,6 +19,7 @@ import {
 } from '../services/bookings'
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
 import { finalizeBookingFieldDefinitions } from '../lib/bookingFieldSave'
+import KanbanColumnStatusTags from '../components/KanbanColumnStatusTags'
 import BookingPaymentStatusPill from '../components/BookingPaymentStatusPill'
 import { bookingPaymentStatus } from '../lib/bookingPaymentStatus'
 import AppointmentEditModal, {
@@ -2081,6 +2082,7 @@ const BookingsPage = () => {
               </div>
             )}
           </div>
+          <KanbanColumnStatusTags tags={column.tags} />
           {column.description && (
             <p className="kanban-column-description mb-0">
               {column.description}
