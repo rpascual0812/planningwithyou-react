@@ -76,6 +76,13 @@ export type UserSeatUsage = {
   at_seat_limit: boolean
 }
 
+export type UsersPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: UserRecord[]
+}
+
 export async function fetchUserSeatUsage(): Promise<UserSeatUsage> {
   const res = await apiFetch(buildApiUrl('/users/seat-usage/'), {
     headers: authHeaders(),
@@ -88,7 +95,17 @@ export async function fetchUsers(
   search = '',
   companyId?: number | null,
 ): Promise<UserRecord[]> {
+  const page = await fetchUsersPage(1, search, companyId)
+  return page.results
+}
+
+export async function fetchUsersPage(
+  page = 1,
+  search = '',
+  companyId?: number | null,
+): Promise<UsersPage> {
   const params = new URLSearchParams()
+  params.set('page', String(page))
   if (search) params.set('search', search)
   if (companyId != null) params.set('company_id', String(companyId))
   const qs = params.toString() ? `?${params.toString()}` : ''

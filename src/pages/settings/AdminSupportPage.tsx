@@ -3,9 +3,10 @@ import SupportTicketChatModal from '../../components/SupportTicketChatModal'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import {
   fetchAdminSupportTicket,
-  fetchAdminSupportTickets,
+  fetchAdminSupportTicketsPage,
   sendAdminSupportTicketMessage,
   updateAdminSupportTicketStatus,
+  type SupportTicketsPage,
 } from '../../services/adminSupportTickets'
 import {
   SUPPORT_TICKET_STATUS_LABELS,
@@ -30,6 +31,10 @@ function formatDateTime(iso: string): string {
 const AdminSupportPage = () => {
   const { canWrite: supportWrite } = useFeatureAccess('admin_support')
   const [rows, setRows] = useState<SupportTicketRecord[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [chatTicket, setChatTicket] = useState<SupportTicketRecord | null>(null)
@@ -37,6 +42,8 @@ const AdminSupportPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | SupportTicketStatus>('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingMoreRef = useRef(false)
+  const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -46,23 +53,81 @@ const AdminSupportPage = () => {
     }
   }, [search])
 
-  const loadRows = useCallback(async (q = '', status = '') => {
-    setLoading(true)
-    setError(null)
+  const loadPage = useCallback(async (
+    pageNum: number,
+    replace: boolean,
+    q = '',
+    status = '',
+  ) => {
+    if (replace) {
+      setLoading(true)
+      setError(null)
+    } else {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      setLoadingMore(true)
+    }
     try {
-      const data = await fetchAdminSupportTickets(q, status)
-      setRows(data)
+      const data: SupportTicketsPage = await fetchAdminSupportTicketsPage(pageNum, q, status)
+      setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setTotalCount(data.count)
+      setPage(pageNum)
+      setHasMore(data.next != null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load support tickets')
-      setRows([])
+      const message = e instanceof Error ? e.message : 'Failed to load support tickets'
+      if (replace) {
+        setError(message)
+        setRows([])
+        setTotalCount(0)
+        setPage(0)
+        setHasMore(false)
+      }
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
     }
   }, [])
 
   useEffect(() => {
-    void loadRows(debouncedSearch, statusFilter)
-  }, [debouncedSearch, statusFilter, loadRows])
+    void loadPage(1, true, debouncedSearch, statusFilter)
+  }, [debouncedSearch, statusFilter, loadPage])
+
+  const loadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    void loadPage(page + 1, false, debouncedSearch, statusFilter)
+  }, [hasMore, loading, loadingMore, page, debouncedSearch, statusFilter, loadPage])
+
+  const maybeLoadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    const root = scrollRootRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const pageRoot = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= pageRoot.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextPage()
+    }
+  }, [hasMore, loading, loadingMore, loadNextPage])
+
+  const handleRowsScroll = useCallback(() => {
+    maybeLoadNextPage()
+  }, [maybeLoadNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextPage)
+  }, [maybeLoadNextPage])
 
   const handleTicketUpdated = useCallback(
     (summary: { id: number; status: SupportTicketStatus; is_read: boolean }) => {
@@ -115,12 +180,16 @@ const AdminSupportPage = () => {
         </p>
       )}
 
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <p className="text-muted small mb-0">Loading support tickets…</p>
       ) : rows.length === 0 ? (
         <p className="text-muted small mb-0">No support tickets match your filters.</p>
       ) : (
-        <div className="table-responsive">
+        <div
+          ref={scrollRootRef}
+          className="table-responsive"
+          onScroll={handleRowsScroll}
+        >
           <table className="table table-sm align-middle mb-0 support-tickets-table">
             <thead>
               <tr>
@@ -169,6 +238,20 @@ const AdminSupportPage = () => {
                   </td>
                 </tr>
               ))}
+              {hasMore && rows.length > 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center text-muted small py-3">
+                    {loadingMore ? 'Loading more...' : 'Scroll for more'}
+                  </td>
+                </tr>
+              )}
+              {!hasMore && rows.length > 0 && !loading && (
+                <tr>
+                  <td colSpan={5} className="text-center text-muted small py-3">
+                    All {totalCount} support ticket{totalCount !== 1 ? 's have' : ' has'} been loaded.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -189,7 +272,7 @@ const AdminSupportPage = () => {
           }
           onClose={() => {
             setChatTicket(null)
-            void loadRows(debouncedSearch, statusFilter)
+            void loadPage(1, true, debouncedSearch, statusFilter)
           }}
           onTicketUpdated={handleTicketUpdated}
         />

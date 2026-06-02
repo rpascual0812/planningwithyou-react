@@ -44,8 +44,31 @@ export type ContactPayload = {
   addresses: Address[]
 }
 
+export type ContactsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: ContactRecord[]
+}
+
 export async function fetchContacts(search = ''): Promise<ContactRecord[]> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : ''
+  const res = await apiFetch(buildApiUrl(`/contacts/${qs}`), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load contacts')
+  return res.json()
+}
+
+export async function fetchContactsPage(
+  page = 1,
+  search = '',
+): Promise<ContactsPage> {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('paginated', 'true')
+  if (search) params.set('search', search)
+  const qs = params.toString() ? `?${params.toString()}` : ''
   const res = await apiFetch(buildApiUrl(`/contacts/${qs}`), {
     headers: authHeaders(),
   })

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  fetchBookingPayouts,
+  fetchBookingPayoutsPage,
+  type BookingPayoutsPage,
   type BookingPayoutRecord,
 } from '../../services/bookingPayouts'
 
@@ -73,6 +74,10 @@ function downloadCsv(filename: string, content: string): void {
 
 const ReportsPayoutPage = () => {
   const [rows, setRows] = useState<BookingPayoutRecord[]>([])
+  const [rowsTotal, setRowsTotal] = useState(0)
+  const [rowsPage, setRowsPage] = useState(0)
+  const [rowsHasMore, setRowsHasMore] = useState(false)
+  const [rowsLoadingMore, setRowsLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -80,6 +85,9 @@ const ReportsPayoutPage = () => {
   const [payoutFilter, setPayoutFilter] = useState<PayoutFilter>('')
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const rowsLoadingMoreRef = useRef(false)
+  const rowsScrollRef = useRef<HTMLDivElement | null>(null)
+  const rowsSentinelRef = useRef<HTMLTableRowElement | null>(null)
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -89,26 +97,65 @@ const ReportsPayoutPage = () => {
     }
   }, [search])
 
-  const loadRows = useCallback(async () => {
-    setLoading(true)
+  const loadRowsPage = useCallback(async (pageNum: number, replace: boolean) => {
+    if (replace) {
+      setLoading(true)
+    } else {
+      if (rowsLoadingMoreRef.current) return
+      rowsLoadingMoreRef.current = true
+      setRowsLoadingMore(true)
+    }
     setError(null)
     try {
-      const data = await fetchBookingPayouts({
+      const data: BookingPayoutsPage = await fetchBookingPayoutsPage(pageNum, {
         payout: payoutFilter || undefined,
         search: debouncedSearch,
       })
-      setRows(data)
+      setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setRowsTotal(data.count)
+      setRowsPage(pageNum)
+      setRowsHasMore(data.next != null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load payouts')
-      setRows([])
+      if (replace) setRows([])
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        rowsLoadingMoreRef.current = false
+        setRowsLoadingMore(false)
+      }
     }
   }, [payoutFilter, debouncedSearch])
+
+  const loadRows = useCallback(async () => {
+    await loadRowsPage(1, true)
+  }, [loadRowsPage])
 
   useEffect(() => {
     void loadRows()
   }, [loadRows])
+
+  const loadNextRowsPage = useCallback(() => {
+    if (!rowsHasMore || loading || rowsLoadingMore) return
+    void loadRowsPage(rowsPage + 1, false)
+  }, [rowsHasMore, loading, rowsLoadingMore, rowsPage, loadRowsPage])
+
+  useEffect(() => {
+    const sentinel = rowsSentinelRef.current
+    const root = rowsScrollRef.current
+    if (!sentinel || !rowsHasMore || loading || rowsLoadingMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadNextRowsPage()
+        }
+      },
+      { root, rootMargin: '160px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [rows.length, rowsHasMore, loading, rowsLoadingMore, loadNextRowsPage])
 
   const handleExportCsv = () => {
     if (rows.length === 0) return
@@ -163,12 +210,14 @@ const ReportsPayoutPage = () => {
             Export CSV
           </button>
           <span className="emails-search-count">
-            {rows.length} payment{rows.length !== 1 && 's'}
+            {rowsTotal > 0
+              ? `${rows.length} of ${rowsTotal} payments`
+              : `${rows.length} payment${rows.length !== 1 ? 's' : ''}`}
           </span>
         </div>
       </div>
 
-      <div className="emails-table-scroll">
+      <div ref={rowsScrollRef} className="emails-table-scroll">
         {loading && rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
             <span className="emails-table-empty">Loading payouts…</span>
@@ -222,6 +271,25 @@ const ReportsPayoutPage = () => {
                   </td>
                 </tr>
               ))}
+              {rowsHasMore && rows.length > 0 && (
+                <tr ref={rowsSentinelRef} className="emails-list-sentinel" aria-hidden="true">
+                  <td colSpan={5} />
+                </tr>
+              )}
+              {rowsLoadingMore && (
+                <tr className="emails-list-end">
+                  <td colSpan={5} className="emails-table-empty">
+                    Loading more payouts…
+                  </td>
+                </tr>
+              )}
+              {!rowsHasMore && rows.length > 0 && !loading && (
+                <tr className="emails-list-end">
+                  <td colSpan={5} className="emails-table-empty">
+                    All {rowsTotal} payments loaded
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}

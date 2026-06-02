@@ -28,6 +28,13 @@ export type AdminBookingPaymentRecord = {
   created_at: string
 }
 
+export type AdminBookingPaymentsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: AdminBookingPaymentRecord[]
+}
+
 export async function fetchAdminBookingPayments(
   options: {
     companyId?: number | null
@@ -35,7 +42,20 @@ export async function fetchAdminBookingPayments(
     search?: string
   } = {},
 ): Promise<AdminBookingPaymentRecord[]> {
+  const page = await fetchAdminBookingPaymentsPage(1, options)
+  return page.results
+}
+
+export async function fetchAdminBookingPaymentsPage(
+  page = 1,
+  options: {
+    companyId?: number | null
+    payout?: 'pending' | 'sent' | ''
+    search?: string
+  } = {},
+): Promise<AdminBookingPaymentsPage> {
   const params = new URLSearchParams()
+  params.set('page', String(page))
   if (options.companyId != null) {
     params.set('company_id', String(options.companyId))
   }

@@ -9,9 +9,10 @@ import {
   createSupportTicket,
   deleteSupportTicket,
   fetchSupportTicket,
-  fetchSupportTickets,
+  fetchSupportTicketsPage,
   sendSupportTicketMessage,
   SUPPORT_TICKET_STATUS_LABELS,
+  type SupportTicketsPage,
   type SupportTicketRecord,
 } from '../../services/supportTickets'
 
@@ -23,6 +24,10 @@ function formatDateTime(iso: string): string {
 
 const ProfileSupportSection = () => {
   const [rows, setRows] = useState<SupportTicketRecord[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,24 +41,80 @@ const ProfileSupportSection = () => {
 
   const [chatTicket, setChatTicket] = useState<SupportTicketRecord | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const loadingMoreRef = useRef(false)
+  const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
-  const loadRows = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadPage = useCallback(async (pageNum: number, replace: boolean) => {
+    if (replace) {
+      setLoading(true)
+      setError(null)
+    } else {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      setLoadingMore(true)
+    }
     try {
-      const data = await fetchSupportTickets()
-      setRows(data)
+      const data: SupportTicketsPage = await fetchSupportTicketsPage(pageNum)
+      setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setTotalCount(data.count)
+      setPage(pageNum)
+      setHasMore(data.next != null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load support tickets')
-      setRows([])
+      const message =
+        e instanceof Error ? e.message : 'Failed to load support tickets'
+      if (replace) {
+        setError(message)
+        setRows([])
+        setTotalCount(0)
+        setPage(0)
+        setHasMore(false)
+      }
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
     }
   }, [])
 
   useEffect(() => {
-    void loadRows()
-  }, [loadRows])
+    void loadPage(1, true)
+  }, [loadPage])
+
+  const loadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    void loadPage(page + 1, false)
+  }, [hasMore, loading, loadingMore, page, loadPage])
+
+  const maybeLoadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    const root = scrollRootRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const pageRoot = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= pageRoot.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextPage()
+    }
+  }, [hasMore, loading, loadingMore, loadNextPage])
+
+  const handleRowsScroll = useCallback(() => {
+    maybeLoadNextPage()
+  }, [maybeLoadNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextPage)
+  }, [maybeLoadNextPage])
 
   const handleTicketUpdated = useCallback(
     (summary: { id: number; status: SupportTicketRecord['status']; is_read: boolean }) => {
@@ -108,7 +169,7 @@ const ProfileSupportSection = () => {
         message: messageHtml,
       })
       closeCreate()
-      await loadRows()
+      await loadPage(1, true)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to file ticket')
     } finally {
@@ -124,7 +185,7 @@ const ProfileSupportSection = () => {
     try {
       await deleteSupportTicket(row.id)
       if (chatTicket?.id === row.id) setChatTicket(null)
-      await loadRows()
+      await loadPage(1, true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete ticket')
     } finally {
@@ -153,14 +214,18 @@ const ProfileSupportSection = () => {
       )}
 
       <div className="support-tickets-panel mt-3">
-        {loading ? (
+        {loading && rows.length === 0 ? (
           <p className="text-muted small mb-0">Loading support tickets…</p>
         ) : rows.length === 0 ? (
           <p className="text-muted small mb-0">
             No support tickets yet. Use <strong>File new</strong> to contact support.
           </p>
         ) : (
-          <div className="table-responsive">
+          <div
+            ref={scrollRootRef}
+            className="table-responsive"
+            onScroll={handleRowsScroll}
+          >
             <table className="table table-sm align-middle mb-0 support-tickets-table">
               <thead>
                 <tr>
@@ -217,6 +282,20 @@ const ProfileSupportSection = () => {
                     </td>
                   </tr>
                 ))}
+                {hasMore && rows.length > 0 && (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted small py-3">
+                      {loadingMore ? 'Loading more...' : 'Scroll for more'}
+                    </td>
+                  </tr>
+                )}
+                {!hasMore && rows.length > 0 && !loading && (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted small py-3">
+                      All {totalCount} support ticket{totalCount !== 1 ? 's have' : ' has'} been loaded.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -310,7 +389,7 @@ const ProfileSupportSection = () => {
           sendMessage={sendSupportTicketMessage}
           onClose={() => {
             setChatTicket(null)
-            void loadRows()
+            void loadPage(1, true)
           }}
           onDelete={() => handleDelete(chatTicket)}
           onTicketUpdated={handleTicketUpdated}

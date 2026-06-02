@@ -7,7 +7,8 @@ import {
   type CompanyRecord,
 } from '../../services/companies'
 import {
-  fetchAdminBookingPayments,
+  fetchAdminBookingPaymentsPage,
+  type AdminBookingPaymentsPage,
   markAdminBookingPayoutSent,
   type AdminBookingPaymentRecord,
 } from '../../services/adminBookingPayouts'
@@ -72,6 +73,10 @@ const AdminPayoutPage = () => {
   const [companyFilterId, setCompanyFilterId] = useState<number | null>(null)
 
   const [rows, setRows] = useState<AdminBookingPaymentRecord[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -80,6 +85,8 @@ const AdminPayoutPage = () => {
   const [markingId, setMarkingId] = useState<number | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingMoreRef = useRef(false)
+  const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
   const companyOptions = useMemo(
     () => [
@@ -120,27 +127,80 @@ const AdminPayoutPage = () => {
     }
   }, [])
 
-  const loadRows = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadPage = useCallback(async (pageNum: number, replace: boolean) => {
+    if (replace) {
+      setLoading(true)
+      setError(null)
+    } else {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      setLoadingMore(true)
+    }
     try {
-      const data = await fetchAdminBookingPayments({
+      const data: AdminBookingPaymentsPage = await fetchAdminBookingPaymentsPage(pageNum, {
         companyId: companyFilterId,
         payout: payoutFilter || undefined,
         search: debouncedSearch,
       })
-      setRows(data)
+      setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setTotalCount(data.count)
+      setPage(pageNum)
+      setHasMore(data.next != null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load payouts')
-      setRows([])
+      const message = e instanceof Error ? e.message : 'Failed to load payouts'
+      if (replace) {
+        setError(message)
+        setRows([])
+        setTotalCount(0)
+        setPage(0)
+        setHasMore(false)
+      }
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
     }
   }, [companyFilterId, payoutFilter, debouncedSearch])
 
   useEffect(() => {
-    void loadRows()
-  }, [loadRows])
+    void loadPage(1, true)
+  }, [loadPage])
+
+  const loadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    void loadPage(page + 1, false)
+  }, [hasMore, loading, loadingMore, page, loadPage])
+
+  const maybeLoadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    const root = scrollRootRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const pageRoot = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= pageRoot.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextPage()
+    }
+  }, [hasMore, loading, loadingMore, loadNextPage])
+
+  const handleRowsScroll = useCallback(() => {
+    maybeLoadNextPage()
+  }, [maybeLoadNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextPage)
+  }, [maybeLoadNextPage])
 
   const handleMarkSent = async (row: AdminBookingPaymentRecord) => {
     if (row.payout_sent) return
@@ -230,12 +290,18 @@ const AdminPayoutPage = () => {
             ))}
           </select>
           <span className="emails-search-count">
-            {rows.length} payment{rows.length !== 1 && 's'}
+            {totalCount > 0
+              ? `${rows.length} of ${totalCount} payments`
+              : `${rows.length} payment${rows.length !== 1 ? 's' : ''}`}
           </span>
         </div>
       </div>
 
-      <div className="emails-table-scroll">
+      <div
+        ref={scrollRootRef}
+        className="emails-table-scroll"
+        onScroll={handleRowsScroll}
+      >
         {loading && rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
             <span className="emails-table-empty">Loading payouts…</span>
@@ -319,6 +385,31 @@ const AdminPayoutPage = () => {
                   </td>
                 </tr>
               ))}
+              {hasMore && rows.length > 0 && (
+                <tr className="emails-list-sentinel">
+                  <td colSpan={7} className="text-center text-muted small py-3">
+                    {loadingMore ? (
+                      <>
+                        <span
+                          className="spinner-border spinner-border-sm me-2"
+                          role="status"
+                          aria-hidden="true"
+                        />
+                        Loading more...
+                      </>
+                    ) : (
+                      'Scroll for more'
+                    )}
+                  </td>
+                </tr>
+              )}
+              {!hasMore && rows.length > 0 && !loading && (
+                <tr className="emails-list-end">
+                  <td colSpan={7} className="emails-table-empty">
+                    All {totalCount} payment{totalCount !== 1 ? 's have' : ' has'} been loaded.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}

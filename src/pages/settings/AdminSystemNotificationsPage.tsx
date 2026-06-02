@@ -8,7 +8,8 @@ import { SYSTEM_NOTIFICATION_EDITOR_INIT } from '../../lib/tinymceSystemNotifica
 import {
   createSystemNotification,
   deleteSystemNotification,
-  fetchAdminSystemNotifications,
+  fetchAdminSystemNotificationsPage,
+  type SystemNotificationsPage,
   updateSystemNotification,
   type SystemNotificationPayload,
   type SystemNotificationRecord,
@@ -73,12 +74,18 @@ function statusClass(row: SystemNotificationRecord): string {
 const AdminSystemNotificationsPage = () => {
   const { canWrite: notificationsWrite } = useFeatureAccess('admin_system_notifications')
   const [rows, setRows] = useState<SystemNotificationRecord[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingMoreRef = useRef(false)
+  const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<SystemNotificationRecord | null>(null)
@@ -99,22 +106,85 @@ const AdminSystemNotificationsPage = () => {
     }
   }, [search])
 
-  const loadRows = useCallback(async (q = '', status = '') => {
-    setLoading(true)
-    setError(null)
+  const loadPage = useCallback(async (
+    pageNum: number,
+    replace: boolean,
+    q = '',
+    status = '',
+  ) => {
+    if (replace) {
+      setLoading(true)
+      setError(null)
+    } else {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      setLoadingMore(true)
+    }
     try {
-      const data = await fetchAdminSystemNotifications(q, status)
-      setRows(data)
+      const data: SystemNotificationsPage = await fetchAdminSystemNotificationsPage(
+        pageNum,
+        q,
+        status,
+      )
+      setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setTotalCount(data.count)
+      setPage(pageNum)
+      setHasMore(data.next != null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load notifications')
+      const message = e instanceof Error ? e.message : 'Failed to load notifications'
+      if (replace) {
+        setError(message)
+        setRows([])
+        setTotalCount(0)
+        setPage(0)
+        setHasMore(false)
+      }
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
     }
   }, [])
 
   useEffect(() => {
-    void loadRows(debouncedSearch, statusFilter)
-  }, [debouncedSearch, statusFilter, loadRows])
+    void loadPage(1, true, debouncedSearch, statusFilter)
+  }, [debouncedSearch, statusFilter, loadPage])
+
+  const loadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    void loadPage(page + 1, false, debouncedSearch, statusFilter)
+  }, [hasMore, loading, loadingMore, page, debouncedSearch, statusFilter, loadPage])
+
+  const maybeLoadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    const root = scrollRootRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const pageRoot = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= pageRoot.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextPage()
+    }
+  }, [hasMore, loading, loadingMore, loadNextPage])
+
+  const handleRowsScroll = useCallback(() => {
+    maybeLoadNextPage()
+  }, [maybeLoadNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextPage)
+  }, [maybeLoadNextPage])
 
   const openCreate = () => {
     setEditing(null)
@@ -172,7 +242,7 @@ const AdminSystemNotificationsPage = () => {
         await createSystemNotification(payload)
       }
       closeModal()
-      await loadRows(debouncedSearch, statusFilter)
+      await loadPage(1, true, debouncedSearch, statusFilter)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save notification')
     } finally {
@@ -186,7 +256,7 @@ const AdminSystemNotificationsPage = () => {
     try {
       await deleteSystemNotification(deleteTarget.id)
       setDeleteTarget(null)
-      await loadRows(debouncedSearch, statusFilter)
+      await loadPage(1, true, debouncedSearch, statusFilter)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete notification')
     } finally {
@@ -233,12 +303,16 @@ const AdminSystemNotificationsPage = () => {
         </p>
       )}
 
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <p className="text-muted small mb-0">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-muted small mb-0">No system notifications yet.</p>
       ) : (
-        <div className="table-responsive">
+        <div
+          ref={scrollRootRef}
+          className="table-responsive"
+          onScroll={handleRowsScroll}
+        >
           <table className="table table-sm align-middle mb-0">
             <thead>
               <tr>
@@ -290,6 +364,20 @@ const AdminSystemNotificationsPage = () => {
                   </td>
                 </tr>
               ))}
+              {hasMore && rows.length > 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted small py-3">
+                    {loadingMore ? 'Loading more...' : 'Scroll for more'}
+                  </td>
+                </tr>
+              )}
+              {!hasMore && rows.length > 0 && !loading && (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted small py-3">
+                    All {totalCount} notification{totalCount !== 1 ? 's have' : ' has'} been loaded.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

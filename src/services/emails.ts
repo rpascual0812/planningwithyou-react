@@ -29,12 +29,31 @@ export type EmailPayload = {
   attachments?: string[]
 }
 
+export type EmailsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: EmailRecord[]
+}
+
 export async function fetchEmails(
   search = '',
   statusFilter = '',
   companyId?: number | null,
 ): Promise<EmailRecord[]> {
+  const page = await fetchEmailsPage(1, search, statusFilter, companyId)
+  return page.results
+}
+
+export async function fetchEmailsPage(
+  page = 1,
+  search = '',
+  statusFilter = '',
+  companyId?: number | null,
+): Promise<EmailsPage> {
   const params = new URLSearchParams()
+  params.set('page', String(page))
+  params.set('paginated', 'true')
   if (search) params.set('search', search)
   if (statusFilter) params.set('status', statusFilter)
   if (companyId != null) params.set('company_id', String(companyId))
@@ -53,7 +72,19 @@ export async function fetchAdminEmails(
   statusFilter = '',
   companyId?: number | null,
 ): Promise<EmailRecord[]> {
+  const page = await fetchAdminEmailsPage(1, search, statusFilter, companyId)
+  return page.results
+}
+
+export async function fetchAdminEmailsPage(
+  page = 1,
+  search = '',
+  statusFilter = '',
+  companyId?: number | null,
+): Promise<EmailsPage> {
   const params = new URLSearchParams({ platform_scope: '1' })
+  params.set('page', String(page))
+  params.set('paginated', 'true')
   if (search) params.set('search', search)
   if (statusFilter) params.set('status', statusFilter)
   if (companyId != null) params.set('company_id', String(companyId))

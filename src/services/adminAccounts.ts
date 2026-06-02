@@ -24,10 +24,26 @@ export type AdminAccountRecord = {
   updated_at: string
 }
 
+export type AdminAccountsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: AdminAccountRecord[]
+}
+
 export async function fetchAdminAccounts(
   search = '',
 ): Promise<AdminAccountRecord[]> {
+  const page = await fetchAdminAccountsPage(1, search)
+  return page.results
+}
+
+export async function fetchAdminAccountsPage(
+  page = 1,
+  search = '',
+): Promise<AdminAccountsPage> {
   const params = new URLSearchParams()
+  params.set('page', String(page))
   if (search.trim()) {
     params.set('search', search.trim())
   }

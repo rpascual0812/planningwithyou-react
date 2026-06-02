@@ -13,11 +13,28 @@ import type {
   SupportTicketStatus,
 } from './supportTickets'
 
+export type SupportTicketsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: SupportTicketRecord[]
+}
+
 export async function fetchAdminSupportTickets(
   search = '',
   status = '',
 ): Promise<SupportTicketRecord[]> {
+  const page = await fetchAdminSupportTicketsPage(1, search, status)
+  return page.results
+}
+
+export async function fetchAdminSupportTicketsPage(
+  page = 1,
+  search = '',
+  status = '',
+): Promise<SupportTicketsPage> {
   const params: Record<string, string> = {}
+  params.page = String(page)
   if (search.trim()) params.search = search.trim()
   if (status) params.status = status
   const res = await apiFetch(

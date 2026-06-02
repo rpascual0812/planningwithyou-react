@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import EmailSenderModal from '../components/EmailSenderModal'
 import {
-  fetchEmails,
+  fetchEmailsPage,
   sendEmail,
   resendEmail,
+  type EmailsPage,
   type EmailRecord,
   type EmailPayload,
 } from '../services/emails'
@@ -52,6 +53,10 @@ const EmailsPage = () => {
   })
 
   const [emails, setEmails] = useState<EmailRecord[]>([])
+  const [emailsTotal, setEmailsTotal] = useState(0)
+  const [emailsPage, setEmailsPage] = useState(0)
+  const [emailsHasMore, setEmailsHasMore] = useState(false)
+  const [emailsLoadingMore, setEmailsLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -65,6 +70,9 @@ const EmailsPage = () => {
   const [resendError, setResendError] = useState<string | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const emailsLoadingMoreRef = useRef(false)
+  const emailsScrollRef = useRef<HTMLDivElement | null>(null)
+  const emailsSentinelRef = useRef<HTMLTableRowElement | null>(null)
 
   const writeEditParam = (id: number) => {
     setSearchParams((prev) => {
@@ -90,30 +98,115 @@ const EmailsPage = () => {
     }
   }, [search])
 
-  const loadEmails = useCallback(
-    async (q = '', status = '', companyId: number | null = null) => {
+  const loadEmailsPage = useCallback(
+    async (
+      pageNum: number,
+      replace: boolean,
+      q = '',
+      status = '',
+      companyId: number | null = null,
+    ) => {
       if (companyId == null) {
-        setEmails([])
-        setLoading(false)
+        if (replace) {
+          setEmails([])
+          setEmailsTotal(0)
+          setEmailsPage(0)
+          setEmailsHasMore(false)
+          setLoading(false)
+        }
         return
       }
-      setLoading(true)
+      if (replace) {
+        setLoading(true)
+      } else {
+        if (emailsLoadingMoreRef.current) return
+        emailsLoadingMoreRef.current = true
+        setEmailsLoadingMore(true)
+      }
       setError(null)
       try {
-        const data = await fetchEmails(q, status, companyId)
-        setEmails(data)
+        const data: EmailsPage = await fetchEmailsPage(
+          pageNum,
+          q,
+          status,
+          companyId,
+        )
+        setEmails((prev) => (replace ? data.results : [...prev, ...data.results]))
+        setEmailsTotal(data.count)
+        setEmailsPage(pageNum)
+        setEmailsHasMore(data.next != null)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load emails')
       } finally {
-        setLoading(false)
+        if (replace) {
+          setLoading(false)
+        } else {
+          emailsLoadingMoreRef.current = false
+          setEmailsLoadingMore(false)
+        }
       }
     },
     [],
   )
 
+  const loadEmails = useCallback(
+    async (q = '', status = '', companyId: number | null = null) => {
+      await loadEmailsPage(1, true, q, status, companyId)
+    },
+    [loadEmailsPage],
+  )
+
   useEffect(() => {
     void loadEmails(debouncedSearch, statusFilter, activeCompanyId)
   }, [debouncedSearch, statusFilter, activeCompanyId, loadEmails])
+
+  const loadNextEmailsPage = useCallback(() => {
+    if (!emailsHasMore || loading || emailsLoadingMore) return
+    void loadEmailsPage(
+      emailsPage + 1,
+      false,
+      debouncedSearch,
+      statusFilter,
+      activeCompanyId,
+    )
+  }, [
+    emailsHasMore,
+    loading,
+    emailsLoadingMore,
+    emailsPage,
+    debouncedSearch,
+    statusFilter,
+    activeCompanyId,
+    loadEmailsPage,
+  ])
+
+  const maybeLoadNextEmailsPage = useCallback(() => {
+    if (!emailsHasMore || loading || emailsLoadingMore) return
+    const root = emailsScrollRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const page = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= page.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextEmailsPage()
+    }
+  }, [emailsHasMore, loading, emailsLoadingMore, loadNextEmailsPage])
+
+  const handleEmailsScroll = useCallback(() => {
+    maybeLoadNextEmailsPage()
+  }, [maybeLoadNextEmailsPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextEmailsPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextEmailsPage)
+  }, [maybeLoadNextEmailsPage])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -231,7 +324,9 @@ const EmailsPage = () => {
                 ))}
               </select>
               <span className="emails-search-count">
-                {emails.length} email{emails.length !== 1 && 's'}
+                {emailsTotal > 0
+                  ? `${emails.length} of ${emailsTotal} emails`
+                  : `${emails.length} email${emails.length !== 1 ? 's' : ''}`}
               </span>
               {emailsWrite && (
                 <button
@@ -247,7 +342,11 @@ const EmailsPage = () => {
             </div>
           </div>
 
-          <div className="emails-table-scroll">
+          <div
+            ref={emailsScrollRef}
+            className="emails-table-scroll"
+            onScroll={handleEmailsScroll}
+          >
             {loading && emails.length === 0 ? (
               <div className="emails-table-empty-wrap">
                 <span className="emails-table-empty">Loading emails...</span>
@@ -314,6 +413,31 @@ const EmailsPage = () => {
                         {search || statusFilter || activeCompanyId != null
                           ? 'No emails match your filters.'
                           : 'No emails recorded yet.'}
+                      </td>
+                    </tr>
+                  )}
+                  {emailsHasMore && emails.length > 0 && (
+                    <tr ref={emailsSentinelRef} className="emails-list-sentinel">
+                      <td colSpan={9} className="text-center text-muted small py-3">
+                        {emailsLoadingMore ? (
+                          <>
+                            <span
+                              className="spinner-border spinner-border-sm me-2"
+                              role="status"
+                              aria-hidden="true"
+                            />
+                            Loading more...
+                          </>
+                        ) : (
+                          'Scroll for more'
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  {!emailsHasMore && emails.length > 0 && !loading && (
+                    <tr className="emails-list-end">
+                      <td colSpan={9} className="emails-table-empty">
+                        All {emailsTotal} email{emailsTotal !== 1 ? 's have' : ' has'} been loaded.
                       </td>
                     </tr>
                   )}

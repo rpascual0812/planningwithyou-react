@@ -1,6 +1,7 @@
 import {
   apiErrorFromResponse,
   apiFetch,
+  apiPathWithQuery,
   authHeaders,
   buildApiUrl,
   readJsonResponse,
@@ -41,8 +42,24 @@ export type SupportTicketPayload = {
   message: string
 }
 
+export type SupportTicketsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: SupportTicketRecord[]
+}
+
 export async function fetchSupportTickets(): Promise<SupportTicketRecord[]> {
-  const res = await apiFetch(buildApiUrl('/support-tickets/'), {
+  const page = await fetchSupportTicketsPage(1)
+  return page.results
+}
+
+export async function fetchSupportTicketsPage(
+  page = 1,
+): Promise<SupportTicketsPage> {
+  const params = new URLSearchParams()
+  params.set('page', String(page))
+  const res = await apiFetch(buildApiUrl(apiPathWithQuery('/support-tickets/', params)), {
     headers: authHeaders(),
   })
   if (!res.ok) {

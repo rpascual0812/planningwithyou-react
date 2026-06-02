@@ -127,22 +127,33 @@ const AdminErrorLogsPage = () => {
     void loadPage(page + 1, false)
   }, [hasMore, loadPage, loading, loadingMore, page])
 
-  useEffect(() => {
-    const sentinel = sentinelRef.current
+  const maybeLoadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
     const root = scrollRootRef.current
-    if (!sentinel || !hasMore || loading || loadingMore) return
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const pageRoot = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= pageRoot.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextPage()
+    }
+  }, [hasMore, loadNextPage, loading, loadingMore])
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          loadNextPage()
-        }
-      },
-      { root, rootMargin: '160px' },
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [hasMore, loadNextPage, loading, loadingMore, rows.length])
+  const handleLogsScroll = useCallback(() => {
+    maybeLoadNextPage()
+  }, [maybeLoadNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextPage)
+  }, [maybeLoadNextPage])
 
   const handleResolve = async (row: AdminErrorLogRecord) => {
     if (!errorLogsWrite || row.is_resolved) return
@@ -265,6 +276,7 @@ const AdminErrorLogsPage = () => {
         <div
           ref={scrollRootRef}
           className="emails-table-scroll admin-error-logs-scroll"
+          onScroll={handleLogsScroll}
         >
           {loading && rows.length === 0 ? (
             <div className="emails-table-empty-wrap">

@@ -7,10 +7,11 @@ import {
   validateContactPayload,
 } from '../lib/contactForm'
 import {
-  fetchContacts,
+  fetchContactsPage,
   createContact,
   updateContact,
   deleteContact,
+  type ContactsPage,
   type ContactRecord,
   type ContactPayload,
 } from '../services/contacts'
@@ -42,6 +43,10 @@ const ContactsPage = () => {
   const { canRead: contactsRead, canWrite: contactsWrite } = useFeatureAccess('contacts')
   const [searchParams, setSearchParams] = useSearchParams()
   const [contacts, setContacts] = useState<ContactRecord[]>([])
+  const [contactsTotal, setContactsTotal] = useState(0)
+  const [contactsPage, setContactsPage] = useState(0)
+  const [contactsHasMore, setContactsHasMore] = useState(false)
+  const [contactsLoadingMore, setContactsLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -60,6 +65,9 @@ const ContactsPage = () => {
   const [userCompanyId, setUserCompanyId] = useState<number | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const contactsLoadingMoreRef = useRef(false)
+  const contactsScrollRef = useRef<HTMLDivElement | null>(null)
+  const contactsSentinelRef = useRef<HTMLTableRowElement | null>(null)
 
   useEffect(() => {
     fetchMe()
@@ -96,22 +104,80 @@ const ContactsPage = () => {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [search])
 
-  const loadContacts = useCallback(async (q = '') => {
-    setLoading(true)
+  const loadContactsPage = useCallback(async (pageNum: number, replace: boolean, q = '') => {
+    if (replace) {
+      setLoading(true)
+    } else {
+      if (contactsLoadingMoreRef.current) return
+      contactsLoadingMoreRef.current = true
+      setContactsLoadingMore(true)
+    }
     setError(null)
     try {
-      const data = await fetchContacts(q)
-      setContacts(data)
+      const data: ContactsPage = await fetchContactsPage(pageNum, q)
+      setContacts((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setContactsTotal(data.count)
+      setContactsPage(pageNum)
+      setContactsHasMore(data.next != null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load contacts')
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        contactsLoadingMoreRef.current = false
+        setContactsLoadingMore(false)
+      }
     }
   }, [])
+
+  const loadContacts = useCallback(async (q = '') => {
+    await loadContactsPage(1, true, q)
+  }, [loadContactsPage])
 
   useEffect(() => {
     loadContacts(debouncedSearch)
   }, [debouncedSearch, loadContacts])
+
+  const loadNextContactsPage = useCallback(() => {
+    if (!contactsHasMore || loading || contactsLoadingMore) return
+    void loadContactsPage(contactsPage + 1, false, debouncedSearch)
+  }, [
+    contactsHasMore,
+    loading,
+    contactsLoadingMore,
+    contactsPage,
+    debouncedSearch,
+    loadContactsPage,
+  ])
+
+  const maybeLoadNextContactsPage = useCallback(() => {
+    if (!contactsHasMore || loading || contactsLoadingMore) return
+    const root = contactsScrollRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const page = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= page.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextContactsPage()
+    }
+  }, [contactsHasMore, loading, contactsLoadingMore, loadNextContactsPage])
+
+  const handleContactsScroll = useCallback(() => {
+    maybeLoadNextContactsPage()
+  }, [maybeLoadNextContactsPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextContactsPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextContactsPage)
+  }, [maybeLoadNextContactsPage])
 
   // Keep modal in sync with URL param
   useEffect(() => {
@@ -242,7 +308,9 @@ const ContactsPage = () => {
             </div>
             <div className="users-toolbar-right">
               <span className="users-search-count">
-                {contacts.length} contact{contacts.length !== 1 && 's'}
+                {contactsTotal > 0
+                  ? `${contacts.length} of ${contactsTotal} contacts`
+                  : `${contacts.length} contact${contacts.length !== 1 ? 's' : ''}`}
               </span>
               {contactsWrite && (
                 <button type="button" className="btn users-btn-add" onClick={openAdd}>
@@ -252,7 +320,11 @@ const ContactsPage = () => {
             </div>
           </div>
 
-          <div className="users-table-scroll">
+          <div
+            ref={contactsScrollRef}
+            className="users-table-scroll"
+            onScroll={handleContactsScroll}
+          >
             {loading && contacts.length === 0 ? (
               <div className="users-table-empty-wrap">
                 <span className="users-table-empty">Loading contacts...</span>
@@ -352,6 +424,29 @@ const ContactsPage = () => {
                         {search
                           ? `No contacts found for "${search}".`
                           : 'No contacts yet. Click "Add Contact" to create one.'}
+                      </td>
+                    </tr>
+                  )}
+                  {contactsHasMore && contacts.length > 0 && (
+                    <tr
+                      ref={contactsSentinelRef}
+                      className="users-list-sentinel"
+                      aria-hidden="true"
+                    >
+                      <td colSpan={7} />
+                    </tr>
+                  )}
+                  {contactsLoadingMore && (
+                    <tr className="users-list-end">
+                      <td colSpan={7} className="users-table-empty">
+                        Loading more contacts...
+                      </td>
+                    </tr>
+                  )}
+                  {!contactsHasMore && contacts.length > 0 && !loading && (
+                    <tr className="users-list-end">
+                      <td colSpan={7} className="users-table-empty">
+                        All {contactsTotal} contacts loaded
                       </td>
                     </tr>
                   )}

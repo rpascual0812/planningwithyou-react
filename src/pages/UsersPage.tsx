@@ -15,13 +15,14 @@ import { historyPaths } from '../services/history'
 import CompanyFilterSelect from '../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../hooks/useCompanyFilter'
 import {
-  fetchUsers,
+  fetchUsersPage,
   fetchUserSeatUsage,
   createUser,
   updateUser,
   deleteUser,
   type UserRecord,
   type UserPayload,
+  type UsersPage,
   type UserSeatUsage,
 } from '../services/users'
 import { fetchRoles, type RoleRecord } from '../services/roles'
@@ -86,6 +87,10 @@ const UsersPage = () => {
     onFetchError: setError,
   })
   const [users, setUsers] = useState<UserRecord[]>([])
+  const [usersTotal, setUsersTotal] = useState(0)
+  const [usersPage, setUsersPage] = useState(0)
+  const [usersHasMore, setUsersHasMore] = useState(false)
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -104,6 +109,9 @@ const UsersPage = () => {
   const [roles, setRoles] = useState<RoleRecord[]>([])
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const usersLoadingMoreRef = useRef(false)
+  const usersScrollRef = useRef<HTMLDivElement | null>(null)
+  const usersSentinelRef = useRef<HTMLTableRowElement | null>(null)
 
   const writeEditParam = (id: number) => {
     setSearchParams((prev) => {
@@ -159,27 +167,99 @@ const UsersPage = () => {
     }
   }, [])
 
-  const loadUsers = useCallback(async (q = '', companyId: number | null = null) => {
+  const loadUsersPage = useCallback(async (
+    pageNum: number,
+    replace: boolean,
+    q = '',
+    companyId: number | null = null,
+  ) => {
     if (companyId == null) {
-      setUsers([])
-      setLoading(false)
+      if (replace) {
+        setUsers([])
+        setUsersTotal(0)
+        setUsersPage(0)
+        setUsersHasMore(false)
+        setLoading(false)
+      }
       return
     }
-    setLoading(true)
+    if (replace) {
+      setLoading(true)
+    } else {
+      if (usersLoadingMoreRef.current) return
+      usersLoadingMoreRef.current = true
+      setUsersLoadingMore(true)
+    }
     setError(null)
     try {
-      const data = await fetchUsers(q, companyId)
-      setUsers(data)
+      const data: UsersPage = await fetchUsersPage(pageNum, q, companyId)
+      setUsers((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setUsersTotal(data.count)
+      setUsersPage(pageNum)
+      setUsersHasMore(data.next != null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load users')
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        usersLoadingMoreRef.current = false
+        setUsersLoadingMore(false)
+      }
     }
   }, [])
+
+  const loadUsers = useCallback(
+    async (q = '', companyId: number | null = null) => {
+      await loadUsersPage(1, true, q, companyId)
+    },
+    [loadUsersPage],
+  )
 
   useEffect(() => {
     void loadUsers(debouncedSearch, activeCompanyId)
   }, [debouncedSearch, activeCompanyId, loadUsers])
+
+  const loadNextUsersPage = useCallback(() => {
+    if (!usersHasMore || loading || usersLoadingMore) return
+    void loadUsersPage(usersPage + 1, false, debouncedSearch, activeCompanyId)
+  }, [
+    usersHasMore,
+    loading,
+    usersLoadingMore,
+    usersPage,
+    debouncedSearch,
+    activeCompanyId,
+    loadUsersPage,
+  ])
+
+  const maybeLoadNextUsersPage = useCallback(() => {
+    if (!usersHasMore || loading || usersLoadingMore) return
+    const root = usersScrollRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const page = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= page.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextUsersPage()
+    }
+  }, [usersHasMore, loading, usersLoadingMore, loadNextUsersPage])
+
+  const handleUsersScroll = useCallback(() => {
+    maybeLoadNextUsersPage()
+  }, [maybeLoadNextUsersPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextUsersPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextUsersPage)
+  }, [maybeLoadNextUsersPage])
 
   // Keep modal in sync with URL param and refreshed data
   useEffect(() => {
@@ -384,7 +464,9 @@ const UsersPage = () => {
             </div>
             <div className="users-toolbar-right">
               <span className="users-search-count">
-                {users.length} user{users.length !== 1 && 's'}
+                {usersTotal > 0
+                  ? `${users.length} of ${usersTotal} users`
+                  : `${users.length} user${users.length !== 1 ? 's' : ''}`}
               </span>
               {subscriptionPlan !== 'free' && (
                 <button
@@ -409,7 +491,11 @@ const UsersPage = () => {
             </div>
           </div>
 
-          <div className="users-table-scroll">
+          <div
+            ref={usersScrollRef}
+            className="users-table-scroll"
+            onScroll={handleUsersScroll}
+          >
             {loading && users.length === 0 ? (
               <div className="users-table-empty-wrap">
                 <span className="users-table-empty">Loading users...</span>
@@ -516,6 +602,29 @@ const UsersPage = () => {
                         {search
                           ? `No users found for "${search}".`
                           : 'No users yet. Click "Add User" to create one.'}
+                      </td>
+                    </tr>
+                  )}
+                  {usersHasMore && users.length > 0 && (
+                    <tr
+                      ref={usersSentinelRef}
+                      className="users-list-sentinel"
+                      aria-hidden="true"
+                    >
+                      <td colSpan={9} />
+                    </tr>
+                  )}
+                  {usersLoadingMore && (
+                    <tr className="users-list-end">
+                      <td colSpan={9} className="users-table-empty">
+                        Loading more users...
+                      </td>
+                    </tr>
+                  )}
+                  {!usersHasMore && users.length > 0 && !loading && (
+                    <tr className="users-list-end">
+                      <td colSpan={9} className="users-table-empty">
+                        All {usersTotal} users loaded
                       </td>
                     </tr>
                   )}

@@ -26,6 +26,13 @@ export type ActiveSystemNotification = {
   end_date: string
 }
 
+export type SystemNotificationsPage = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: SystemNotificationRecord[]
+}
+
 export async function fetchActiveSystemNotifications(): Promise<ActiveSystemNotification[]> {
   const res = await apiFetch(buildApiUrl('/system-notifications/active/'), {
     headers: authHeaders(),
@@ -38,7 +45,17 @@ export async function fetchAdminSystemNotifications(
   search = '',
   status = '',
 ): Promise<SystemNotificationRecord[]> {
+  const page = await fetchAdminSystemNotificationsPage(1, search, status)
+  return page.results
+}
+
+export async function fetchAdminSystemNotificationsPage(
+  page = 1,
+  search = '',
+  status = '',
+): Promise<SystemNotificationsPage> {
   const params = new URLSearchParams()
+  params.set('page', String(page))
   if (search.trim()) params.set('search', search.trim())
   if (status.trim()) params.set('status', status.trim())
   const res = await apiFetch(

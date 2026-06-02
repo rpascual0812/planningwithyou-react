@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  fetchAdminAccounts,
+  fetchAdminAccountsPage,
+  type AdminAccountsPage as AdminAccountsPageResponse,
   type AdminAccountRecord,
 } from '../../services/adminAccounts'
 
@@ -12,12 +13,18 @@ function formatDateTime(iso: string | null): string {
 
 const AdminAccountsPage = () => {
   const [rows, setRows] = useState<AdminAccountRecord[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadingMoreRef = useRef(false)
+  const scrollRootRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -27,23 +34,76 @@ const AdminAccountsPage = () => {
     }
   }, [search])
 
-  const loadRows = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadPage = useCallback(async (pageNum: number, replace: boolean) => {
+    if (replace) {
+      setLoading(true)
+      setError(null)
+    } else {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      setLoadingMore(true)
+    }
     try {
-      const data = await fetchAdminAccounts(debouncedSearch)
-      setRows(data)
+      const data: AdminAccountsPageResponse = await fetchAdminAccountsPage(pageNum, debouncedSearch)
+      setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
+      setTotalCount(data.count)
+      setPage(pageNum)
+      setHasMore(data.next != null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load accounts')
-      setRows([])
+      const message = e instanceof Error ? e.message : 'Failed to load accounts'
+      if (replace) {
+        setError(message)
+        setRows([])
+        setTotalCount(0)
+        setPage(0)
+        setHasMore(false)
+      }
     } finally {
-      setLoading(false)
+      if (replace) {
+        setLoading(false)
+      } else {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
     }
   }, [debouncedSearch])
 
   useEffect(() => {
-    void loadRows()
-  }, [loadRows])
+    void loadPage(1, true)
+  }, [loadPage])
+
+  const loadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    void loadPage(page + 1, false)
+  }, [hasMore, loading, loadingMore, page, loadPage])
+
+  const maybeLoadNextPage = useCallback(() => {
+    if (!hasMore || loading || loadingMore) return
+    const root = scrollRootRef.current
+    const containerHasVerticalScroll =
+      !!root && root.scrollHeight > root.clientHeight + 1
+    const nearContainerBottom =
+      !!root &&
+      root.scrollTop + root.clientHeight >= root.scrollHeight - 12
+    const pageRoot = document.documentElement
+    const nearPageBottom =
+      window.innerHeight + window.scrollY >= pageRoot.scrollHeight - 12
+    if (
+      (containerHasVerticalScroll && nearContainerBottom) ||
+      (!containerHasVerticalScroll && nearPageBottom)
+    ) {
+      loadNextPage()
+    }
+  }, [hasMore, loading, loadingMore, loadNextPage])
+
+  const handleRowsScroll = useCallback(() => {
+    maybeLoadNextPage()
+  }, [maybeLoadNextPage])
+
+  useEffect(() => {
+    window.addEventListener('scroll', maybeLoadNextPage, { passive: true })
+    return () => window.removeEventListener('scroll', maybeLoadNextPage)
+  }, [maybeLoadNextPage])
 
   return (
     <>
@@ -77,12 +137,18 @@ const AdminAccountsPage = () => {
           </div>
           <div className="emails-toolbar-right">
             <span className="emails-search-count">
-              {rows.length} account{rows.length !== 1 && 's'}
+              {totalCount > 0
+                ? `${rows.length} of ${totalCount} accounts`
+                : `${rows.length} account${rows.length !== 1 ? 's' : ''}`}
             </span>
           </div>
         </div>
 
-        <div className="emails-table-scroll">
+        <div
+          ref={scrollRootRef}
+          className="emails-table-scroll"
+          onScroll={handleRowsScroll}
+        >
           {loading && rows.length === 0 ? (
             <div className="emails-table-empty-wrap">
               <span className="emails-table-empty">Loading accounts…</span>
@@ -143,6 +209,31 @@ const AdminAccountsPage = () => {
                       <td>{formatDateTime(row.created_at)}</td>
                     </tr>
                   ))
+                )}
+                {hasMore && rows.length > 0 && (
+                  <tr className="emails-list-sentinel">
+                    <td colSpan={8} className="text-center text-muted small py-3">
+                      {loadingMore ? (
+                        <>
+                          <span
+                            className="spinner-border spinner-border-sm me-2"
+                            role="status"
+                            aria-hidden="true"
+                          />
+                          Loading more...
+                        </>
+                      ) : (
+                        'Scroll for more'
+                      )}
+                    </td>
+                  </tr>
+                )}
+                {!hasMore && rows.length > 0 && !loading && (
+                  <tr className="emails-list-end">
+                    <td colSpan={8} className="emails-table-empty">
+                      All {totalCount} account{totalCount !== 1 ? 's have' : ' has'} been loaded.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
