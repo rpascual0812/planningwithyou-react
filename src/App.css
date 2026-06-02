@@ -258,6 +258,18 @@ body,
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+.dashboard-page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-page-toolbar__company {
+  width: min(100%, 280px);
+}
+
 .dashboard-preview-cards {
   width: min(100%, 260px);
   display: grid;
@@ -328,15 +340,35 @@ body,
   color: #ffffff;
 }
 
+.dashboard-preview-edit--on-teal {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
+
+.dashboard-preview-edit--on-teal:hover {
+  background: rgba(255, 255, 255, 0.32);
+  color: #ffffff;
+}
+
+.dashboard-preview-edit--on-teal[aria-expanded='true'] {
+  background: #ffffff;
+  color: #0a6f75;
+}
+
 .dashboard-preview-tag-name {
   font-weight: 500;
   opacity: 0.75;
+}
+
+.dashboard-preview-tag-name--light {
+  opacity: 0.85;
 }
 
 .dashboard-profit-tag-popover-backdrop {
   position: fixed;
   inset: 0;
   z-index: 1350;
+  pointer-events: none;
 }
 
 .dashboard-profit-tag-popover {

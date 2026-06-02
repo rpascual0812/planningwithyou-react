@@ -22,11 +22,15 @@ async function tagApiError(res: Response, fallback: string): Promise<Error> {
   return new Error(fallback)
 }
 
-export async function fetchTags(search = ''): Promise<TagRecord[]> {
+export async function fetchTags(
+  search = '',
+  companyId?: number | null,
+): Promise<TagRecord[]> {
   const params = new URLSearchParams()
   if (search.trim()) params.set('search', search.trim())
+  if (companyId != null) params.set('company_id', String(companyId))
   const qs = params.toString()
-  const res = await apiFetch(buildApiUrl(`/tags/${qs ? `?${qs}` : ''}`), {
+  const res = await apiFetch(buildApiUrl(qs ? `/tags/?${qs}` : '/tags/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load tags')

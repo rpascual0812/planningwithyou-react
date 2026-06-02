@@ -54,17 +54,40 @@ export type DashboardSummary = {
 }
 
 export type DashboardProfitProgress = {
+  company_id: number
   tag_id: number | null
   tag_name: string
   total_amount: string
   display_value: string
 }
 
-export async function fetchDashboardProfitProgress(): Promise<DashboardProfitProgress> {
-  const res = await apiFetch(buildApiUrl('/dashboard/profit-progress/'), {
-    headers: authHeaders(),
-  })
+export async function fetchDashboardProfitProgress(
+  companyId: number,
+): Promise<DashboardProfitProgress> {
+  const res = await apiFetch(
+    buildApiUrl(`/dashboard/profit-progress/?company_id=${companyId}`),
+    { headers: authHeaders() },
+  )
   if (!res.ok) throw new Error('Failed to load profit progress')
+  return res.json()
+}
+
+export type DashboardActiveProjects = {
+  company_id: number
+  tag_id: number | null
+  tag_name: string
+  count: number
+  display_value: string
+}
+
+export async function fetchDashboardActiveProjects(
+  companyId: number,
+): Promise<DashboardActiveProjects> {
+  const res = await apiFetch(
+    buildApiUrl(`/dashboard/active-projects/?company_id=${companyId}`),
+    { headers: authHeaders() },
+  )
+  if (!res.ok) throw new Error('Failed to load active projects')
   return res.json()
 }
 
