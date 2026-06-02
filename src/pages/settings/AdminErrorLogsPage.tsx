@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Swal from 'sweetalert2'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import {
+  fetchAdminErrorLog,
   fetchAdminErrorLogs,
   resolveAdminErrorLog,
+  type AdminErrorLogDetailRecord,
   type AdminErrorLogFilters,
   type AdminErrorLogRecord,
 } from '../../services/adminErrorLogs'
@@ -17,6 +20,37 @@ const METHOD_OPTIONS = [
   { value: 'DELETE', label: 'DELETE' },
 ]
 
+const STATUS_CODE_OPTIONS = [
+  { value: '', label: 'All status codes' },
+  { value: '400', label: '400' },
+  { value: '401', label: '401' },
+  { value: '403', label: '403' },
+  { value: '404', label: '404' },
+  { value: '405', label: '405' },
+  { value: '408', label: '408' },
+  { value: '409', label: '409' },
+  { value: '422', label: '422' },
+  { value: '429', label: '429' },
+  { value: '500', label: '500' },
+  { value: '502', label: '502' },
+  { value: '503', label: '503' },
+  { value: '504', label: '504' },
+]
+
+const TIME_RANGE_OPTIONS = [
+  { value: '', label: 'Custom range' },
+  { value: '1m', label: 'Last 1 min' },
+  { value: '5m', label: 'Last 5 mins' },
+  { value: '1h', label: 'Last 1 hour' },
+  { value: '6h', label: 'Last 6 hours' },
+  { value: '12h', label: 'Last 12 hours' },
+  { value: '24h', label: 'Last 24 hours' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '14d', label: 'Last 2 weeks' },
+  { value: '30d', label: 'Last month' },
+]
+const MODAL_TEXT_MAX = 1200
+
 function formatDateTime(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -27,6 +61,11 @@ function truncate(text: string, max = 120): string {
   const trimmed = text.trim()
   if (trimmed.length <= max) return trimmed || '—'
   return `${trimmed.slice(0, max)}…`
+}
+
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 const AdminErrorLogsPage = () => {
@@ -44,7 +83,12 @@ const AdminErrorLogsPage = () => {
   const [statusCodeFilter, setStatusCodeFilter] = useState('')
   const [occurredFrom, setOccurredFrom] = useState('')
   const [occurredTo, setOccurredTo] = useState('')
+  const [timeRangePreset, setTimeRangePreset] = useState('')
   const [resolvingId, setResolvingId] = useState<number | null>(null)
+  const [selectedLogId, setSelectedLogId] = useState<number | null>(null)
+  const [selectedLog, setSelectedLog] = useState<AdminErrorLogDetailRecord | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scrollRootRef = useRef<HTMLDivElement>(null)
@@ -157,6 +201,16 @@ const AdminErrorLogsPage = () => {
 
   const handleResolve = async (row: AdminErrorLogRecord) => {
     if (!errorLogsWrite || row.is_resolved) return
+    const result = await Swal.fire({
+      title: 'Mark as resolved?',
+      text: 'This marks the error log as resolved.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Resolve',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#198754',
+    })
+    if (!result.isConfirmed) return
     setResolvingId(row.id)
     try {
       const updated = await resolveAdminErrorLog(row.id)
@@ -178,6 +232,47 @@ const AdminErrorLogsPage = () => {
     setStatusCodeFilter('')
     setOccurredFrom('')
     setOccurredTo('')
+    setTimeRangePreset('')
+  }
+
+  const applyTimeRangePreset = (preset: string) => {
+    setTimeRangePreset(preset)
+    if (!preset) return
+    const now = new Date()
+    const from = new Date(now)
+    switch (preset) {
+      case '1m':
+        from.setMinutes(from.getMinutes() - 1)
+        break
+      case '5m':
+        from.setMinutes(from.getMinutes() - 5)
+        break
+      case '1h':
+        from.setHours(from.getHours() - 1)
+        break
+      case '6h':
+        from.setHours(from.getHours() - 6)
+        break
+      case '12h':
+        from.setHours(from.getHours() - 12)
+        break
+      case '24h':
+        from.setHours(from.getHours() - 24)
+        break
+      case '7d':
+        from.setDate(from.getDate() - 7)
+        break
+      case '14d':
+        from.setDate(from.getDate() - 14)
+        break
+      case '30d':
+        from.setDate(from.getDate() - 30)
+        break
+      default:
+        return
+    }
+    setOccurredFrom(toDatetimeLocalValue(from))
+    setOccurredTo(toDatetimeLocalValue(now))
   }
 
   const hasActiveFilters =
@@ -191,6 +286,52 @@ const AdminErrorLogsPage = () => {
     totalCount > 0
       ? `${rows.length} of ${totalCount} log${totalCount !== 1 ? 's' : ''}`
       : `${rows.length} log${rows.length !== 1 ? 's' : ''}`
+
+  const openLogDetail = useCallback(async (id: number) => {
+    setSelectedLogId(id)
+    setDetailLoading(true)
+    setDetailError(null)
+    try {
+      const detail = await fetchAdminErrorLog(id)
+      setSelectedLog(detail)
+    } catch (e) {
+      setSelectedLog(null)
+      setDetailError(e instanceof Error ? e.message : 'Failed to load error log')
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
+
+  const closeLogDetail = () => {
+    setSelectedLogId(null)
+    setSelectedLog(null)
+    setDetailError(null)
+    setDetailLoading(false)
+  }
+
+  const modalText = (value: string | null | undefined): string => {
+    const text = (value || '').trim()
+    if (!text) return '—'
+    return truncate(text, MODAL_TEXT_MAX)
+  }
+
+  const handleOpenRow = (id: number) => {
+    void openLogDetail(id)
+  }
+
+  const copyToClipboard = async (label: string, value: string | null | undefined) => {
+    const text = (value || '').trim()
+    if (!text) {
+      showErrorToast(`No ${label} to copy.`)
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      showSuccessToast(`${label} copied.`)
+    } catch {
+      showErrorToast(`Failed to copy ${label}.`)
+    }
+  }
 
   return (
     <>
@@ -235,31 +376,51 @@ const AdminErrorLogsPage = () => {
               </option>
             ))}
           </select>
-          <input
-            type="number"
-            className="form-control form-control-sm admin-error-logs-filter"
-            placeholder="Status code"
-            min={100}
-            max={599}
+          <select
+            className="form-select form-select-sm admin-error-logs-filter"
             value={statusCodeFilter}
             onChange={(e) => setStatusCodeFilter(e.target.value)}
             aria-label="Filter by status code"
-          />
+          >
+            {STATUS_CODE_OPTIONS.map((opt) => (
+              <option key={opt.value || 'all'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="form-select form-select-sm admin-error-logs-filter"
+            value={timeRangePreset}
+            onChange={(e) => applyTimeRangePreset(e.target.value)}
+            aria-label="Quick time range"
+          >
+            {TIME_RANGE_OPTIONS.map((opt) => (
+              <option key={opt.value || 'custom'} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
           <input
-            type="date"
+            type="datetime-local"
             className="form-control form-control-sm admin-error-logs-filter"
             value={occurredFrom}
-            onChange={(e) => setOccurredFrom(e.target.value)}
-            aria-label="Occurred from date"
-            title="From date"
+            onChange={(e) => {
+              setOccurredFrom(e.target.value)
+              if (timeRangePreset) setTimeRangePreset('')
+            }}
+            aria-label="Occurred from date and time"
+            title="From date and time"
           />
           <input
-            type="date"
+            type="datetime-local"
             className="form-control form-control-sm admin-error-logs-filter"
             value={occurredTo}
-            onChange={(e) => setOccurredTo(e.target.value)}
-            aria-label="Occurred to date"
-            title="To date"
+            onChange={(e) => {
+              setOccurredTo(e.target.value)
+              if (timeRangePreset) setTimeRangePreset('')
+            }}
+            aria-label="Occurred to date and time"
+            title="To date and time"
           />
           {hasActiveFilters && (
             <button
@@ -306,12 +467,30 @@ const AdminErrorLogsPage = () => {
                   </tr>
                 ) : (
                   rows.map((row) => (
-                    <tr key={row.id} className="emails-table-row">
-                      <td className="admin-error-logs-col-method">
+                    <tr
+                      key={row.id}
+                      className="emails-table-row"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleOpenRow(row.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleOpenRow(row.id)
+                        }
+                      }}
+                    >
+                      <td className="admin-error-logs-col-method" onClick={() => handleOpenRow(row.id)}>
                         <span className="badge text-bg-secondary">{row.method}</span>
                       </td>
-                      <td className="admin-error-logs-col-status">{row.status_code ?? '—'}</td>
-                      <td className="small admin-error-logs-col-error" title={row.exception_message}>
+                      <td className="admin-error-logs-col-status" onClick={() => handleOpenRow(row.id)}>
+                        {row.status_code ?? '—'}
+                      </td>
+                      <td
+                        className="small admin-error-logs-col-error"
+                        title={row.exception_message}
+                        onClick={() => handleOpenRow(row.id)}
+                      >
                         <div className="text-muted admin-error-logs-when">
                           {formatDateTime(row.created_at)}
                         </div>
@@ -323,7 +502,7 @@ const AdminErrorLogsPage = () => {
                           {truncate(row.exception_message, 120)}
                         </div>
                       </td>
-                      <td>
+                      <td onClick={() => handleOpenRow(row.id)}>
                         {row.is_resolved ? (
                           <span className="badge text-bg-success">Yes</span>
                         ) : (
@@ -336,7 +515,10 @@ const AdminErrorLogsPage = () => {
                             type="button"
                             className="btn btn-sm btn-outline-success"
                             disabled={resolvingId === row.id}
-                            onClick={() => void handleResolve(row)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void handleResolve(row)
+                            }}
                           >
                             {resolvingId === row.id ? (
                               <span
@@ -383,6 +565,87 @@ const AdminErrorLogsPage = () => {
           )}
         </div>
       </div>
+
+      {selectedLogId != null && (
+        <>
+          <div
+            className="user-details-modal-backdrop modal-backdrop fade show"
+            aria-hidden="true"
+            onClick={closeLogDetail}
+          />
+          <div
+            className="user-details-modal modal fade show d-block"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-dialog modal-lg modal-dialog-scrollable">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Error log #{selectedLogId}</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    aria-label="Close"
+                    onClick={closeLogDetail}
+                  />
+                </div>
+                <div className="modal-body">
+                  {detailLoading ? (
+                    <p className="text-muted small mb-0">Loading error details...</p>
+                  ) : detailError ? (
+                    <p className="text-danger small mb-0">{detailError}</p>
+                  ) : selectedLog ? (
+                    <div className="small">
+                      <div><strong>Method:</strong> {selectedLog.method}</div>
+                      <div><strong>Path:</strong> {modalText(selectedLog.path)}</div>
+                      <div><strong>Query string:</strong> {modalText(selectedLog.query_string)}</div>
+                      <div><strong>Status code:</strong> {selectedLog.status_code ?? '—'}</div>
+                      <div><strong>Exception type:</strong> {modalText(selectedLog.exception_type)}</div>
+                      <div><strong>Exception message:</strong> {modalText(selectedLog.exception_message)}</div>
+                      <div><strong>User:</strong> {selectedLog.user_email || selectedLog.user || '—'}</div>
+                      <div><strong>Account:</strong> {selectedLog.account_name || selectedLog.account || '—'}</div>
+                      <div><strong>IP address:</strong> {selectedLog.ip_address || '—'}</div>
+                      <div><strong>Created:</strong> {formatDateTime(selectedLog.created_at)}</div>
+                      <div><strong>Resolved at:</strong> {formatDateTime(selectedLog.resolved_at)}</div>
+                      <hr />
+                      <div className="mb-2">
+                        <strong>User agent</strong>
+                        <pre className="mb-0 mt-1 bg-light p-2 rounded border text-wrap">{modalText(selectedLog.user_agent)}</pre>
+                      </div>
+                      <div className="mb-2">
+                        <div className="d-flex align-items-center justify-content-between gap-2">
+                          <strong>Request body</strong>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary py-0 px-2"
+                            onClick={() => void copyToClipboard('Request body', selectedLog.request_body)}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="mb-0 mt-1 bg-light p-2 rounded border text-wrap">{modalText(selectedLog.request_body)}</pre>
+                      </div>
+                      <div>
+                        <div className="d-flex align-items-center justify-content-between gap-2">
+                          <strong>Traceback</strong>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary py-0 px-2"
+                            onClick={() => void copyToClipboard('Traceback', selectedLog.traceback)}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <pre className="mb-0 mt-1 bg-light p-2 rounded border text-wrap">{modalText(selectedLog.traceback)}</pre>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   )
 }
