@@ -8,6 +8,7 @@ import {
 import { firstAccessiblePath } from '../../lib/appNavigation'
 import AdminAccountsPage from './AdminAccountsPage'
 import AdminEmailPage from './AdminEmailPage'
+import AdminErrorLogsPage from './AdminErrorLogsPage'
 import AdminKYBPage from './AdminKYBPage'
 import AdminPayoutPage from './AdminPayoutPage'
 import AdminSystemNotificationsPage from './AdminSystemNotificationsPage'
@@ -23,6 +24,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
   { id: 'notifications', label: 'System Notifications', icon: 'bi-megaphone' },
   { id: 'support', label: 'Support', icon: 'bi-chat-dots' },
+  { id: 'error-logs', label: 'Error Logs', icon: 'bi-bug' },
 ]
 
 const AdminPage = () => {
@@ -141,6 +143,8 @@ const ActiveAdminPage = ({ activeNav }: ActiveAdminPageProps) => {
       return <AdminSystemNotificationsPage />
     case 'support':
       return <AdminSupportPage />
+    case 'error-logs':
+      return <AdminErrorLogsPage />
     default:
       return null
   }

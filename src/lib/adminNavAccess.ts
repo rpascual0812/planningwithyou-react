@@ -9,6 +9,7 @@ const ADMIN_TAB_ORDER: AdminSection[] = [
   'payouts',
   'notifications',
   'support',
+  'error-logs',
 ]
 
 /** Feature key for each Admin sidebar tab. */
@@ -19,6 +20,7 @@ const TAB_READ_FEATURES: Record<AdminSection, string> = {
   payouts: 'admin_payouts',
   notifications: 'admin_system_notifications',
   support: 'admin_support',
+  'error-logs': 'admin_error_logs',
 }
 
 /** Can open the Admin area (sidebar / route shell). */

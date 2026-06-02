@@ -35,6 +35,7 @@ const ADMIN_TABS: { id: AdminSection; label: string; tour: string, description: 
   { id: 'payouts', label: 'Payouts', tour: 'admin-payouts', description: 'Payouts lets you manage all the payouts that needs to be processed.' },
   { id: 'notifications', label: 'System Notifications', tour: 'admin-notifications', description: 'System Notifications lets you manage your system notifications and alerts.' },
   { id: 'support', label: 'Admin Support', tour: 'admin-support', description: 'Admin Support lets you see all the support requests and tickets that have been made.' },
+  { id: 'error-logs', label: 'Error Logs', tour: 'admin-error-logs', description: 'Error Logs shows captured API and server errors for debugging and triage.' },
 ]
 
 const SIDEBAR_ITEMS: {

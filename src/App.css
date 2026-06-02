@@ -7484,6 +7484,80 @@ body,
   min-width: 14rem;
 }
 
+.admin-error-logs-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--brand-line);
+}
+
+.admin-error-logs-search {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+
+.admin-error-logs-filter {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 7rem;
+  max-width: 10rem;
+}
+
+.admin-error-logs-scroll {
+  max-height: min(62vh, 720px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.admin-error-logs-scroll .emails-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.admin-error-logs-scroll .admin-error-logs-col-method,
+.admin-error-logs-scroll .admin-error-logs-col-status {
+  width: 5%;
+  white-space: nowrap;
+  vertical-align: top;
+  padding-right: 0.35rem;
+}
+
+.admin-error-logs-th-actions, .admin-error-logs-th-resolved {
+  width: 10%;
+}
+
+.admin-error-logs-scroll .admin-error-logs-col-method .badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.admin-error-logs-when {
+  font-size: 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.admin-error-logs-path {
+  font-size: 0.75rem;
+  color: var(--brand-navy);
+  margin-bottom: 0.25rem;
+  word-break: break-all;
+}
+
+.admin-error-logs-col-error {
+  width: auto;
+}
+
+.admin-error-logs-sentinel td {
+  border-bottom: 0;
+}
+
+.admin-error-logs-end td {
+  border-bottom: 0;
+  color: var(--brand-mute);
+}
+
 .booking-group-modal-backdrop {
   position: fixed;
   inset: 0;

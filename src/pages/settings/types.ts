@@ -23,6 +23,7 @@ export type AdminSection =
   | 'payouts'
   | 'notifications'
   | 'support'
+  | 'error-logs'
 
 export type AdminNavItem = {
   id: AdminSection
