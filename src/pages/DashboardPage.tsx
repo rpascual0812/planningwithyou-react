@@ -30,6 +30,12 @@ const emptyActiveProjects = (companyId: number): DashboardActiveProjects => ({
   display_value: '0',
 })
 
+const parseConfiguredTagId = (raw: string): number | null => {
+  const trimmed = raw.trim()
+  const parsed = trimmed ? Number.parseInt(trimmed, 10) : NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const DashboardPage = () => {
   const {
     companies,
@@ -47,33 +53,40 @@ const DashboardPage = () => {
   const [configuredProjectsTagId, setConfiguredProjectsTagId] = useState<number | null>(
     null,
   )
-  const [loading, setLoading] = useState(true)
+  const [profitLoading, setProfitLoading] = useState(true)
+  const [activeProjectsLoading, setActiveProjectsLoading] = useState(true)
 
-  const loadMetrics = useCallback(async (companyId: number) => {
-    setLoading(true)
+  const loadProfit = useCallback(async (companyId: number) => {
+    setProfitLoading(true)
     try {
-      const [profitConfig, projectsConfig, profitData, projectsData] = await Promise.all([
+      const [profitConfig, profitData] = await Promise.all([
         fetchProfitProgressTagConfig(companyId),
-        fetchActiveProjectsTagConfig(companyId),
         fetchDashboardProfitProgress(companyId),
-        fetchDashboardActiveProjects(companyId),
       ])
-      const parseTagId = (raw: string) => {
-        const trimmed = raw.trim()
-        const parsed = trimmed ? Number.parseInt(trimmed, 10) : NaN
-        return Number.isFinite(parsed) ? parsed : null
-      }
-      setConfiguredProfitTagId(parseTagId(profitConfig.value))
-      setConfiguredProjectsTagId(parseTagId(projectsConfig.value))
+      setConfiguredProfitTagId(parseConfiguredTagId(profitConfig.value))
       setProfit(profitData)
-      setActiveProjects(projectsData)
     } catch {
       setConfiguredProfitTagId(null)
-      setConfiguredProjectsTagId(null)
       setProfit(emptyProfit(companyId))
+    } finally {
+      setProfitLoading(false)
+    }
+  }, [])
+
+  const loadActiveProjects = useCallback(async (companyId: number) => {
+    setActiveProjectsLoading(true)
+    try {
+      const [projectsConfig, projectsData] = await Promise.all([
+        fetchActiveProjectsTagConfig(companyId),
+        fetchDashboardActiveProjects(companyId),
+      ])
+      setConfiguredProjectsTagId(parseConfiguredTagId(projectsConfig.value))
+      setActiveProjects(projectsData)
+    } catch {
+      setConfiguredProjectsTagId(null)
       setActiveProjects(emptyActiveProjects(companyId))
     } finally {
-      setLoading(false)
+      setActiveProjectsLoading(false)
     }
   }, [])
 
@@ -83,17 +96,18 @@ const DashboardPage = () => {
       setActiveProjects(null)
       setConfiguredProfitTagId(null)
       setConfiguredProjectsTagId(null)
-      setLoading(companiesLoading)
+      setProfitLoading(companiesLoading)
+      setActiveProjectsLoading(companiesLoading)
       return
     }
-    void loadMetrics(activeCompanyId)
-  }, [activeCompanyId, companiesLoading, loadMetrics])
+    void loadProfit(activeCompanyId)
+    void loadActiveProjects(activeCompanyId)
+  }, [activeCompanyId, companiesLoading, loadProfit, loadActiveProjects])
 
-  const profitDisplay = loading ? '…' : (profit?.display_value ?? '0.00+')
-  const projectsDisplay = loading ? '…' : (activeProjects?.display_value ?? '0')
-  const activeProfitTagId = configuredProfitTagId ?? profit?.tag_id ?? null
-  const activeProjectsTagId =
-    configuredProjectsTagId ?? activeProjects?.tag_id ?? null
+  const profitDisplay = profitLoading ? '…' : (profit?.display_value ?? '0.00+')
+  const projectsDisplay = activeProjectsLoading
+    ? '…'
+    : (activeProjects?.display_value ?? '0')
 
   return (
     <div className="app-content dashboard-page">
@@ -118,8 +132,8 @@ const DashboardPage = () => {
             {activeCompanyId != null && (
               <ProfitProgressTagPopover
                 companyId={activeCompanyId}
-                selectedTagId={activeProfitTagId}
-                onTagSaved={() => void loadMetrics(activeCompanyId)}
+                selectedTagId={configuredProfitTagId}
+                onTagSaved={() => void loadProfit(activeCompanyId)}
               />
             )}
             <h2 className="dashboard-preview-value">{profitDisplay}</h2>
@@ -138,8 +152,8 @@ const DashboardPage = () => {
             {activeCompanyId != null && (
               <ActiveProjectsTagPopover
                 companyId={activeCompanyId}
-                selectedTagId={activeProjectsTagId}
-                onTagSaved={() => void loadMetrics(activeCompanyId)}
+                selectedTagId={configuredProjectsTagId}
+                onTagSaved={() => void loadActiveProjects(activeCompanyId)}
               />
             )}
             <i className="bi bi-calendar2-check dashboard-preview-watermark" aria-hidden="true" />
