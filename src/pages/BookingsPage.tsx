@@ -10,7 +10,8 @@ import {
   deleteBookingGroup,
   deleteBookingItem,
   fetchBookingStatuses,
-  fetchBookingItems,
+  fetchBookingItem,
+  fetchBookingItemsBoardPage,
   fetchBookingItemsPage,
   reorderBookingItems,
   updateBookingStatus,
@@ -325,6 +326,44 @@ function bookingForeignStatusTitle(item: BookingItem): string {
 
 const FOREIGN_UNMATCHED_COLUMN_TITLE = 'Other statuses'
 
+type BoardColumnLoadState = {
+  items: BookingItem[]
+  total: number
+  page: number
+  hasMore: boolean
+  loading: boolean
+  loadingMore: boolean
+}
+
+const EMPTY_BOARD_COLUMN: BoardColumnLoadState = {
+  items: [],
+  total: 0,
+  page: 0,
+  hasMore: false,
+  loading: false,
+  loadingMore: false,
+}
+
+const FOREIGN_BOARD_KEY = -1
+
+function findBoardColumnKeyForItem(
+  itemId: number,
+  boardColumns: Record<number, BoardColumnLoadState>,
+  foreignBoard: BoardColumnLoadState,
+  columns: BookingColumn[],
+): number | typeof FOREIGN_BOARD_KEY | null {
+  for (const col of columns) {
+    const state = boardColumns[col.id]
+    if (state?.items.some((it) => it.id === itemId)) {
+      return col.id
+    }
+  }
+  if (foreignBoard.items.some((it) => it.id === itemId)) {
+    return FOREIGN_BOARD_KEY
+  }
+  return null
+}
+
 function BookingForeignStatusNote({
   item,
   className = '',
@@ -394,13 +433,22 @@ const BookingsPage = () => {
   const { canWrite: statusesWrite } = useFeatureAccess('booking_settings_statuses')
   const canMutate = (item: BookingItem) => canMutateBookingItem(item, bookingsWrite)
   const [columns, setColumns] = useState<BookingColumn[]>([])
-  const [items, setItems] = useState<BookingItem[]>([])
+  const [boardColumns, setBoardColumns] = useState<
+    Record<number, BoardColumnLoadState>
+  >({})
+  const [foreignBoard, setForeignBoard] =
+    useState<BoardColumnLoadState>(EMPTY_BOARD_COLUMN)
+  const [boardSearch, setBoardSearch] =
+    useState<BoardColumnLoadState>(EMPTY_BOARD_COLUMN)
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
   const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
+  const [modalBookingGroups, setModalBookingGroups] = useState<
+    BookingItem['groups']
+  >([])
   const [bookingHistoryRefresh, setBookingHistoryRefresh] = useState(0)
   const [appointmentModal, setAppointmentModal] = useState<AppointmentFormState | null>(null)
   const [appointmentContacts, setAppointmentContacts] = useState<ContactRecord[]>([])
@@ -421,6 +469,20 @@ const BookingsPage = () => {
   const listScrollRef = useRef<HTMLDivElement>(null)
   const listSentinelRef = useRef<HTMLTableRowElement>(null)
   const listLoadingMoreRef = useRef(false)
+  const [cardsItems, setCardsItems] = useState<BookingItem[]>([])
+  const [cardsTotal, setCardsTotal] = useState(0)
+  const [cardsPage, setCardsPage] = useState(0)
+  const [cardsHasMore, setCardsHasMore] = useState(false)
+  const [cardsLoading, setCardsLoading] = useState(false)
+  const [cardsLoadingMore, setCardsLoadingMore] = useState(false)
+  const cardsScrollRef = useRef<HTMLDivElement>(null)
+  const cardsSentinelRef = useRef<HTMLDivElement>(null)
+  const cardsLoadingMoreRef = useRef(false)
+  const boardColumnLoadingMoreRef = useRef<Record<number, boolean>>({})
+  const foreignBoardLoadingMoreRef = useRef(false)
+  const boardSearchLoadingMoreRef = useRef(false)
+  const columnSentinelRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
+  const foreignSentinelRef = useRef<HTMLDivElement | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [currencyFormat, setCurrencyFormat] = useState<CurrencyFormatOptions>({
@@ -453,14 +515,12 @@ const BookingsPage = () => {
 
   const loadData = useCallback(async () => {
     try {
-      const [cols, itms, tmpls, account] = await Promise.all([
+      const [cols, tmpls, account] = await Promise.all([
         fetchBookingStatuses(),
-        fetchBookingItems(undefined, { all: true }),
         fetchFormTemplates(),
         fetchCurrentAccount().catch(() => null),
       ])
       setColumns(cols)
-      setItems(itms)
       setTemplates(tmpls)
       if (account) {
         setCurrencyFormat(currencyFormatFromAccount(account))
@@ -526,10 +586,236 @@ const BookingsPage = () => {
     void loadListPage(1, true)
   }, [loadListPage])
 
+  const loadBoardColumnPage = useCallback(
+    async (columnId: number, pageNum: number, replace: boolean) => {
+      if (replace) {
+        setBoardColumns((prev) => ({
+          ...prev,
+          [columnId]: {
+            ...(prev[columnId] ?? EMPTY_BOARD_COLUMN),
+            loading: true,
+          },
+        }))
+      } else {
+        if (boardColumnLoadingMoreRef.current[columnId]) return
+        boardColumnLoadingMoreRef.current[columnId] = true
+        setBoardColumns((prev) => ({
+          ...prev,
+          [columnId]: {
+            ...(prev[columnId] ?? EMPTY_BOARD_COLUMN),
+            loadingMore: true,
+          },
+        }))
+      }
+      try {
+        const data = await fetchBookingItemsBoardPage(pageNum, {
+          boardColumnId: columnId,
+        })
+        setBoardColumns((prev) => {
+          const prior = prev[columnId] ?? EMPTY_BOARD_COLUMN
+          return {
+            ...prev,
+            [columnId]: {
+              items: replace
+                ? data.results
+                : [...prior.items, ...data.results],
+              total: data.count,
+              page: pageNum,
+              hasMore: data.next !== null,
+              loading: false,
+              loadingMore: false,
+            },
+          }
+        })
+      } catch {
+        if (replace) {
+          setBoardColumns((prev) => ({
+            ...prev,
+            [columnId]: { ...EMPTY_BOARD_COLUMN, loading: false },
+          }))
+        }
+      } finally {
+        boardColumnLoadingMoreRef.current[columnId] = false
+        setBoardColumns((prev) => {
+          const col = prev[columnId]
+          if (!col) return prev
+          return {
+            ...prev,
+            [columnId]: { ...col, loading: false, loadingMore: false },
+          }
+        })
+      }
+    },
+    [],
+  )
+
+  const loadForeignBoardPage = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) {
+        setForeignBoard((prev) => ({ ...prev, loading: true }))
+      } else {
+        if (foreignBoardLoadingMoreRef.current) return
+        foreignBoardLoadingMoreRef.current = true
+        setForeignBoard((prev) => ({ ...prev, loadingMore: true }))
+      }
+      try {
+        const data = await fetchBookingItemsBoardPage(pageNum, { foreign: true })
+        setForeignBoard((prev) => ({
+          items: replace ? data.results : [...prev.items, ...data.results],
+          total: data.count,
+          page: pageNum,
+          hasMore: data.next !== null,
+          loading: false,
+          loadingMore: false,
+        }))
+      } catch {
+        if (replace) setForeignBoard(EMPTY_BOARD_COLUMN)
+      } finally {
+        foreignBoardLoadingMoreRef.current = false
+        setForeignBoard((prev) => ({
+          ...prev,
+          loading: false,
+          loadingMore: false,
+        }))
+      }
+    },
+    [],
+  )
+
+  const loadBoardSearchPage = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) {
+        setBoardSearch((prev) => ({ ...prev, loading: true }))
+      } else {
+        if (boardSearchLoadingMoreRef.current) return
+        boardSearchLoadingMoreRef.current = true
+        setBoardSearch((prev) => ({ ...prev, loadingMore: true }))
+      }
+      try {
+        const data = await fetchBookingItemsBoardPage(pageNum, {
+          search: debouncedSearch,
+        })
+        setBoardSearch((prev) => ({
+          items: replace ? data.results : [...prev.items, ...data.results],
+          total: data.count,
+          page: pageNum,
+          hasMore: data.next !== null,
+          loading: false,
+          loadingMore: false,
+        }))
+      } catch {
+        if (replace) setBoardSearch(EMPTY_BOARD_COLUMN)
+      } finally {
+        boardSearchLoadingMoreRef.current = false
+        setBoardSearch((prev) => ({
+          ...prev,
+          loading: false,
+          loadingMore: false,
+        }))
+      }
+    },
+    [debouncedSearch],
+  )
+
+  const loadCardsPage = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) {
+        setCardsLoading(true)
+      } else {
+        if (cardsLoadingMoreRef.current) return
+        cardsLoadingMoreRef.current = true
+        setCardsLoadingMore(true)
+      }
+      try {
+        const data = await fetchBookingItemsBoardPage(pageNum, {
+          search: debouncedSearch.trim() ? debouncedSearch : undefined,
+        })
+        setCardsTotal(data.count)
+        setCardsHasMore(data.next !== null)
+        setCardsPage(pageNum)
+        setCardsItems((prev) =>
+          replace ? data.results : [...prev, ...data.results],
+        )
+      } catch {
+        if (replace) {
+          setCardsItems([])
+          setCardsTotal(0)
+          setCardsHasMore(false)
+          setCardsPage(0)
+        }
+      } finally {
+        if (replace) {
+          setCardsLoading(false)
+        } else {
+          cardsLoadingMoreRef.current = false
+          setCardsLoadingMore(false)
+        }
+      }
+    },
+    [debouncedSearch],
+  )
+
+  const reloadCardsBookings = useCallback(() => {
+    void loadCardsPage(1, true)
+  }, [loadCardsPage])
+
+  const reloadBoardData = useCallback(() => {
+    if (debouncedSearch.trim()) {
+      void loadBoardSearchPage(1, true)
+      return
+    }
+    columns.forEach((col) => {
+      void loadBoardColumnPage(col.id, 1, true)
+    })
+    void loadForeignBoardPage(1, true)
+  }, [
+    columns,
+    debouncedSearch,
+    loadBoardColumnPage,
+    loadBoardSearchPage,
+    loadForeignBoardPage,
+  ])
+
+  const reloadBoardColumn = useCallback(
+    (columnId: number) => {
+      void loadBoardColumnPage(columnId, 1, true)
+    },
+    [loadBoardColumnPage],
+  )
+
   useEffect(() => {
     if (activeView !== 'list') return
     void loadListPage(1, true)
   }, [activeView, loadListPage])
+
+  useEffect(() => {
+    if (columns.length === 0) return
+    if (debouncedSearch.trim()) {
+      if (activeView === 'board') void loadBoardSearchPage(1, true)
+      if (activeView === 'cards') void loadCardsPage(1, true)
+      return
+    }
+    if (activeView === 'board') {
+      columns.forEach((col) => {
+        void loadBoardColumnPage(col.id, 1, true)
+      })
+      void loadForeignBoardPage(1, true)
+      return
+    }
+    if (activeView === 'cards') {
+      void loadCardsPage(1, true)
+    }
+  }, [
+    activeView,
+    columns,
+    debouncedSearch,
+    loadBoardColumnPage,
+    loadBoardSearchPage,
+    loadForeignBoardPage,
+    loadCardsPage,
+  ])
+
+  const boardSearchSentinelRef = useRef<HTMLDivElement | null>(null)
 
   const loadNextListPage = useCallback(() => {
     if (!listHasMore || listLoading || listLoadingMore) return
@@ -564,24 +850,203 @@ const BookingsPage = () => {
   const listCanReorder =
     !listHasMore && debouncedSearch.trim() === '' && listItems.length > 0
 
-  const matchesSearch = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) {
-      return () => true
-    }
-    return (item: BookingItem) => {
-      const column = columns.find((c) => c.id === item.status)
-      return [item.title, item.notes, column?.title ?? '']
-        .join(' ')
-        .toLowerCase()
-        .includes(q)
-    }
-  }, [search, columns])
+  const boardViewActive = activeView === 'board'
+  const cardsViewActive = activeView === 'cards'
+  const boardSearchActive =
+    (boardViewActive || cardsViewActive) && debouncedSearch.trim().length > 0
 
-  const filteredItems = useMemo(
-    () => items.filter(matchesSearch),
-    [items, matchesSearch],
-  )
+  const cardsDisplayItems = useMemo(() => {
+    if (!cardsViewActive) return []
+    return cardsItems
+  }, [cardsViewActive, cardsItems])
+
+  const { itemsByColumn, foreignUnmatchedItems } = useMemo(() => {
+    const map = new Map<number, BookingItem[]>()
+    const unmatched: BookingItem[] = []
+    columns.forEach((c) => map.set(c.id, []))
+
+    const sourceItems = boardSearchActive
+      ? boardSearch.items
+      : [
+          ...columns.flatMap((c) => boardColumns[c.id]?.items ?? []),
+          ...foreignBoard.items,
+        ]
+
+    sourceItems.forEach((it) => {
+      if (bookingHasLocalStatusColumn(it, columns)) {
+        map.get(it.status)!.push(it)
+        return
+      }
+      const columnId = bookingColumnIdForItem(it, columns)
+      if (columnId != null) {
+        map.get(columnId)!.push(it)
+        return
+      }
+      if (bookingIsFromOtherCompany(it)) {
+        unmatched.push(it)
+      }
+    })
+
+    if (!boardSearchActive) {
+      return {
+        itemsByColumn: map,
+        foreignUnmatchedItems: foreignBoard.items,
+      }
+    }
+    return { itemsByColumn: map, foreignUnmatchedItems: unmatched }
+  }, [
+    boardSearchActive,
+    boardSearch.items,
+    boardColumns,
+    columns,
+    foreignBoard.items,
+  ])
+
+  const boardFlatItems = useMemo(() => {
+    if (!boardViewActive) return []
+    if (boardSearchActive) return boardSearch.items
+    return [
+      ...columns.flatMap((c) => boardColumns[c.id]?.items ?? []),
+      ...foreignBoard.items,
+    ]
+  }, [
+    boardViewActive,
+    boardSearchActive,
+    boardSearch.items,
+    boardColumns,
+    columns,
+    foreignBoard.items,
+  ])
+
+  const allBoardItemsLoaded = useMemo(() => {
+    if (boardSearchActive) {
+      return !boardSearch.hasMore && !boardSearch.loading
+    }
+    if (columns.length === 0) return true
+    const colsReady = columns.every((c) => {
+      const col = boardColumns[c.id]
+      return col && !col.loading && !col.hasMore
+    })
+    const foreignReady =
+      foreignBoard.total === 0
+        ? !foreignBoard.loading && !foreignBoard.loadingMore
+        : !foreignBoard.loading && !foreignBoard.hasMore
+    return colsReady && foreignReady
+  }, [boardSearchActive, boardSearch, boardColumns, columns, foreignBoard])
+
+  const boardCanReorder =
+    boardViewActive && !boardSearchActive && allBoardItemsLoaded
+
+  const cardsCanReorder =
+    cardsViewActive &&
+    !boardSearchActive &&
+    !cardsHasMore &&
+    !cardsLoading &&
+    cardsItems.length > 0
+
+  useEffect(() => {
+    if (activeView !== 'board' || boardSearchActive) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const raw = entry.target.getAttribute('data-column-id')
+          const colId = raw != null ? Number(raw) : NaN
+          if (colId === FOREIGN_BOARD_KEY) {
+            if (
+              foreignBoard.hasMore &&
+              !foreignBoard.loading &&
+              !foreignBoard.loadingMore
+            ) {
+              void loadForeignBoardPage(foreignBoard.page + 1, false)
+            }
+            continue
+          }
+          if (!Number.isFinite(colId)) continue
+          const col = boardColumns[colId]
+          if (col?.hasMore && !col.loading && !col.loadingMore) {
+            void loadBoardColumnPage(colId, col.page + 1, false)
+          }
+        }
+      },
+      { rootMargin: '160px' },
+    )
+
+    columns.forEach((c) => {
+      const el = columnSentinelRefs.current.get(c.id)
+      if (el) observer.observe(el)
+    })
+    if (foreignSentinelRef.current) {
+      observer.observe(foreignSentinelRef.current)
+    }
+    return () => observer.disconnect()
+  }, [
+    activeView,
+    boardSearchActive,
+    boardColumns,
+    columns,
+    foreignBoard,
+    loadBoardColumnPage,
+    loadForeignBoardPage,
+  ])
+
+  useEffect(() => {
+    if (!boardSearchActive || activeView !== 'board') return
+    const sentinel = boardSearchSentinelRef.current
+    if (!sentinel || !boardSearch.hasMore || boardSearch.loading || boardSearch.loadingMore) {
+      return
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadBoardSearchPage(boardSearch.page + 1, false)
+        }
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [
+    activeView,
+    boardSearchActive,
+    boardSearch.hasMore,
+    boardSearch.loading,
+    boardSearch.loadingMore,
+    boardSearch.page,
+    boardSearch.items.length,
+    loadBoardSearchPage,
+  ])
+
+  const loadNextCardsPage = useCallback(() => {
+    if (!cardsHasMore || cardsLoading || cardsLoadingMore) return
+    void loadCardsPage(cardsPage + 1, false)
+  }, [cardsHasMore, cardsLoading, cardsLoadingMore, cardsPage, loadCardsPage])
+
+  useEffect(() => {
+    if (activeView !== 'cards') return
+    const sentinel = cardsSentinelRef.current
+    const root = cardsScrollRef.current
+    if (!sentinel || !cardsHasMore || cardsLoading || cardsLoadingMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadNextCardsPage()
+        }
+      },
+      { root, rootMargin: '200px' },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [
+    activeView,
+    cardsHasMore,
+    cardsLoading,
+    cardsLoadingMore,
+    cardsDisplayItems.length,
+    loadNextCardsPage,
+  ])
 
   const listRefs = useRef<Map<number, HTMLDivElement | null>>(new Map())
   const dragRef = useRef<DragState | null>(null)
@@ -662,36 +1127,38 @@ const BookingsPage = () => {
 
   const handleCardsGridDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-    if (!bookingsWrite) {
+    if (!bookingsWrite || !cardsCanReorder) {
       return
     }
     const current = cardsDrag ?? cardsDragRef.current
     if (!current) {
       return
     }
-    setItems((prev) => {
-      const sourceIdx = prev.findIndex((it) => it.id === current.itemId)
-      if (sourceIdx < 0) {
-        return prev
-      }
-      const source = prev[sourceIdx]
-      let postMoveIndex = current.targetIndex
-      if (current.targetIndex > sourceIdx) {
-        postMoveIndex = current.targetIndex - 1
-      }
-      const without = prev.filter((it) => it.id !== current.itemId)
-      const clamped = Math.max(0, Math.min(postMoveIndex, without.length))
-      const next = [...without]
-      next.splice(clamped, 0, source)
-      // Persist new order
-      const updates = next.map((it, idx) => ({
-        id: it.id,
-        status: it.status,
-        sort_order: idx,
-      }))
-      reorderBookingItems(updates).catch(() => {})
-      return next
-    })
+    const prev = cardsDisplayItems
+    const sourceIdx = prev.findIndex((it) => it.id === current.itemId)
+    if (sourceIdx < 0) {
+      return
+    }
+    const source = prev[sourceIdx]
+    let postMoveIndex = current.targetIndex
+    if (current.targetIndex > sourceIdx) {
+      postMoveIndex = current.targetIndex - 1
+    }
+    const without = prev.filter((it) => it.id !== current.itemId)
+    const clamped = Math.max(0, Math.min(postMoveIndex, without.length))
+    const next = [...without]
+    next.splice(clamped, 0, source)
+    const updates = next.map((it, idx) => ({
+      id: it.id,
+      status: it.status,
+      sort_order: idx,
+    }))
+    reorderBookingItems(updates)
+      .then(() => {
+        reloadBoardData()
+        reloadCardsBookings()
+      })
+      .catch(() => {})
     cardsDragRef.current = null
     setCardsDrag(null)
   }
@@ -791,7 +1258,6 @@ const BookingsPage = () => {
       reorderBookingItems(updates).catch(() => {})
       return next
     }
-    setItems(applyReorder)
     if (listCanReorder) {
       setListItems(applyReorder)
     }
@@ -871,27 +1337,6 @@ const BookingsPage = () => {
       e.preventDefault()
     }
   }
-
-  const { itemsByColumn, foreignUnmatchedItems } = useMemo(() => {
-    const map = new Map<number, BookingItem[]>()
-    const unmatched: BookingItem[] = []
-    columns.forEach((c) => map.set(c.id, []))
-    items.forEach((it) => {
-      if (bookingHasLocalStatusColumn(it, columns)) {
-        map.get(it.status)!.push(it)
-        return
-      }
-      const columnId = bookingColumnIdForItem(it, columns)
-      if (columnId != null) {
-        map.get(columnId)!.push(it)
-        return
-      }
-      if (bookingIsFromOtherCompany(it)) {
-        unmatched.push(it)
-      }
-    })
-    return { itemsByColumn: map, foreignUnmatchedItems: unmatched }
-  }, [items, columns])
 
   // --- Drag handlers -------------------------------------------------------
 
@@ -974,66 +1419,76 @@ const BookingsPage = () => {
     targetColumnId: number,
     renderedTargetIndex: number,
   ) => {
-    if (!bookingsWrite) {
+    if (!bookingsWrite || boardSearchActive) {
       return
     }
-    setItems((prev) => {
-      const source = prev.find((it) => it.id === itemId)
-      if (!source) {
-        return prev
+    const sourceKey = findBoardColumnKeyForItem(
+      itemId,
+      boardColumns,
+      foreignBoard,
+      columns,
+    )
+    if (sourceKey == null) {
+      return
+    }
+
+    const sourceItems =
+      sourceKey === FOREIGN_BOARD_KEY
+        ? foreignBoard.items
+        : (boardColumns[sourceKey]?.items ?? [])
+    const source = sourceItems.find((it) => it.id === itemId)
+    if (!source) {
+      return
+    }
+
+    const targetItems = boardColumns[targetColumnId]?.items ?? []
+    let postMoveIndex = renderedTargetIndex
+    if (sourceKey === targetColumnId) {
+      const sourceIndexInColumn = sourceItems.findIndex((it) => it.id === itemId)
+      if (sourceIndexInColumn >= 0 && renderedTargetIndex > sourceIndexInColumn) {
+        postMoveIndex = renderedTargetIndex - 1
       }
+    }
 
-      let postMoveIndex = renderedTargetIndex
-      if (source.status === targetColumnId) {
-        const sourceIndexInColumn = prev
-          .filter((it) => it.status === targetColumnId)
-          .findIndex((it) => it.id === itemId)
-        if (sourceIndexInColumn >= 0 && renderedTargetIndex > sourceIndexInColumn) {
-          postMoveIndex = renderedTargetIndex - 1
-        }
-      }
+    const withoutSource = sourceItems.filter((it) => it.id !== itemId)
+    const clamped = Math.max(0, Math.min(postMoveIndex, targetItems.length))
+    const moved: BookingItem = { ...source, status: targetColumnId }
+    const nextTarget = [...targetItems]
+    nextTarget.splice(clamped, 0, moved)
 
-      const without = prev.filter((it) => it.id !== itemId)
-      const targetColumnItems = without.filter(
-        (it) => it.status === targetColumnId,
-      )
-      const clamped = Math.max(
-        0,
-        Math.min(postMoveIndex, targetColumnItems.length),
-      )
-
-      let insertAtFlat: number
-      if (clamped < targetColumnItems.length) {
-        const anchor = targetColumnItems[clamped]
-        insertAtFlat = without.findIndex((it) => it.id === anchor.id)
-      } else if (targetColumnItems.length > 0) {
-        const last = targetColumnItems[targetColumnItems.length - 1]
-        insertAtFlat = without.findIndex((it) => it.id === last.id) + 1
+    const setColumnItems = (key: number, items: BookingItem[]) => {
+      if (key === FOREIGN_BOARD_KEY) {
+        setForeignBoard((prev) => ({ ...prev, items }))
       } else {
-        insertAtFlat = without.length
+        setBoardColumns((prev) => ({
+          ...prev,
+          [key]: {
+            ...(prev[key] ?? EMPTY_BOARD_COLUMN),
+            items,
+          },
+        }))
       }
+    }
 
-      const moved: BookingItem = { ...source, status: targetColumnId }
-      const next = [...without]
-      next.splice(insertAtFlat, 0, moved)
+    setColumnItems(sourceKey, withoutSource)
+    setColumnItems(targetColumnId, nextTarget)
 
-      // Persist: update the moved item's column + sort_order for all items in the target column
-      const targetItems = next.filter((it) => it.status === targetColumnId)
-      const updates = targetItems.map((it, idx) => ({
-        id: it.id,
-        status: targetColumnId,
-        sort_order: idx,
-      }))
-      // If cross-column move, also update sort_order in the source column
-      if (source.status !== targetColumnId) {
-        const sourceItems = next.filter((it) => it.status === source.status)
-        sourceItems.forEach((it, idx) => {
-          updates.push({ id: it.id, status: source.status, sort_order: idx })
+    const updates = nextTarget.map((it, idx) => ({
+      id: it.id,
+      status: targetColumnId,
+      sort_order: idx,
+    }))
+    if (sourceKey !== targetColumnId) {
+      withoutSource.forEach((it, idx) => {
+        updates.push({
+          id: it.id,
+          status: it.status,
+          sort_order: idx,
         })
-      }
-      reorderBookingItems(updates).catch(() => {})
-
-      return next
+      })
+    }
+    reorderBookingItems(updates).catch(() => {
+      reloadBoardData()
     })
   }
 
@@ -1105,7 +1560,12 @@ const BookingsPage = () => {
     try {
       await deleteBookingStatus(column.id)
       setColumns((prev) => prev.filter((c) => c.id !== column.id))
-      setItems((prev) => prev.filter((it) => it.status !== column.id))
+      setBoardColumns((prev) => {
+        const next = { ...prev }
+        delete next[column.id]
+        return next
+      })
+      reloadBoardData()
     } catch {
       // silently fail
     }
@@ -1130,23 +1590,19 @@ const BookingsPage = () => {
   const closeItemModal = () => {
     suppressEditFromUrl.current = true
     setItemModal(null)
+    setModalBookingGroups([])
     clearEditParam()
   }
 
   const handleDeleteBookingGroup = async (bookingId: number, groupId: number) => {
     await deleteBookingGroup(bookingId, groupId)
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== bookingId) return it
-        return {
-          ...it,
-          groups: (it.groups ?? []).filter((g) => g.id !== groupId),
-          field_values: (it.field_values ?? []).filter(
-            (fv) => fv.booking_group_id !== groupId,
-          ),
-        }
-      }),
-    )
+    if (itemModal?.id === bookingId) {
+      const full = await fetchBookingItem(bookingId)
+      setItemModal(bookingItemToEditForm(full))
+    }
+    reloadBoardData()
+    reloadCardsBookings()
+    reloadListBookings()
   }
 
   const openCreateItem = (statusId: number) => {
@@ -1166,10 +1622,20 @@ const BookingsPage = () => {
     })
   }
 
-  const openEditItem = (item: BookingItem) => {
+  const openEditItem = async (item: BookingItem) => {
+    let full: BookingItem = item
+    if (!Array.isArray(item.field_values)) {
+      try {
+        full = await fetchBookingItem(item.id)
+      } catch {
+        showErrorToast('Could not load booking details.')
+        return
+      }
+    }
+    setModalBookingGroups(full.groups ?? [])
     setItemModal({
-      ...bookingItemToEditForm(item),
-      canEdit: canMutate(item),
+      ...bookingItemToEditForm(full),
+      canEdit: canMutate(full),
     })
     setSearchParams(
       (prev) => {
@@ -1314,10 +1780,11 @@ const BookingsPage = () => {
         fieldsForSave,
         itemModal.extraGroupNames ?? [],
       )
-      const apiGroups =
-        itemModal.id != null
-          ? (items.find((i) => i.id === itemModal.id)?.groups ?? [])
-          : []
+      let apiGroups: BookingItem['groups'] = []
+      if (itemModal.id != null) {
+        const existing = await fetchBookingItem(itemModal.id)
+        apiGroups = existing.groups ?? []
+      }
       const total_amount = bookingPriceSummaryTotalAmount(
         fieldsForSave,
         itemModal.extraGroupNames ?? [],
@@ -1338,7 +1805,9 @@ const BookingsPage = () => {
           field_values,
           notes,
         })
-        setItems((prev) => [...prev, created])
+        reloadBoardData()
+        reloadCardsBookings()
+        reloadBoardColumn(statusId)
         if (!closeAfterSave) {
           setItemModal({
             ...bookingItemToEditForm(created),
@@ -1372,9 +1841,8 @@ const BookingsPage = () => {
           status: statusId,
           contact,
         })
-        setItems((prev) =>
-          prev.map((it) => (it.id === updated.id ? updated : it)),
-        )
+        reloadBoardData()
+        reloadCardsBookings()
         if (!closeAfterSave) {
           setItemModal({
             ...bookingItemToEditForm(updated),
@@ -1415,7 +1883,8 @@ const BookingsPage = () => {
     }
     try {
       await deleteBookingItem(item.id)
-      setItems((prev) => prev.filter((it) => it.id !== item.id))
+      reloadBoardData()
+      reloadCardsBookings()
       reloadListBookings()
       if (itemModal?.id === item.id) {
         closeItemModal()
@@ -1442,17 +1911,71 @@ const BookingsPage = () => {
       return
     }
     const numId = Number(targetId)
-    const item = items.find((it) => it.id === numId)
-    if (!item) {
+    if (!Number.isFinite(numId)) {
       clearEditParam()
       return
     }
-    if (itemModal?.mode === 'edit' && itemModal.id === item.id) {
+    const findLoaded = (): BookingItem | undefined => {
+      if (activeView === 'cards') {
+        return cardsItems.find((it) => it.id === numId)
+      }
+      if (boardSearchActive) {
+        return boardSearch.items.find((it) => it.id === numId)
+      }
+      for (const col of columns) {
+        const found = boardColumns[col.id]?.items.find((it) => it.id === numId)
+        if (found) return found
+      }
+      return foreignBoard.items.find((it) => it.id === numId)
+    }
+    const loaded = findLoaded()
+    if (loaded) {
+      if (itemModal?.mode === 'edit' && itemModal.id === loaded.id) {
+        return
+      }
+      void (async () => {
+        try {
+          const full = await fetchBookingItem(numId)
+          setModalBookingGroups(full.groups ?? [])
+          setItemModal({
+            ...bookingItemToEditForm(full),
+            canEdit: canMutate(full),
+          })
+        } catch {
+          clearEditParam()
+        }
+      })()
       return
     }
-    setItemModal(bookingItemToEditForm(item))
+    let cancelled = false
+    void (async () => {
+      try {
+        const full = await fetchBookingItem(numId)
+        if (cancelled) return
+        setModalBookingGroups(full.groups ?? [])
+        setItemModal({
+          ...bookingItemToEditForm(full),
+          canEdit: canMutate(full),
+        })
+      } catch {
+        if (!cancelled) clearEditParam()
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, searchParams, items, columns])
+  }, [
+    loading,
+    searchParams,
+    activeView,
+    boardColumns,
+    cardsItems,
+    foreignBoard.items,
+    boardSearch.items,
+    boardSearchActive,
+    columns,
+  ])
 
   // --- Esc / body scroll lock for modals -----------------------------------
 
@@ -1480,9 +2003,8 @@ const BookingsPage = () => {
   // --- Render --------------------------------------------------------------
 
   const renderColumn = (column: BookingColumn) => {
-    const columnItems = (itemsByColumn.get(column.id) ?? []).filter(
-      (it) => matchesSearch(it) || drag?.itemId === it.id,
-    )
+    const colState = boardColumns[column.id] ?? EMPTY_BOARD_COLUMN
+    const columnItems = itemsByColumn.get(column.id) ?? []
 
     type Entry =
       | { kind: 'card'; item: BookingItem }
@@ -1498,7 +2020,13 @@ const BookingsPage = () => {
       entries.splice(idx, 0, { kind: 'placeholder' })
     }
 
-    const count = columnItems.length
+    const count = boardSearchActive
+      ? columnItems.length
+      : colState.total || columnItems.length
+    const countTitle =
+      !boardSearchActive && colState.hasMore
+        ? `${columnItems.length} of ${colState.total} cards`
+        : `${count} card${count === 1 ? '' : 's'}`
 
     return (
       <section key={column.id} className="kanban-column">
@@ -1516,7 +2044,7 @@ const BookingsPage = () => {
               <h6 className="kanban-column-title mb-0">{column.title}</h6>
               <span
                 className="kanban-column-count badge text-bg-light"
-                title={`${count} card${count === 1 ? '' : 's'}`}
+                title={countTitle}
               >
                 {count}
               </span>
@@ -1552,14 +2080,19 @@ const BookingsPage = () => {
         </header>
 
         <div
-          className={`kanban-column-cards${isTarget ? ' is-drop-target' : ''}`}
+          className={`kanban-column-cards kanban-column-cards--scroll${
+            isTarget ? ' is-drop-target' : ''
+          }`}
           ref={(el) => {
             listRefs.current.set(column.id, el)
           }}
           onDragOver={(e) => handleColumnDragOver(e, column.id)}
           onDrop={(e) => handleColumnDrop(e, column.id)}
         >
-          {entries.length === 0 && (
+          {colState.loading && columnItems.length === 0 && (
+            <p className="kanban-empty mb-0 text-muted">Loading…</p>
+          )}
+          {entries.length === 0 && !colState.loading && (
             <p className="kanban-empty mb-0">Drop cards here.</p>
           )}
           {entries.map((entry, idx) => {
@@ -1581,10 +2114,10 @@ const BookingsPage = () => {
                 className={`kanban-card${
                   isDragging ? ' kanban-card--dragging' : ''
                 }`}
-                draggable={!isSearching && canMutate(it)}
+                draggable={boardCanReorder && canMutate(it)}
                 onDragStart={(e) => handleItemDragStart(e, it, idx)}
                 onDragEnd={handleDragEnd}
-                onClick={() => openEditItem(it)}
+                onClick={() => void openEditItem(it)}
               >
                 <span
                   className="kanban-card-strip"
@@ -1634,19 +2167,46 @@ const BookingsPage = () => {
               </div>
             )
           })}
+          {!boardSearchActive && colState.hasMore && (
+            <div
+              ref={(el) => {
+                columnSentinelRefs.current.set(column.id, el)
+              }}
+              data-column-id={column.id}
+              className="kanban-column-sentinel"
+              aria-hidden="true"
+            />
+          )}
+          {!boardSearchActive &&
+            !colState.hasMore &&
+            columnItems.length > 0 &&
+            !colState.loading && (
+              <p className="kanban-column-end text-muted small mb-0">
+                All {colState.total} loaded
+              </p>
+            )}
         </div>
       </section>
     )
   }
 
   const renderForeignUnmatchedColumn = () => {
-    if (foreignUnmatchedItems.length === 0) {
+    if (
+      !boardSearchActive &&
+      foreignBoard.total === 0 &&
+      !foreignBoard.loading &&
+      foreignUnmatchedItems.length === 0
+    ) {
       return null
     }
-    const columnItems = foreignUnmatchedItems.filter(
-      (it) => matchesSearch(it) || drag?.itemId === it.id,
-    )
-    const count = columnItems.length
+    const columnItems = foreignUnmatchedItems
+    const count = boardSearchActive
+      ? columnItems.length
+      : foreignBoard.total || columnItems.length
+    const countTitle =
+      !boardSearchActive && foreignBoard.hasMore
+        ? `${columnItems.length} of ${foreignBoard.total} cards`
+        : `${count} card${count === 1 ? '' : 's'}`
     const stripColor = '#6c757d'
 
     return (
@@ -1670,7 +2230,7 @@ const BookingsPage = () => {
               </h6>
               <span
                 className="kanban-column-count badge text-bg-light"
-                title={`${count} card${count === 1 ? '' : 's'}`}
+                title={countTitle}
               >
                 {count}
               </span>
@@ -1680,8 +2240,11 @@ const BookingsPage = () => {
             All bookings here are from another company
           </p>
         </header>
-        <div className="kanban-column-cards">
-          {columnItems.length === 0 && (
+        <div className="kanban-column-cards kanban-column-cards--scroll">
+          {foreignBoard.loading && columnItems.length === 0 && (
+            <p className="kanban-empty mb-0 text-muted">Loading…</p>
+          )}
+          {columnItems.length === 0 && !foreignBoard.loading && (
             <p className="kanban-empty mb-0">No bookings in this status.</p>
           )}
           {columnItems.map((it) => (
@@ -1689,7 +2252,7 @@ const BookingsPage = () => {
               key={it.id}
               data-card-id={it.id}
               className="kanban-card"
-              onClick={() => openEditItem(it)}
+              onClick={() => void openEditItem(it)}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
@@ -1730,6 +2293,22 @@ const BookingsPage = () => {
               </div>
             </div>
           ))}
+          {!boardSearchActive && foreignBoard.hasMore && (
+            <div
+              ref={foreignSentinelRef}
+              data-column-id={FOREIGN_BOARD_KEY}
+              className="kanban-column-sentinel"
+              aria-hidden="true"
+            />
+          )}
+          {!boardSearchActive &&
+            !foreignBoard.hasMore &&
+            columnItems.length > 0 &&
+            !foreignBoard.loading && (
+              <p className="kanban-column-end text-muted small mb-0">
+                All {foreignBoard.total} loaded
+              </p>
+            )}
         </div>
       </section>
     )
@@ -1867,10 +2446,17 @@ const BookingsPage = () => {
                 ? `${listItems.length} of ${listTotal} booking${listTotal !== 1 ? 's' : ''}`
                 : `${listItems.length} booking${listItems.length !== 1 ? 's' : ''}`}
             </span>
+          ) : activeView === 'cards' ? (
+            <span className="bookings-search-count">
+              {cardsTotal > 0
+                ? `${cardsItems.length} of ${cardsTotal} booking${cardsTotal !== 1 ? 's' : ''}`
+                : `${cardsItems.length} booking${cardsItems.length !== 1 ? 's' : ''}`}
+            </span>
           ) : (
-            isSearching && (
+            boardSearchActive && (
               <span className="bookings-search-count">
-                {filteredItems.length} of {items.length} bookings
+                {boardSearch.items.length} of {boardSearch.total} booking
+                {boardSearch.total !== 1 ? 's' : ''}
               </span>
             )
           )}
@@ -1894,16 +2480,24 @@ const BookingsPage = () => {
         )}
 
         {activeView === 'cards' && (
-          <>
+          <div
+            ref={cardsScrollRef}
+            className="bookings-cards-scroll"
+            role="tabpanel"
+            aria-label="Cards"
+          >
           <div
             ref={cardsGridRef}
             className="bookings-cards-grid"
-            role="tabpanel"
-            aria-label="Cards"
             onDragOver={handleCardsGridDragOver}
             onDrop={handleCardsGridDrop}
           >
-            {filteredItems.length === 0 && (
+            {cardsLoading && cardsDisplayItems.length === 0 && (
+              <p className="bookings-cards-loading text-muted small mb-0">
+                Loading bookings…
+              </p>
+            )}
+            {!cardsLoading && cardsDisplayItems.length === 0 && (
               <div className="bookings-empty-view">
                 <h5 className="mb-2">
                   {isSearching ? 'No matches' : 'No bookings yet'}
@@ -1921,7 +2515,7 @@ const BookingsPage = () => {
               type Entry =
                 | { kind: 'card'; item: BookingItem; index: number }
                 | { kind: 'placeholder'; key: string }
-              const entries: Entry[] = filteredItems.map((item, index) => ({
+              const entries: Entry[] = cardsDisplayItems.map((item, index) => ({
                 kind: 'card',
                 item,
                 index,
@@ -1965,10 +2559,10 @@ const BookingsPage = () => {
                   key={item.id}
                   data-card-grid-id={item.id}
                   className={`booking-card${isDragging ? ' is-dragging' : ''}`}
-                  draggable={!isSearching && canMutate(item)}
+                  draggable={cardsCanReorder && canMutate(item)}
                   onDragStart={(e) => handleCardDragStart(e, item, entry.index)}
                   onDragEnd={handleCardDragEnd}
-                  onClick={() => openEditItem(item)}
+                  onClick={() => void openEditItem(item)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -2091,8 +2685,25 @@ const BookingsPage = () => {
                 )
               })
             })()}
+            {cardsHasMore && cardsDisplayItems.length > 0 && (
+              <div
+                ref={cardsSentinelRef}
+                className="bookings-cards-sentinel"
+                aria-hidden="true"
+              />
+            )}
+            {cardsLoadingMore && (
+              <p className="bookings-cards-loading-more text-muted small mb-0">
+                Loading more…
+              </p>
+            )}
+            {/* {!cardsHasMore && cardsDisplayItems.length > 0 && !cardsLoading && (
+              <p className="bookings-cards-end text-muted small mb-0">
+                All {cardsTotal} booking{cardsTotal !== 1 ? 's' : ''} loaded
+              </p>
+            )} */}
           </div>
-          </>
+          </div>
         )}
 
         {activeView === 'list' && (
@@ -2320,11 +2931,7 @@ const BookingsPage = () => {
           canWrite={bookingsWrite}
           statuses={columns}
           templates={templates}
-          bookingGroups={
-            itemModal.id != null
-              ? items.find((i) => i.id === itemModal.id)?.groups ?? []
-              : []
-          }
+          bookingGroups={modalBookingGroups ?? []}
           onChange={setItemModal}
           onDeleteGroup={
             bookingsWrite && itemModal.canEdit !== false
@@ -2347,7 +2954,13 @@ const BookingsPage = () => {
           form={appointmentModal}
           contacts={appointmentContacts}
           statuses={appointmentStatuses}
-          bookings={items}
+          bookings={
+            activeView === 'list'
+              ? listItems
+              : activeView === 'cards'
+                ? cardsDisplayItems
+                : boardFlatItems
+          }
           loadingOptions={appointmentLoadingOptions}
           saving={appointmentSaving}
           error={appointmentModalError}

@@ -126,6 +126,19 @@ body,
   min-height: 0;
 }
 
+.app-content:has(.bookings-cards-scroll) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-content:has(.bookings-cards-scroll) > .container-fluid {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 /* Refined page title – larger, lighter weight, optical letter-spacing. */
 .app-content-header {
   padding-top: 1.1rem;
@@ -2294,14 +2307,32 @@ body,
 }
 
 /* --- Cards view ---------------------------------------------------------- */
+.bookings-cards-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .bookings-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1rem;
   align-content: start;
-  flex: 1 1 auto;
-  min-height: 0;
   padding-bottom: 0.5rem;
+}
+
+.bookings-cards-sentinel {
+  height: 1px;
+  grid-column: 1 / -1;
+}
+
+.bookings-cards-loading,
+.bookings-cards-loading-more,
+.bookings-cards-end {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 0.5rem 0;
 }
 
 .booking-card {
@@ -2942,6 +2973,30 @@ body,
   min-height: 80px;
   padding: 0.625rem;
   transition: background-color 120ms ease;
+}
+
+.kanban-column-cards--scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(72vh, calc(100dvh - 14rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.kanban-column-sentinel {
+  height: 1px;
+  flex-shrink: 0;
+}
+
+.kanban-column-end {
+  text-align: center;
+  padding-top: 0.25rem;
+}
+
+.bookings-board-search-sentinel {
+  height: 1px;
+  width: 100%;
+  grid-column: 1 / -1;
 }
 
 .kanban-column-cards.is-drop-target {

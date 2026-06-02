@@ -84,7 +84,7 @@ export type BookingItemRecord = {
   remaining_amount?: string
   package_required_downpayment_amount?: string
   groups?: BookingGroupRecord[]
-  field_values: BookingFieldValueRecord[]
+  field_values?: BookingFieldValueRecord[]
   notes: string
   sort_order: number
   created_by: number | null
@@ -179,6 +179,32 @@ export async function fetchBookingItemsPage(
   const params = new URLSearchParams({ page: String(page) })
   if (filters.search?.trim()) params.set('search', filters.search.trim())
   if (filters.statusId != null) params.set('status', String(filters.statusId))
+  const res = await apiFetch(
+    buildApiUrl(`/booking-items/?${params}`),
+    { headers: authHeaders() },
+  )
+  if (!res.ok) throw new Error('Failed to load booking items')
+  return res.json()
+}
+
+export async function fetchBookingItemsBoardPage(
+  page = 1,
+  filters: {
+    search?: string
+    boardColumnId?: number
+    foreign?: boolean
+  } = {},
+): Promise<BookingItemsPage> {
+  const params = new URLSearchParams({
+    page: String(page),
+    view: 'board',
+  })
+  if (filters.search?.trim()) params.set('search', filters.search.trim())
+  if (filters.foreign) {
+    params.set('board_slot', 'foreign')
+  } else if (filters.boardColumnId != null) {
+    params.set('board_column', String(filters.boardColumnId))
+  }
   const res = await apiFetch(
     buildApiUrl(`/booking-items/?${params}`),
     { headers: authHeaders() },
