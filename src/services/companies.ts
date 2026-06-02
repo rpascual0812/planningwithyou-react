@@ -25,6 +25,7 @@ export type CompanyRecord = {
   currency_code?: string
   timezone: string
   contact_person: string
+  contact_email: string
   phone_number: string
   mobile_number: string
   address: string
@@ -44,6 +45,7 @@ export type CompanyPayload = {
   supplier_type?: number
   timezone?: string
   contact_person?: string
+  contact_email?: string
   phone_number?: string
   mobile_number?: string
   address?: string

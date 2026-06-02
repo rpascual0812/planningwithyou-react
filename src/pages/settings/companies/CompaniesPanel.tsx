@@ -29,6 +29,7 @@ const EMPTY_FORM = {
   name: '',
   timezone: '',
   contact_person: '',
+  contact_email: '',
   phone_number: '',
   mobile_number: '',
   address: '',
@@ -213,6 +214,7 @@ const CompaniesPanel = () => {
       name: row.name,
       timezone: row.timezone ?? '',
       contact_person: row.contact_person ?? '',
+      contact_email: row.contact_email ?? '',
       phone_number: row.phone_number ?? '',
       mobile_number: row.mobile_number ?? '',
       address: row.address ?? '',
@@ -261,6 +263,7 @@ const CompaniesPanel = () => {
       supplier_type: form.supplier_type,
       timezone: form.timezone.trim(),
       contact_person: form.contact_person.trim(),
+      contact_email: form.contact_email.trim(),
       phone_number: form.phone_number.trim(),
       mobile_number: form.mobile_number.trim(),
       address: form.address.trim(),
@@ -547,6 +550,24 @@ const CompaniesPanel = () => {
                         setForm((prev) => ({
                           ...prev,
                           contact_person: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="company-contact-email">
+                      Contact email address
+                    </label>
+                    <input
+                      id="company-contact-email"
+                      type="email"
+                      className="form-control"
+                      autoComplete="email"
+                      value={form.contact_email}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          contact_email: e.target.value,
                         }))
                       }
                     />

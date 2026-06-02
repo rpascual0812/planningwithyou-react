@@ -16,6 +16,7 @@ const FIELD_LABELS: Record<string, Record<string, string>> = {
     supplier_type_id: 'Supplier type',
     timezone: 'Timezone',
     contact_person: 'Contact person',
+    contact_email: 'Contact email address',
     phone_number: 'Phone',
     mobile_number: 'Mobile',
     address: 'Address',
