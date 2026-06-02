@@ -53,6 +53,21 @@ export type DashboardSummary = {
   companies: DashboardCompanySummary[]
 }
 
+export type DashboardProfitProgress = {
+  tag_id: number | null
+  tag_name: string
+  total_amount: string
+  display_value: string
+}
+
+export async function fetchDashboardProfitProgress(): Promise<DashboardProfitProgress> {
+  const res = await apiFetch(buildApiUrl('/dashboard/profit-progress/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load profit progress')
+  return res.json()
+}
+
 export async function fetchDashboardSummary(): Promise<DashboardSummary> {
   const res = await apiFetch(buildApiUrl('/dashboard/summary/'), {
     headers: authHeaders(),

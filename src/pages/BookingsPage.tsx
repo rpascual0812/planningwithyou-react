@@ -1502,6 +1502,7 @@ const BookingsPage = () => {
       title: '',
       description: '',
       color: COLOR_SWATCHES[0],
+      tags: [],
     })
   }
 
@@ -1513,6 +1514,7 @@ const BookingsPage = () => {
       title: column.title,
       description: column.description,
       color: column.color,
+      tags: (column.tags ?? []).map((t) => ({ id: t.id, tag: t.tag })),
     })
   }
 
@@ -1524,16 +1526,23 @@ const BookingsPage = () => {
     const title = statusModal.title.trim() || 'Untitled'
     const description = statusModal.description.trim()
     const color = statusModal.color || '#1f3a5f'
+    const tag_ids = statusModal.tags.map((t) => t.id)
 
     try {
       if (statusModal.mode === 'create') {
-        const created = await createBookingStatus({ title, description, color })
+        const created = await createBookingStatus({
+          title,
+          description,
+          color,
+          tag_ids,
+        })
         setColumns((prev) => [...prev, created])
       } else if (statusModal.id) {
         const updated = await updateBookingStatus(statusModal.id, {
           title,
           description,
           color,
+          tag_ids,
         })
         setColumns((prev) =>
           prev.map((c) => (c.id === updated.id ? updated : c)),

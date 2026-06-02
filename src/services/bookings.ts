@@ -29,6 +29,12 @@ async function bookingApiError(res: Response, fallback: string): Promise<Error> 
 
 /* ── Types ── */
 
+export type BookingStatusTagRecord = {
+  id: number
+  tag: string
+  created_at: string
+}
+
 export type BookingStatusRecord = {
   id: number
   title: string
@@ -36,8 +42,17 @@ export type BookingStatusRecord = {
   color: string
   sort_order: number
   item_count: number
+  tags?: BookingStatusTagRecord[]
   created_at: string
   updated_at: string
+}
+
+type BookingStatusWrite = Pick<
+  BookingStatusRecord,
+  'title' | 'description' | 'color'
+> & {
+  tag_ids?: number[]
+  sort_order?: number
 }
 
 export type BookingGroupRecord = {
@@ -107,7 +122,7 @@ export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
 }
 
 export async function createBookingStatus(
-  data: Pick<BookingStatusRecord, 'title' | 'description' | 'color'>,
+  data: BookingStatusWrite,
 ): Promise<BookingStatusRecord> {
   const res = await apiFetch(buildApiUrl('/booking-statuses/'), {
     method: 'POST',
@@ -120,7 +135,7 @@ export async function createBookingStatus(
 
 export async function updateBookingStatus(
   id: number,
-  data: Partial<Pick<BookingStatusRecord, 'title' | 'description' | 'color' | 'sort_order'>>,
+  data: Partial<BookingStatusWrite>,
 ): Promise<BookingStatusRecord> {
   const res = await apiFetch(buildApiUrl(`/booking-statuses/${id}/`), {
     method: 'PATCH',

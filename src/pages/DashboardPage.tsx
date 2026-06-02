@@ -1,131 +1,75 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import CompanyDashboardGrid from '../components/dashboard/CompanyDashboardGrid'
-import { useAuthSession } from '../context/AuthSessionContext'
-import { canChangeCompany } from '../lib/companySelection'
+import { useCallback, useEffect, useState } from 'react'
+import ProfitProgressTagPopover from '../components/dashboard/ProfitProgressTagPopover'
+import { fetchProfitProgressTagConfig } from '../services/config'
 import {
-  fetchDashboardSummary,
-  type DashboardCompanySummary,
+  fetchDashboardProfitProgress,
+  type DashboardProfitProgress,
 } from '../services/dashboard'
 
 const DashboardPage = () => {
-  const { currentUser } = useAuthSession()
-  const allowCompanyChange = canChangeCompany(currentUser)
-  const [companies, setCompanies] = useState<DashboardCompanySummary[]>([])
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null)
+  const [profit, setProfit] = useState<DashboardProfitProgress | null>(null)
+  const [configuredTagId, setConfiguredTagId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadProfit = useCallback(async () => {
     try {
-      const data = await fetchDashboardSummary()
-      setCompanies(data.companies)
-      setSelectedCompanyId((prev) => {
-        if (prev != null && data.companies.some((c) => c.id === prev)) return prev
-        const userCo = data.companies.find((c) => c.is_user_company)
-        if (userCo) return userCo.id
-        const mainCo = data.companies.find((c) => c.is_main)
-        if (mainCo) return mainCo.id
-        return data.companies[0]?.id ?? null
-      })
+      const [config, progress] = await Promise.all([
+        fetchProfitProgressTagConfig(),
+        fetchDashboardProfitProgress(),
+      ])
+      const raw = config.value.trim()
+      const parsed = raw ? Number.parseInt(raw, 10) : NaN
+      setConfiguredTagId(Number.isFinite(parsed) ? parsed : null)
+      setProfit(progress)
     } catch {
-      setError('Could not load dashboard reports.')
-      setCompanies([])
-      setSelectedCompanyId(null)
+      setProfit({
+        tag_id: null,
+        tag_name: '',
+        total_amount: '0.00',
+        display_value: '0.00+',
+      })
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void loadProfit()
+  }, [loadProfit])
 
-  const selectedCompany = useMemo(
-    () => companies.find((c) => c.id === selectedCompanyId) ?? null,
-    [companies, selectedCompanyId],
-  )
+  const displayValue = loading ? '…' : (profit?.display_value ?? '0.00+')
+  const activeTagId = configuredTagId ?? profit?.tag_id ?? null
 
   return (
     <div className="app-content dashboard-page">
       <div className="container-fluid">
-        <header className="dash-toolbar">
-          
-          {allowCompanyChange && companies.length > 1 && (
-            <label className="dash-toolbar__select-wrap">
-              <span className="visually-hidden">Company</span>
-              <select
-                className="form-select dash-toolbar__select"
-                value={selectedCompanyId ?? ''}
-                onChange={(e) => setSelectedCompanyId(Number(e.target.value))}
-                disabled={loading}
-              >
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                    {company.is_main ? ' (Main)' : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {companies.length === 1 && selectedCompany && (
-            <span className="dash-toolbar__company-name">{selectedCompany.name}</span>
-          )}
-        </header>
+        <section className="dashboard-preview-cards" aria-label="Dashboard cards">
+          <article className="dashboard-preview-card dashboard-preview-card--light">
+            <div className="dashboard-preview-icon-circle">
+              <i className="bi bi-graph-up-arrow" aria-hidden="true" />
+            </div>
+            <ProfitProgressTagPopover
+              selectedTagId={activeTagId}
+              onTagSaved={() => void loadProfit()}
+            />
+            <h2 className="dashboard-preview-value">{displayValue}</h2>
+            <p className="dashboard-preview-label">
+              Total profit Progress
+              {profit?.tag_name ? (
+                <span className="dashboard-preview-tag-name"> · {profit.tag_name}</span>
+              ) : null}
+            </p>
+          </article>
 
-        {loading && (
-          <p className="dash-report-empty" role="status">
-            Loading reports…
-          </p>
-        )}
-        {error && (
-          <div className="alert alert-danger" role="alert">
-            {error}
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-danger ms-2"
-              onClick={() => void load()}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        {!loading && !error && companies.length === 0 && (
-          <p className="dash-report-empty">No active companies in this account.</p>
-        )}
-        {!loading && !error && selectedCompany && (
-          <CompanyDashboardGrid company={selectedCompany} />
-        )}
-
-        {!loading && !error && allowCompanyChange && companies.length > 1 && (
-          <section className="dash-company-index" aria-label="All companies summary">
-            <h2 className="dash-company-index__title">All companies</h2>
-            <ul className="dash-company-index__list">
-              {companies.map((company) => (
-                <li key={company.id}>
-                  <button
-                    type="button"
-                    className={
-                      company.id === selectedCompanyId
-                        ? 'dash-company-index__btn is-active'
-                        : 'dash-company-index__btn'
-                    }
-                    onClick={() => setSelectedCompanyId(company.id)}
-                  >
-                    <strong>{company.name}</strong>
-                    <span>
-                      {company.bookings_owned.count} bookings ·{' '}
-                      {company.bookings_owned.paid_amount} collected ·{' '}
-                      {company.payouts.pending_count} pending payout
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+          <article className="dashboard-preview-card dashboard-preview-card--teal">
+            <div className="dashboard-preview-icon-circle dashboard-preview-icon-circle--light">
+              <i className="bi bi-calendar2-check" aria-hidden="true" />
+            </div>
+            <i className="bi bi-calendar2-check dashboard-preview-watermark" aria-hidden="true" />
+            <h2 className="dashboard-preview-value">15+</h2>
+            <p className="dashboard-preview-label">Active Projects</p>
+          </article>
+        </section>
       </div>
     </div>
   )

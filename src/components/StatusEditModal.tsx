@@ -1,6 +1,7 @@
 import { useState, type SubmitEvent } from 'react'
 import EditModalHistoryTabs from './EditModalHistoryTabs'
 import ResourceHistoryPanel from './ResourceHistoryPanel'
+import TagTypeaheadInput, { type TagSelection } from './TagTypeaheadInput'
 import { historyPaths } from '../services/history'
 
 export type StatusFormState = {
@@ -9,6 +10,7 @@ export type StatusFormState = {
   title: string
   description: string
   color: string
+  tags: TagSelection[]
 }
 
 export const COLOR_SWATCHES = [
@@ -110,6 +112,13 @@ const StatusEditModal = ({
                       onChange({ ...form, description: e.target.value })
                     }
                     placeholder="What does this status represent?"
+                  />
+                </div>
+                <div className="mb-3">
+                  <TagTypeaheadInput
+                    label="Tags"
+                    value={form.tags}
+                    onChange={(tags) => onChange({ ...form, tags })}
                   />
                 </div>
                 <div className="mb-3">

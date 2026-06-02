@@ -52,3 +52,29 @@ export async function saveBookingsGroupNameConfig(
   if (!res.ok) throw new Error('Failed to save bookings group name')
   return res.json()
 }
+
+export type ProfitProgressTagConfigRecord = {
+  scope: string
+  name: string
+  value: string
+}
+
+export async function fetchProfitProgressTagConfig(): Promise<ProfitProgressTagConfigRecord> {
+  const res = await apiFetch(buildApiUrl('/config/profit-progress-tag/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load profit progress tag setting')
+  return res.json()
+}
+
+export async function saveProfitProgressTagConfig(
+  tagId: number | null,
+): Promise<ProfitProgressTagConfigRecord> {
+  const res = await apiFetch(buildApiUrl('/config/profit-progress-tag/'), {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ value: tagId != null ? String(tagId) : '' }),
+  })
+  if (!res.ok) throw new Error('Failed to save profit progress tag setting')
+  return res.json()
+}

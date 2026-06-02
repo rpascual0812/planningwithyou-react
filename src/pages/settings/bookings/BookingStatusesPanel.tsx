@@ -54,6 +54,7 @@ const BookingStatusesPanel = () => {
       title: '',
       description: '',
       color: COLOR_SWATCHES[0],
+      tags: [],
     })
   }
 
@@ -64,6 +65,7 @@ const BookingStatusesPanel = () => {
       title: row.title,
       description: row.description,
       color: row.color || COLOR_SWATCHES[0],
+      tags: (row.tags ?? []).map((t) => ({ id: t.id, tag: t.tag })),
     })
   }
 
@@ -78,14 +80,20 @@ const BookingStatusesPanel = () => {
     }
     const description = statusModal.description.trim()
     const color = statusModal.color || COLOR_SWATCHES[0]
+    const tag_ids = statusModal.tags.map((t) => t.id)
 
     setSaving(true)
     try {
       if (statusModal.mode === 'create') {
-        await createBookingStatus({ title, description, color })
+        await createBookingStatus({ title, description, color, tag_ids })
         showSuccessToast('Status created.')
       } else if (statusModal.id) {
-        await updateBookingStatus(statusModal.id, { title, description, color })
+        await updateBookingStatus(statusModal.id, {
+          title,
+          description,
+          color,
+          tag_ids,
+        })
         showSuccessToast('Status updated.')
         setHistoryRefresh((k) => k + 1)
       }
