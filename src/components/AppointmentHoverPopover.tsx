@@ -116,7 +116,7 @@ const AppointmentHoverPopover = forwardRef<HTMLDivElement, AppointmentHoverPopov
               />
             )}
             {details.bookingLabel && (
-              <DetailRow icon="bi-journal-bookmark" label="Booking" value={details.bookingLabel} />
+              <DetailRow icon="bi-journal-bookmark" label="Quotation" value={details.bookingLabel} />
             )}
           </div>
 

@@ -84,7 +84,7 @@ export default function PublicPayPage() {
         <p className="public-pay-card__eyebrow mb-1">{data.company_name}</p>
         <h1 className="h4 mb-1">{data.booking_title}</h1>
         {data.booking_unique_id && (
-          <p className="text-muted small mb-3">Booking ID: {data.booking_unique_id}</p>
+          <p className="text-muted small mb-3">Quotation ID: {data.booking_unique_id}</p>
         )}
 
         {statusParam === 'success' && !isPaid && (
@@ -111,7 +111,7 @@ export default function PublicPayPage() {
             <table className="table table-sm public-pay-breakdown mb-3">
               <tbody>
                 <tr>
-                  <td>Booking total</td>
+                  <td>Quotation total</td>
                   <td className="text-end">{fmt(data.base_amount)}</td>
                 </tr>
                 <tr>

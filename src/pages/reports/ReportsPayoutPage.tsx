@@ -32,8 +32,8 @@ function csvEscape(value: string): string {
 
 function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
   const headers = [
-    'Booking ID',
-    'Booking title',
+    'Quotation ID',
+    'Quotation title',
     'Amount',
     'Transaction ID',
     'Transaction status',
@@ -166,7 +166,7 @@ const ReportsPayoutPage = () => {
           <input
             type="search"
             className="emails-search-input"
-            placeholder="Search booking, transaction…"
+            placeholder="Search quotation, transaction…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search payouts"
@@ -229,7 +229,7 @@ const ReportsPayoutPage = () => {
           <table className="emails-table">
             <thead>
               <tr>
-                <th>Booking</th>
+                <th>Quotation</th>
                 <th>Amount</th>
                 <th>Transaction</th>
                 <th>Paid</th>

@@ -179,7 +179,7 @@ const DashboardTagPopover = ({
                     <div className="text-muted small py-2">Loading tags…</div>
                   ) : tags.length === 0 ? (
                     <div className="text-muted small py-2">
-                      No tags yet. Add tags in Booking Settings → Statuses.
+                      No tags yet. Add tags in Quotation Settings → Statuses.
                     </div>
                   ) : (
                     <ul className="dashboard-profit-tag-popover__list list-unstyled mb-0">

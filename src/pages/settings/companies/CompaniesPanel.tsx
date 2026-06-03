@@ -270,7 +270,7 @@ const CompaniesPanel = () => {
       return
     }
     if (form.max_bookings_per_day < 1) {
-      setFormError('Bookings per day must be at least 1.')
+      setFormError('Quotations per day must be at least 1.')
       return
     }
     setSaving(true)
@@ -706,7 +706,7 @@ const CompaniesPanel = () => {
                       className="form-label mb-2"
                       htmlFor="company-max-bookings-per-day"
                     >
-                      How many bookings can you accept in a day?
+                      How many quotations can you accept in a day?
                     </label>
                     <input
                       id="company-max-bookings-per-day"

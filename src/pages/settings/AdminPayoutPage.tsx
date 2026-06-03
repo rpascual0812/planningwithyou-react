@@ -33,7 +33,7 @@ function formatMoney(value: string | number): string {
 
 function PaymentBreakdown({ row }: { row: AdminBookingPaymentRecord }) {
   const lines = [
-    { label: 'Booking credit', value: row.base_amount, emphasize: true },
+    { label: 'Quotation credit', value: row.base_amount, emphasize: true },
     { label: 'Gross', value: row.charge_amount },
     { label: 'Proc. fee', value: row.processing_fee },
     { label: 'Plat. fee', value: row.platform_fee },
@@ -200,10 +200,10 @@ const AdminPayoutPage = () => {
   const handleMarkSent = async (row: AdminBookingPaymentRecord) => {
     if (row.payout_sent) return
 
-    const bookingRef = row.booking_unique_id || row.booking_title || 'this booking'
+    const bookingRef = row.booking_unique_id || row.booking_title || 'this quotation'
     const result = await Swal.fire({
       title: 'Mark payout as sent?',
-      html: `Confirm that <strong>${formatMoney(row.base_amount)}</strong> has been sent to <strong>${row.company_name}</strong> for booking <strong>${bookingRef}</strong>.`,
+      html: `Confirm that <strong>${formatMoney(row.base_amount)}</strong> has been sent to <strong>${row.company_name}</strong> for quotation <strong>${bookingRef}</strong>.`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Payout sent',
@@ -255,7 +255,7 @@ const AdminPayoutPage = () => {
           <input
             type="search"
             className="emails-search-input"
-            placeholder="Search company, booking, transaction…"
+            placeholder="Search company, quotation, transaction…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search payouts"
@@ -314,7 +314,7 @@ const AdminPayoutPage = () => {
             <thead>
               <tr>
                 <th>Company</th>
-                <th>Booking</th>
+                <th>Quotation</th>
                 <th>Payment breakdown</th>
                 <th>Transaction</th>
                 <th>Paid</th>

@@ -23,7 +23,7 @@ const FIELD_LABELS: Record<string, Record<string, string>> = {
     website: 'Website',
     is_active: 'Active',
     is_main: 'Main company',
-    max_bookings_per_day: 'Max bookings per day',
+    max_bookings_per_day: 'Max quotations per day',
     logo: 'Logo',
   },
   user: {

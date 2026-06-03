@@ -247,7 +247,7 @@ export default function SupplierFieldInput({
   const showSupplierCapacityError = async (supplierName: string) => {
     await Swal.fire({
       icon: 'error',
-      title: 'Booking limit reached',
+      title: 'Quotation limit reached',
       text: supplierCapacityErrorMessage(supplierName),
     })
   }

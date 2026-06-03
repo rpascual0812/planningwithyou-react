@@ -585,7 +585,7 @@ const USERS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
 
 const BOOKINGS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
   typeLabel: 'bookings',
-  emptyMessage: 'No booking email templates yet.',
+  emptyMessage: 'No quotation email templates yet.',
   fetchTemplates: fetchEmailBookingTemplates,
   createTemplate: createEmailBookingTemplate,
   updateTemplate: updateEmailBookingTemplate,
@@ -613,7 +613,7 @@ const EmailTemplatesSettingsPage = () => {
           open={bookingsOpen}
           onToggle={() => setBookingsOpen((prev) => !prev)}
           icon="bi bi-calendar-check"
-          title="Bookings"
+          title="Quotations"
           tourId="settings-email-templates-bookings"
         >
           <EmailTemplatesPanel {...BOOKINGS_PANEL_CONFIG} />

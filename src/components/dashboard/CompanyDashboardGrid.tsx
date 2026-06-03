@@ -134,7 +134,7 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
       day: 'Bk',
       date: String(owned.count),
       count: owned.count,
-      provided: 'Bookings owned',
+      provided: 'Quotations owned',
       working: formatMoney(owned.total_amount),
       tone: TONES[0],
       path: countsToSparklinePath(statusCounts.length ? statusCounts : [owned.count]),
@@ -174,7 +174,7 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
 
   const alerts: string[] = []
   if (owned.downpayment_due_count > 0) {
-    alerts.push(`${owned.downpayment_due_count} booking(s) below downpayment`)
+    alerts.push(`${owned.downpayment_due_count} quotation(s) below downpayment`)
   }
   if (company.failed_payment_count > 0) {
     alerts.push(`${company.failed_payment_count} failed payment(s)`)
@@ -240,15 +240,15 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
               {company.kyb_verified ? 'KYB verified' : 'KYB pending'}
             </span>
           </div>
-          <Link to="/bookings" className="dash-team-footer-link">
-            Bookings
+          <Link to="/quotations" className="dash-team-footer-link">
+            Quotations
           </Link>
         </div>
       </section>
 
       <section className="dash-card dash-project-card">
         <header className="dash-card-head">
-          <h5>Booking pipeline</h5>
+          <h5>Quotation pipeline</h5>
           <span className="dash-filter-btn">{owned.count} total</span>
         </header>
         {topStatuses.length > 0 ? (
@@ -266,7 +266,7 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
             ))}
           </div>
         ) : (
-          <p className="dash-report-empty">No bookings yet for this company.</p>
+          <p className="dash-report-empty">No quotations yet for this company.</p>
         )}
         <ul className="dash-project-list">
           {upcomingAll.slice(0, 6).map((row, index) => (
@@ -320,15 +320,15 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
         <h5>
           {company.payouts.pending_count > 0
             ? `${formatMoney(company.payouts.pending_amount)} ready for payout`
-            : 'Track bookings, payments, and events in one place'}
+            : 'Track quotations, payments, and events in one place'}
         </h5>
         {company.is_user_company && company.payouts.pending_count > 0 ? (
           <Link to="/reports?tab=payouts" className="dash-cta-link">
             View payouts report
           </Link>
         ) : (
-          <Link to="/bookings" className="dash-cta-link">
-            Open bookings
+          <Link to="/quotations" className="dash-cta-link">
+            Open quotations
           </Link>
         )}
         <div className="dash-carousel-dots" aria-hidden="true">
@@ -372,7 +372,7 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
 
       <section className="dash-profit-stack">
         <article className="dash-card dash-profit-card">
-          <h5>Bookings by status</h5>
+          <h5>Quotations by status</h5>
           <svg viewBox="0 0 260 150" aria-hidden="true">
             <path className="dash-profit-line" d={profitChart.path} />
             <path className="dash-profit-area" d={profitChart.area} />

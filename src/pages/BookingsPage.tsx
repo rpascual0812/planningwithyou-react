@@ -1560,7 +1560,7 @@ const BookingsPage = () => {
     const count = itemsByColumn.get(column.id)?.length ?? 0
     const msg =
       count > 0
-        ? `Delete status "${column.title}"? Its ${count} booking${
+        ? `Delete status "${column.title}"? Its ${count} quotation${
             count === 1 ? '' : 's'
           } will also be removed.`
         : `Delete status "${column.title}"?`
@@ -1638,7 +1638,7 @@ const BookingsPage = () => {
       try {
         full = await fetchBookingItem(item.id)
       } catch {
-        showErrorToast('Could not load booking details.')
+        showErrorToast('Could not load quotation details.')
         return
       }
     }
@@ -1676,7 +1676,7 @@ const BookingsPage = () => {
       const defaultStatusId = sortedStatuses[0]?.id ?? null
       const apptForm = appointmentFormFromBooking(itemModal, defaultStatusId)
       if (!apptForm) {
-        showErrorToast('Could not build appointment from booking.')
+        showErrorToast('Could not build appointment from quotation.')
         return
       }
       setAppointmentContacts(contactRows)
@@ -1874,14 +1874,14 @@ const BookingsPage = () => {
       setBookingHistoryRefresh((k) => k + 1)
       reloadListBookings()
       showSuccessToast(
-        itemModal.mode === 'create' ? 'Booking created.' : 'Booking saved.',
+        itemModal.mode === 'create' ? 'Quotation created.' : 'Quotation saved.',
       )
       if (closeAfterSave) {
         closeItemModal()
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Could not save booking.'
+        err instanceof Error ? err.message : 'Could not save quotation.'
       showErrorToast(message)
     }
   }
@@ -2248,7 +2248,7 @@ const BookingsPage = () => {
             </div>
           </div>
           <p className="kanban-column-description kanban-column-description--foreign mb-0">
-            All bookings here are from another company
+            All quotations here are from another company
           </p>
         </header>
         <div className="kanban-column-cards kanban-column-cards--scroll">
@@ -2256,7 +2256,7 @@ const BookingsPage = () => {
             <p className="kanban-empty mb-0 text-muted">Loading…</p>
           )}
           {columnItems.length === 0 && !foreignBoard.loading && (
-            <p className="kanban-empty mb-0">No bookings in this status.</p>
+            <p className="kanban-empty mb-0">No quotations in this status.</p>
           )}
           {columnItems.map((it) => (
             <div
@@ -2390,7 +2390,7 @@ const BookingsPage = () => {
       <div className="container-fluid">
         <div className="bookings-toolbar-row">
           <div className="bookings-tabs-cluster">
-            <div className="bookings-tabs" role="tablist" aria-label="Bookings views">
+            <div className="bookings-tabs" role="tablist" aria-label="Quotations views">
               {[
                 { id: 'board', label: 'Board' },
                 { id: 'cards', label: 'Cards' },
@@ -2417,14 +2417,14 @@ const BookingsPage = () => {
                 title={
                   columns.length === 0
                     ? 'Add a status column on the Board first'
-                    : 'New booking in the first status column'
+                    : 'New quotation in the first status column'
                 }
                 onClick={() => {
                   if (columns.length > 0) openCreateItem(columns[0].id)
                 }}
               >
                 <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-                Add booking
+                Add quotation
               </button>
             )}
           </div>
@@ -2434,10 +2434,10 @@ const BookingsPage = () => {
             <input
               type="search"
               className="bookings-search-input"
-              placeholder="Search bookings..."
+              placeholder="Search quotations..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search bookings"
+              aria-label="Search quotations"
             />
             {search && (
               <button
@@ -2454,19 +2454,19 @@ const BookingsPage = () => {
           {activeView === 'list' ? (
             <span className="bookings-search-count">
               {listTotal > 0
-                ? `${listItems.length} of ${listTotal} booking${listTotal !== 1 ? 's' : ''}`
-                : `${listItems.length} booking${listItems.length !== 1 ? 's' : ''}`}
+                ? `${listItems.length} of ${listTotal} quotation${listTotal !== 1 ? 's' : ''}`
+                : `${listItems.length} quotation${listItems.length !== 1 ? 's' : ''}`}
             </span>
           ) : activeView === 'cards' ? (
             <span className="bookings-search-count">
               {cardsTotal > 0
-                ? `${cardsItems.length} of ${cardsTotal} booking${cardsTotal !== 1 ? 's' : ''}`
-                : `${cardsItems.length} booking${cardsItems.length !== 1 ? 's' : ''}`}
+                ? `${cardsItems.length} of ${cardsTotal} quotation${cardsTotal !== 1 ? 's' : ''}`
+                : `${cardsItems.length} quotation${cardsItems.length !== 1 ? 's' : ''}`}
             </span>
           ) : (
             boardSearchActive && (
               <span className="bookings-search-count">
-                {boardSearch.items.length} of {boardSearch.total} booking
+                {boardSearch.items.length} of {boardSearch.total} quotation
                 {boardSearch.total !== 1 ? 's' : ''}
               </span>
             )
@@ -2505,20 +2505,20 @@ const BookingsPage = () => {
           >
             {cardsLoading && cardsDisplayItems.length === 0 && (
               <p className="bookings-cards-loading text-muted small mb-0">
-                Loading bookings…
+                Loading quotations…
               </p>
             )}
             {!cardsLoading && cardsDisplayItems.length === 0 && (
               <div className="bookings-empty-view">
                 <h5 className="mb-2">
-                  {isSearching ? 'No matches' : 'No bookings yet'}
+                  {isSearching ? 'No matches' : 'No quotations yet'}
                 </h5>
                 <p className="mb-0">
                   {isSearching
-                    ? `No bookings match "${search}".`
+                    ? `No quotations match "${search}".`
                     : columns.length === 0
                       ? 'Add a status column on the Board to get started.'
-                      : 'Use Add booking in the toolbar.'}
+                      : 'Use Add quotation in the toolbar.'}
                 </p>
               </div>
             )}
@@ -2596,7 +2596,7 @@ const BookingsPage = () => {
                     </div>
                     <div className="booking-card-titles">
                       <p className="booking-card-booking-id mb-1">
-                        <span className="booking-card-meta-label">Booking ID:</span>{' '}
+                        <span className="booking-card-meta-label">Quotation ID:</span>{' '}
                         {formatBookingId(item)}
                       </p>
                       <p className="booking-card-title mb-0">{item.title}</p>
@@ -2607,7 +2607,7 @@ const BookingsPage = () => {
                         />
                       ) : (
                         <p className="booking-card-subtitle mb-0">
-                          {(column?.title ?? 'Booking').trim()}
+                          {(column?.title ?? 'Quotation').trim()}
                         </p>
                       )}
                       <BookingPaymentStatusPill
@@ -2624,7 +2624,7 @@ const BookingsPage = () => {
                           handleDeleteItem(item)
                         }}
                         aria-label={`Delete ${item.title}`}
-                        title="Delete booking"
+                        title="Delete quotation"
                       >
                         <i className="bi bi-trash" />
                       </button>
@@ -2710,7 +2710,7 @@ const BookingsPage = () => {
             )}
             {/* {!cardsHasMore && cardsDisplayItems.length > 0 && !cardsLoading && (
               <p className="bookings-cards-end text-muted small mb-0">
-                All {cardsTotal} booking{cardsTotal !== 1 ? 's' : ''} loaded
+                All {cardsTotal} quotation{cardsTotal !== 1 ? 's' : ''} loaded
               </p>
             )} */}
           </div>
@@ -2721,14 +2721,14 @@ const BookingsPage = () => {
           <div className="bookings-list-card" role="tabpanel" aria-label="List">
             <div ref={listScrollRef} className="bookings-list-scroll">
               {listLoading && listItems.length === 0 ? (
-                <p className="text-muted small p-3 mb-0">Loading bookings…</p>
+                <p className="text-muted small p-3 mb-0">Loading quotations…</p>
               ) : (
               <table className="bookings-list-table">
                 <thead>
                   <tr>
                     <th aria-label="Drag" />
-                    <th>Booking ID</th>
-                    <th>Booking</th>
+                    <th>Quotation ID</th>
+                    <th>Quotation</th>
                     <th>Status</th>
                     <th>Notes</th>
                     <th>Payment</th>
@@ -2746,10 +2746,10 @@ const BookingsPage = () => {
                     <tr>
                       <td colSpan={9} className="bookings-list-empty">
                         {debouncedSearch.trim()
-                          ? `No bookings match "${debouncedSearch}".`
+                          ? `No quotations match "${debouncedSearch}".`
                           : columns.length === 0
                             ? 'Add a status column on the Board to get started.'
-                            : 'No bookings yet. Use Add booking in the toolbar.'}
+                            : 'No quotations yet. Use Add quotation in the toolbar.'}
                       </td>
                     </tr>
                   )}
@@ -2915,7 +2915,7 @@ const BookingsPage = () => {
                   {!listHasMore && listItems.length > 0 && !listLoading && (
                     <tr className="bookings-list-end">
                       <td colSpan={9} className="text-center text-muted small py-3">
-                        All {listTotal} booking{listTotal !== 1 ? 's' : ''} {listTotal !== 1 ? 'have' : 'has'} been loaded.
+                        All {listTotal} quotation{listTotal !== 1 ? 's' : ''} {listTotal !== 1 ? 'have' : 'has'} been loaded.
                       </td>
                     </tr>
                   )}

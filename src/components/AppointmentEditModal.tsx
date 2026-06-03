@@ -286,7 +286,7 @@ const AppointmentEditModal = ({
 
                 <div className="mb-0">
                   <label htmlFor="appointment-booking" className="form-label">
-                    Booking
+                    Quotation
                   </label>
                   <select
                     id="appointment-booking"
@@ -301,7 +301,7 @@ const AppointmentEditModal = ({
                     }}
                     disabled={saving || deleting || loadingOptions}
                   >
-                    <option value="">No booking</option>
+                    <option value="">No quotation</option>
                     {bookings.map((b) => (
                       <option key={b.id} value={b.id}>
                         {bookingLabel(b)}

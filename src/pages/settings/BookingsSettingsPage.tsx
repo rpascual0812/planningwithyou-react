@@ -145,7 +145,7 @@ const BookingsViewOptionsPanel = () => {
       })
       .catch(() => {
         if (!cancelled) {
-          setError('Could not load booking view setting.')
+          setError('Could not load quotation view setting.')
         }
       })
       .finally(() => {
@@ -166,9 +166,9 @@ const BookingsViewOptionsPanel = () => {
       const next = isBookingsView(config.value) ? config.value : view
       setSavedView(next)
       setView(next)
-      showSuccessToast('Booking view saved.')
+      showSuccessToast('Quotation view saved.')
     } catch {
-      setError('Could not save booking view setting.')
+      setError('Could not save quotation view setting.')
     } finally {
       setSaving(false)
     }
@@ -177,7 +177,7 @@ const BookingsViewOptionsPanel = () => {
   if (loading) {
     return (
       <div className="bookings-view-settings text-muted small">
-        Loading booking view…
+        Loading quotation view…
       </div>
     )
   }
@@ -187,7 +187,7 @@ const BookingsViewOptionsPanel = () => {
       <div
         className="bookings-view-options"
         role="tablist"
-        aria-label="Default bookings view"
+        aria-label="Default quotations view"
       >
         {BOOKINGS_VIEW_OPTIONS.map((option) => (
           <button
@@ -245,7 +245,7 @@ const BookingsGroupNamePanel = () => {
       })
       .catch(() => {
         if (!cancelled) {
-          setError('Could not load bookings group name.')
+          setError('Could not load quotations group name.')
         }
       })
       .finally(() => {
@@ -266,9 +266,9 @@ const BookingsGroupNamePanel = () => {
       const next = config.value ?? ''
       setSavedName(next)
       setName(next)
-      showSuccessToast('Bookings group name saved.')
+      showSuccessToast('Quotations group name saved.')
     } catch {
-      setError('Could not save bookings group name.')
+      setError('Could not save quotations group name.')
     } finally {
       setSaving(false)
     }
@@ -342,7 +342,7 @@ const BookingsSettingsPage = () => {
             <span className="faq-icon" aria-hidden="true">
               <i className="bi bi-layout-three-columns" />
             </span>
-            <span className="faq-question">Bookings View</span>
+            <span className="faq-question">Quotations View</span>
             <span className="faq-chevron" aria-hidden="true">
               <i className="bi bi-chevron-down" />
             </span>
@@ -365,7 +365,7 @@ const BookingsSettingsPage = () => {
             <span className="faq-icon" aria-hidden="true">
               <i className="bi bi-collection" />
             </span>
-            <span className="faq-question">Bookings Group Name</span>
+            <span className="faq-question">Quotations Group Name</span>
             <span className="faq-chevron" aria-hidden="true">
               <i className="bi bi-chevron-down" />
             </span>
@@ -1175,7 +1175,7 @@ const TemplateFormModal = ({
 
                   {field.field_type === 'supplier' && (
                     <p className="text-muted small mt-2 mb-0">
-                      On the booking form, users pick a supplier type, then a supplier
+                      On the quotation form, users pick a supplier type, then a supplier
                       and tier from Supplier Settings (active suppliers only).
                     </p>
                   )}

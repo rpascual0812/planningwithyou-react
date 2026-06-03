@@ -7,7 +7,7 @@ import { canAccessAnySettings } from './settingsNavAccess'
 const NAV_ROUTES: { feature: string; path: string }[] = [
   { feature: 'dashboard', path: '/' },
   { feature: 'calendar', path: '/calendar' },
-  { feature: 'bookings', path: '/bookings' },
+  { feature: 'bookings', path: '/quotations' },
   { feature: 'contacts', path: '/contacts' },
   { feature: 'users', path: '/users' },
   { feature: 'emails', path: '/emails' },

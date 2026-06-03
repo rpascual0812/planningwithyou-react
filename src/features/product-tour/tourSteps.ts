@@ -20,11 +20,11 @@ export type TourStepMeta = {
 const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; description: string }[] = [
   { id: 'account', label: 'Account Settings', tour: 'settings-account', description: 'Account Settings lets you manage your account information, subscription, and receipts.' },
   { id: 'companies', label: 'Company Settings', tour: 'settings-companies', description: 'Company Settings lets you manage your companies, tiers, and packages.' },
-  { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when booking.' },
+  { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when quoting.' },
   { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', tour: 'settings-email-settings', description: 'Email Settings lets you connect Gmail, Outlook, Apple Mail, and Yahoo to your account.' },
-  { id: 'bookings', label: 'Booking Settings', tour: 'settings-bookings', description: 'Booking Settings lets you manage your booking view, group name, statuses, and form templates.' },
-  { id: 'email-templates', label: 'Email Templates', tour: 'settings-email-templates', description: 'Email Templates lets you manage your user and booking email templates.' },
+  { id: 'bookings', label: 'Quotation Settings', tour: 'settings-bookings', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
+  { id: 'email-templates', label: 'Email Templates', tour: 'settings-email-templates', description: 'Email Templates lets you manage your user and quotation email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', tour: 'settings-permissions', description: 'Roles and Permissions lets you manage your user\'s roles and permissions.' },
 ]
 
@@ -47,7 +47,7 @@ const SIDEBAR_ITEMS: {
 }[] = [
   { feature: 'dashboard', label: 'Dashboard', tour: 'nav-dashboard', path: '/', description: 'Main menu: open Dashboard to work with this area of the app.' },
   { feature: 'calendar', label: 'Calendar', tour: 'nav-calendar', path: '/calendar', description: 'Calendar lets you manage your appointments and events.' },
-  { feature: 'bookings', label: 'Bookings', tour: 'nav-bookings', path: '/bookings', description: 'Bookings simplifies the entire client booking process—from quotation to payment. Create and send professional quotations, accept online payments through secure payment links, and keep clients engaged with automated reminder emails.' },
+  { feature: 'bookings', label: 'Quotations', tour: 'nav-bookings', path: '/quotations', description: 'Quotations simplifies the entire client quotation process—from quotation to payment. Create and send professional quotations, accept online payments through secure payment links, and keep clients engaged with automated reminder emails.' },
   { feature: 'contacts', label: 'Contacts', tour: 'nav-contacts', path: '/contacts', description: 'Contacts lets you manage your clients and their contact information.' },
   { feature: 'users', label: 'Users', tour: 'nav-users', path: '/users', description: 'Users lets you manage your users and their permissions.' },
   { feature: 'emails', label: 'Emails', tour: 'nav-emails', path: '/emails', description: 'Emails lists all the emails sent by the system.' },
@@ -89,7 +89,7 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
     {
       tour: 'settings-companies-packages',
       title: 'Packages & Pricing',
-      description: 'Set up packages and price points for bookings.',
+      description: 'Set up packages and price points for quotations.',
     },
   ],
   calendar: [
@@ -119,23 +119,23 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
   bookings: [
     {
       tour: 'settings-bookings-view',
-      title: 'Bookings view',
-      description: 'Choose the default Board, Cards, or List layout for bookings.',
+      title: 'Quotations view',
+      description: 'Choose the default Board, Cards, or List layout for quotations.',
     },
     {
       tour: 'settings-bookings-group-name',
-      title: 'Bookings group name',
-      description: 'Rename the bookings group label shown when grouping fields or suppliers when creating a new booking.',
+      title: 'Quotations group name',
+      description: 'Rename the quotations group label shown when grouping fields or suppliers when creating a new quotation.',
     },
     {
       tour: 'settings-bookings-statuses',
       title: 'Statuses',
-      description: 'Manage kanban columns and booking status workflow.',
+      description: 'Manage kanban columns and quotation status workflow.',
     },
     {
       tour: 'settings-bookings-form-templates',
       title: 'Form templates',
-      description: 'Build custom fields and forms for new bookings.',
+      description: 'Build custom fields and forms for new quotations.',
     },
   ],
   'email-templates': [
@@ -146,8 +146,8 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
     },
     {
       tour: 'settings-email-templates-bookings',
-      title: 'Booking email templates',
-      description: 'Templates for booking emails, payment links, and payment received emails.',
+      title: 'Quotation email templates',
+      description: 'Templates for quotation emails, payment links, and payment received emails.',
     },
   ],
 }
@@ -156,17 +156,17 @@ const BOOKINGS_VIEW_STEPS: AccordionTourDef[] = [
   {
     tour: 'bookings-view-board',
     title: 'Board',
-    description: 'Kanban columns for dragging bookings through your workflow.',
+    description: 'Kanban columns for dragging quotations through your workflow.',
   },
   {
     tour: 'bookings-view-cards',
     title: 'Cards',
-    description: 'A card grid for scanning many bookings at once.',
+    description: 'A card grid for scanning many quotations at once.',
   },
   {
     tour: 'bookings-view-list',
     title: 'List',
-    description: 'A sortable table with booking details in rows.',
+    description: 'A sortable table with quotation details in rows.',
   },
 ]
 
@@ -313,7 +313,7 @@ export function buildProductTourSteps(user: UserRecord): TourStepMeta[] {
             viewStep.tour,
             viewStep.title,
             viewStep.description,
-            `/bookings?view=${viewId}`,
+            `/quotations?view=${viewId}`,
           ),
         )
       }

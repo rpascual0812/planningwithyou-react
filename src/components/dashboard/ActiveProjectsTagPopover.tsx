@@ -11,7 +11,7 @@ const ActiveProjectsTagPopover = (props: ActiveProjectsTagPopoverProps) => (
   <DashboardTagPopover
     {...props}
     title="Active projects tag"
-    hint="Count bookings for statuses with this tag."
+    hint="Count quotations for statuses with this tag."
     triggerAriaLabel="Edit active projects tag"
     dialogAriaLabel="Select active projects tag"
     saveTag={saveActiveProjectsTagConfig}

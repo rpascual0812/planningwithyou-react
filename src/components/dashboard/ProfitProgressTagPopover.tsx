@@ -11,7 +11,7 @@ const ProfitProgressTagPopover = (props: ProfitProgressTagPopoverProps) => (
   <DashboardTagPopover
     {...props}
     title="Profit tag"
-    hint="Sum booking totals for statuses with this tag."
+    hint="Sum quotation totals for statuses with this tag."
     triggerAriaLabel="Edit profit progress tag"
     dialogAriaLabel="Select profit progress tag"
     saveTag={saveProfitProgressTagConfig}

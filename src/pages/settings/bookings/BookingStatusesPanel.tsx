@@ -179,7 +179,7 @@ const BookingStatusesPanel = () => {
                 <th>Title</th>
                 <th>Description</th>
                 <th className="bookings-statuses-table__color">Color</th>
-                <th className="bookings-statuses-table__count">Bookings</th>
+                <th className="bookings-statuses-table__count">Quotations</th>
                 <th className="text-end">Actions</th>
               </tr>
             </thead>

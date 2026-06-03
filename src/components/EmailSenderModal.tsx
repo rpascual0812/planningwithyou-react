@@ -51,7 +51,7 @@ export type EmailSenderModalProps = {
   composeDefaults?: Partial<EmailPayload>
   /** Separate localStorage draft key for compose mode (e.g. per booking). */
   draftScope?: string
-  /** Apply this booking template (``name``) when templates load. */
+  /** Apply this quotation template (``name``) when templates load. */
   initialBookingTemplateName?: string
   /** Replace ``{payment_link}`` in subject/body on send. */
   paymentLinkUrl?: string
@@ -492,7 +492,7 @@ const EmailSenderModal = ({
                           ? 'Loading templates…'
                           : activeBookingTemplates.length
                             ? 'Select a template…'
-                            : 'No booking templates'}
+                            : 'No quotation templates'}
                       </option>
                       {activeBookingTemplates.map((t) => (
                         <option key={t.id} value={String(t.id)}>

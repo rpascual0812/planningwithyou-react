@@ -570,7 +570,7 @@ export default function BookingPaymentsModal({
                       <thead>
                         <tr>
                           <th>Date</th>
-                          <th>Booking credit</th>
+                          <th>Quotation credit</th>
                           <th>Gross</th>
                           <th>Proc. fee</th>
                           <th>Plat. fee</th>

@@ -77,7 +77,7 @@ export type BookingFormState = {
   dateOfEvent: string
   timeOfEvent: string
   fields: BookingField[]
-  /** Empty group accordions (no fields yet); persisted via booking ``groups`` on save. */
+  /** Empty group accordions (no fields yet); persisted via quotation ``groups`` on save. */
   extraGroupNames?: string[]
   notes: string
   /** Public URL for the generated booking quote PDF, when available. */
@@ -91,7 +91,7 @@ export type BookingFormState = {
   paidChargeAmount?: string
   paidProcessingFees?: string
   paidPlatformFees?: string
-  /** False when another company appears on the booking; view-only in the UI. */
+  /** False when another company appears on the quotation; view-only in the UI. */
   canEdit?: boolean
   /** Owner company name (``bookings.company_id``); shown in view-only mode. */
   companyName?: string
@@ -273,7 +273,7 @@ const BookingEditModal = ({
   const [groupNameInput, setGroupNameInput] = useState('')
   const [groupNameError, setGroupNameError] = useState<string | null>(null)
   const [addGroupTemplateId, setAddGroupTemplateId] = useState<number | null>(null)
-  /** API group names hidden after rename until the booking is saved. */
+  /** API group names hidden after rename until the quotation is saved. */
   const [dismissedApiGroupNames, setDismissedApiGroupNames] = useState<string[]>([])
   const originalFormJson = useRef(JSON.stringify(form))
   const groupLabel = defaultGroupName
@@ -432,8 +432,8 @@ const BookingEditModal = ({
   const bookingEmailDefaults = useMemo((): Partial<EmailPayload> => {
     const to = selectedContact?.email?.trim()
     const subject = form.title.trim()
-      ? `Booking: ${form.title.trim()}`
-      : 'Booking details'
+      ? `Quotation: ${form.title.trim()}`
+      : 'Quotation details'
     return {
       to: to ? [to] : [],
       subject,
@@ -498,7 +498,7 @@ const BookingEditModal = ({
       }
       if (!pdfUrl) {
         showErrorToast(
-          'PDF is not available yet. Save the booking and wait a moment, then try again.',
+          'PDF is not available yet. Save the quotation and wait a moment, then try again.',
         )
         return
       }
@@ -506,7 +506,7 @@ const BookingEditModal = ({
       try {
         const a = document.createElement('a')
         a.href = objectUrl
-        a.download = 'bookings.pdf'
+        a.download = 'quotations.pdf'
         a.rel = 'noopener'
         document.body.appendChild(a)
         a.click()
@@ -515,7 +515,7 @@ const BookingEditModal = ({
         URL.revokeObjectURL(objectUrl)
       }
     } catch {
-      showErrorToast('Could not download the booking PDF.')
+      showErrorToast('Could not download the quotation PDF.')
     } finally {
       setPdfDownloading(false)
     }
@@ -763,7 +763,7 @@ const BookingEditModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // New bookings: pre-fill fields from the default form template when none exist.
+  // New quotations: pre-fill fields from the default form template when none exist.
   useEffect(() => {
     if (form.mode !== 'create' || createSeededRef.current || restoredDraft) return
     if (form.fields.length > 0) return
@@ -1580,7 +1580,7 @@ const BookingEditModal = ({
                 if (managingGroup) {
                   e.preventDefault()
                   showErrorToast(
-                    'Click Done on the section you are customizing before saving the booking.',
+                    'Click Done on the section you are customizing before saving the quotation.',
                   )
                   return
                 }
@@ -1592,14 +1592,14 @@ const BookingEditModal = ({
                 <div className="me-auto">
                   <h1 id="bookingEditTitle" className="modal-title fs-5 mb-0">
                     {form.mode === 'create'
-                      ? 'New booking'
+                      ? 'New quotation'
                       : viewOnly
-                        ? 'View booking'
-                        : 'Edit booking'}
+                        ? 'View quotation'
+                        : 'Edit quotation'}
                   </h1>
                   {form.mode === 'edit' && form.id != null && (
                     <p className="booking-edit-modal__booking-id text-muted small mb-0 mt-1">
-                      Booking ID:{' '}
+                      Quotation ID:{' '}
                       <span className="text-body">
                         {(form.uniqueId ?? '').trim() || `#${form.id}`}
                       </span>
@@ -1696,7 +1696,7 @@ const BookingEditModal = ({
                       />
                     </div>
                     <div className="mb-3">
-                      <label className="form-label">Date of Booking</label>
+                      <label className="form-label">Date of quotation</label>
                       <div className="d-flex gap-2">
                         <input
                           id="booking-date"

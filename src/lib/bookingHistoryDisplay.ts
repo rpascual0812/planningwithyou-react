@@ -35,17 +35,17 @@ function actionTitle(entry: HistoryRecord): string {
   const who = entry.actor_name?.trim() || 'System'
   switch (entry.action) {
     case 'create':
-      return `${who} created this booking`
+      return `${who} created this quotation`
     case 'delete':
       if (entry.entity_type === 'booking_group') return `${who} removed a group`
-      if (entry.entity_type === 'booking') return `${who} deleted this booking`
+      if (entry.entity_type === 'booking') return `${who} deleted this quotation`
       return `${who} removed an item`
     case 'replace':
-      return `${who} updated booking fields`
+      return `${who} updated quotation fields`
     case 'update':
     default:
       if (entry.entity_type === 'booking_group') return `${who} updated a group`
-      return `${who} updated this booking`
+      return `${who} updated this quotation`
   }
 }
 
@@ -76,7 +76,7 @@ function summarizeChanges(entry: HistoryRecord): string[] {
   }
 
   if (entry.action === 'delete' && entry.entity_type === 'booking') {
-    if (changes.unique_id) lines.push(`Booking ID: ${formatValue(changes.unique_id)}`)
+    if (changes.unique_id) lines.push(`Quotation ID: ${formatValue(changes.unique_id)}`)
     if (changes.title) lines.push(`Title: ${formatValue(changes.title)}`)
     return lines
   }

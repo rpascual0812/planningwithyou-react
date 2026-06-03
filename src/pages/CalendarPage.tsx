@@ -453,7 +453,7 @@ const CalendarPage = ({ isSidebarCollapsed }: CalendarPageProps) => {
         }
       } else if (props.bookingUniqueId || props.bookingTitle) {
         bookingLabel = props.bookingUniqueId
-          ? `${props.bookingUniqueId} — ${props.bookingTitle || 'Booking'}`
+          ? `${props.bookingUniqueId} — ${props.bookingTitle || 'Quotation'}`
           : props.bookingTitle
       }
 

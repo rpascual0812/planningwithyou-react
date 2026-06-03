@@ -11,7 +11,7 @@ export async function fetchBookingViewConfig(): Promise<BookingViewConfigRecord>
   const res = await apiFetch(buildApiUrl('/config/booking-view/'), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load booking view setting')
+  if (!res.ok) throw new Error('Failed to load quotation view setting')
   return res.json()
 }
 
@@ -23,7 +23,7 @@ export async function saveBookingViewConfig(
     headers: authHeaders(),
     body: JSON.stringify({ value }),
   })
-  if (!res.ok) throw new Error('Failed to save booking view setting')
+  if (!res.ok) throw new Error('Failed to save quotation view setting')
   return res.json()
 }
 
@@ -37,7 +37,7 @@ export async function fetchBookingsGroupNameConfig(): Promise<BookingsGroupNameC
   const res = await apiFetch(buildApiUrl('/config/bookings-group-name/'), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load bookings group name')
+  if (!res.ok) throw new Error('Failed to load quotations group name')
   return res.json()
 }
 
@@ -49,7 +49,7 @@ export async function saveBookingsGroupNameConfig(
     headers: authHeaders(),
     body: JSON.stringify({ value }),
   })
-  if (!res.ok) throw new Error('Failed to save bookings group name')
+  if (!res.ok) throw new Error('Failed to save quotations group name')
   return res.json()
 }
 

@@ -218,7 +218,7 @@ function DashboardLayout() {
   const pageTitleByPath: Record<string, string> = {
     '/': 'Dashboard',
     '/calendar': 'Calendar',
-    '/bookings': 'Bookings',
+    '/quotations': 'Quotations',
     '/contacts': 'Contacts',
     '/users': 'Users',
     '/emails': 'Emails',
@@ -309,7 +309,8 @@ function App() {
             <Route path="/calendar" element={<CalendarRoute />} />
           </Route>
           <Route element={<RequireFeature featureKey="bookings" />}>
-            <Route path="/bookings" element={<BookingsPage />} />
+            <Route path="/bookings" element={<Navigate to="/quotations" replace />} />
+            <Route path="/quotations" element={<BookingsPage />} />
           </Route>
           <Route element={<RequireFeature featureKey="contacts" />}>
             <Route path="/contacts" element={<ContactsPage />} />
