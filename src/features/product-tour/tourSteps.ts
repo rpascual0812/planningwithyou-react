@@ -116,7 +116,7 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       description: 'Connect Gmail, Outlook, Apple Mail, or Yahoo to send and receive email.',
     },
   ],
-  bookings: [
+  quotations: [
     {
       tour: 'settings-bookings-view',
       title: 'Quotations view',
