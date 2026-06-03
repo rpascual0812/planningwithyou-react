@@ -435,8 +435,8 @@ export function buildProductTourSteps(user: UserRecord): TourStepMeta[] {
     steps.push(
       step(
         'reports-payouts',
-        'Report payouts',
-        'View payout reports for your account.',
+        'Payment received',
+        'View payments received for your account.',
         '/reports',
       ),
     )

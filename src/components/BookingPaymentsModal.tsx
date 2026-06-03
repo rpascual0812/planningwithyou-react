@@ -7,6 +7,7 @@ import {
   type BookingPaymentRecord,
   type BookingPaymentSummary,
 } from '../services/bookingPaymentLinks'
+import ManualPaymentModal from './ManualPaymentModal'
 import CompanyKybModal from '../pages/settings/companies/CompanyKybModal'
 import { fetchCompanies, type CompanyRecord } from '../services/companies'
 import { formatCurrency } from '../utils/currency'
@@ -103,6 +104,7 @@ export default function BookingPaymentsModal({
   const [mainCompany, setMainCompany] = useState<CompanyRecord | null>(null)
   const [companyLoading, setCompanyLoading] = useState(true)
   const [kybModalOpen, setKybModalOpen] = useState(false)
+  const [manualPaymentOpen, setManualPaymentOpen] = useState(false)
 
   const kybVerified = mainCompany?.kyb_verified === true
 
@@ -170,14 +172,16 @@ export default function BookingPaymentsModal({
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !nestedModalOpen) onClose()
+      if (e.key === 'Escape' && !nestedModalOpen && !manualPaymentOpen && !kybModalOpen) {
+        onClose()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
       document.body.style.overflow = prev
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onClose, nestedModalOpen])
+  }, [onClose, nestedModalOpen, manualPaymentOpen, kybModalOpen])
 
   const summaryDisplay = useMemo(() => {
     const total = summary
@@ -627,6 +631,13 @@ export default function BookingPaymentsModal({
               )}
             </div>
             <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-primary"
+                onClick={() => setManualPaymentOpen(true)}
+              >
+                Add Manual Payment
+              </button>
               <button type="button" className="btn btn-secondary" onClick={onClose}>
                 Close
               </button>
@@ -634,6 +645,19 @@ export default function BookingPaymentsModal({
           </div>
         </div>
       </div>
+
+      {manualPaymentOpen && (
+        <ManualPaymentModal
+          bookingId={bookingId}
+          contactEmail={contactEmail}
+          defaultAmount={chargeInput}
+          onClose={() => setManualPaymentOpen(false)}
+          onSaved={() => {
+            void loadPayments()
+            setActiveTab('made')
+          }}
+        />
+      )}
 
       {kybModalOpen && mainCompany && (
         <CompanyKybModal

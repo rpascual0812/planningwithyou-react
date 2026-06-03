@@ -7,9 +7,9 @@ import {
 import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const PAYOUT_FILTER_OPTIONS = [
-  { value: '', label: 'All payouts' },
-  { value: 'pending', label: 'Pending payout' },
-  { value: 'sent', label: 'Payout sent' },
+  { value: '', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'sent', label: 'Received' },
 ] as const
 
 type PayoutFilter = (typeof PAYOUT_FILTER_OPTIONS)[number]['value']
@@ -38,13 +38,13 @@ function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
     'Transaction ID',
     'Transaction status',
     'Paid',
-    'Payout status',
-    'Payout sent at',
+    'Payment received',
+    'Payment received at',
   ]
   const lines = rows.map((row) => [
-    row.booking_unique_id || '',
-    row.booking_title || '',
-    formatMoney(row.booking_credit),
+    row.quotation_unique_id || '',
+    row.quotation_title || '',
+    formatMoney(row.quotation_credit),
     row.transaction_id || '',
     row.transaction_status || '',
     formatAppDateTime(row.transaction_date),
@@ -111,7 +111,7 @@ const ReportsPayoutPage = () => {
       setRowsPage(pageNum)
       setRowsHasMore(data.next != null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load payouts')
+      setError(e instanceof Error ? e.message : 'Failed to load payments received')
       if (replace) setRows([])
     } finally {
       if (replace) {
@@ -155,7 +155,7 @@ const ReportsPayoutPage = () => {
   const handleExportCsv = () => {
     if (rows.length === 0) return
     const stamp = new Date().toISOString().slice(0, 10)
-    downloadCsv(`payouts-${stamp}.csv`, buildPayoutsCsv(rows))
+    downloadCsv(`payments-received-${stamp}.csv`, buildPayoutsCsv(rows))
   }
 
   return (
@@ -169,7 +169,7 @@ const ReportsPayoutPage = () => {
             placeholder="Search quotation, transaction…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search payouts"
+            aria-label="Search payments received"
           />
           {search && (
             <button
@@ -187,7 +187,7 @@ const ReportsPayoutPage = () => {
             className="form-select form-select-sm emails-status-filter"
             value={payoutFilter}
             onChange={(e) => setPayoutFilter(e.target.value as PayoutFilter)}
-            aria-label="Filter by payout status"
+            aria-label="Filter by payment received status"
           >
             {PAYOUT_FILTER_OPTIONS.map((opt) => (
               <option key={opt.value || 'all'} value={opt.value}>
@@ -215,7 +215,7 @@ const ReportsPayoutPage = () => {
       <div ref={rowsScrollRef} className="emails-table-scroll">
         {loading && rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
-            <span className="emails-table-empty">Loading payouts…</span>
+            <span className="emails-table-empty">Loading payments received…</span>
           </div>
         ) : error && rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
@@ -223,7 +223,7 @@ const ReportsPayoutPage = () => {
           </div>
         ) : rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
-            <span className="emails-table-empty">No booking payments found.</span>
+            <span className="emails-table-empty">No payments received found.</span>
           </div>
         ) : (
           <table className="emails-table">
@@ -233,7 +233,7 @@ const ReportsPayoutPage = () => {
                 <th>Amount</th>
                 <th>Transaction</th>
                 <th>Paid</th>
-                <th>Payout status</th>
+                <th>Payment received</th>
               </tr>
             </thead>
             <tbody>
@@ -241,12 +241,12 @@ const ReportsPayoutPage = () => {
                 <tr key={row.id}>
                   <td>
                     <div className="small fw-semibold">
-                      {row.booking_unique_id || '—'}
+                      {row.quotation_unique_id || '—'}
                     </div>
-                    <div className="text-muted small">{row.booking_title}</div>
+                    <div className="text-muted small">{row.quotation_title}</div>
                   </td>
                   <td className="small fw-semibold font-monospace">
-                    {formatMoney(row.booking_credit)}
+                    {formatMoney(row.quotation_credit)}
                   </td>
                   <td className="small text-muted">
                     <div>{row.transaction_id || '—'}</div>
@@ -274,7 +274,7 @@ const ReportsPayoutPage = () => {
               {rowsLoadingMore && (
                 <tr className="emails-list-end">
                   <td colSpan={5} className="emails-table-empty">
-                    Loading more payouts…
+                    Loading more payments received…
                   </td>
                 </tr>
               )}

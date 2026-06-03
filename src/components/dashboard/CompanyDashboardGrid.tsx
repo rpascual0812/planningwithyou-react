@@ -150,13 +150,13 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
     },
     {
       day: 'Due',
-      date: String(owned.outstanding_booking_count),
-      count: owned.outstanding_booking_count,
+      date: String(owned.outstanding_quotation_count),
+      count: owned.outstanding_quotation_count,
       provided: 'Outstanding',
       working: formatMoney(owned.remaining_amount),
       tone: TONES[2],
       path: countsToSparklinePath(
-        [owned.outstanding_booking_count, company.payouts.pending_count].filter(
+        [owned.outstanding_quotation_count, company.payouts.pending_count].filter(
           (n) => n > 0,
         ),
       ),
@@ -324,7 +324,7 @@ export default function CompanyDashboardGrid({ company }: CompanyDashboardGridPr
         </h5>
         {company.is_user_company && company.payouts.pending_count > 0 ? (
           <Link to="/reports?tab=payouts" className="dash-cta-link">
-            View payouts report
+            View payments received report
           </Link>
         ) : (
           <Link to="/quotations" className="dash-cta-link">

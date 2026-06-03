@@ -40,7 +40,7 @@ export function parseSupplierFieldValue(value: string): SupplierFieldValue {
   }
 }
 
-/** JSON stored in ``booking_items.value`` (price lives on ``booking_items.price``). */
+/** JSON stored in ``quotation_items.value`` (price lives on ``quotation_items.price``). */
 export function serializeSupplierFieldValue(value: SupplierFieldValue): string {
   if (value.tier_id == null && value.supplier_id == null) {
     return ''

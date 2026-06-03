@@ -12,8 +12,8 @@ export type AdminBookingPaymentRecord = {
   company: number
   company_name: string
   booking: number
-  booking_unique_id: string
-  booking_title: string
+  quotation_unique_id: string
+  quotation_title: string
   base_amount: string
   platform_fee: string
   processing_fee: string

@@ -37,14 +37,14 @@ function actionTitle(entry: HistoryRecord): string {
     case 'create':
       return `${who} created this quotation`
     case 'delete':
-      if (entry.entity_type === 'booking_group') return `${who} removed a group`
-      if (entry.entity_type === 'booking') return `${who} deleted this quotation`
+      if (entry.entity_type === 'quotation_group') return `${who} removed a group`
+      if (entry.entity_type === 'quotation') return `${who} deleted this quotation`
       return `${who} removed an item`
     case 'replace':
       return `${who} updated quotation fields`
     case 'update':
     default:
-      if (entry.entity_type === 'booking_group') return `${who} updated a group`
+      if (entry.entity_type === 'quotation_group') return `${who} updated a group`
       return `${who} updated this quotation`
   }
 }
@@ -70,22 +70,22 @@ function summarizeChanges(entry: HistoryRecord): string[] {
     return lines
   }
 
-  if (entry.entity_type === 'booking_group' && typeof changes.name === 'string') {
+  if (entry.entity_type === 'quotation_group' && typeof changes.name === 'string') {
     lines.push(`Group: ${changes.name}`)
     return lines
   }
 
-  if (entry.action === 'delete' && entry.entity_type === 'booking') {
+  if (entry.action === 'delete' && entry.entity_type === 'quotation') {
     if (changes.unique_id) lines.push(`Quotation ID: ${formatValue(changes.unique_id)}`)
     if (changes.title) lines.push(`Title: ${formatValue(changes.title)}`)
     return lines
   }
 
-  const booking = changes.booking
-  if (booking && typeof booking === 'object') {
+  const quotation = changes.quotation
+  if (quotation && typeof quotation === 'object') {
     lines.push(
       ...fieldChangeLines(
-        booking as Record<string, { old?: unknown; new?: unknown }>,
+        quotation as Record<string, { old?: unknown; new?: unknown }>,
         BOOKING_FIELD_LABELS,
       ),
     )

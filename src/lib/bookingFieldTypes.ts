@@ -14,7 +14,7 @@ export type BookingField = {
   is_required: boolean
   options: BookingFieldOption[]
   price: string | null
-  /** Per-line downpayment (non-supplier fields); stored on ``booking_items``. */
+  /** Per-line downpayment (non-supplier fields); stored on ``quotation_items``. */
   requiredDownpayment?: string | null
   sort_order: number
   saved: boolean

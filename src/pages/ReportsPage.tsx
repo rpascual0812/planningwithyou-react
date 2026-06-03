@@ -7,7 +7,7 @@ const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<ReportsSection>(['payouts'])
 
 const NAV_ITEMS: ReportsNavItem[] = [
-  { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
+  { id: 'payouts', label: 'Payment Received', icon: 'bi-cash-stack' },
 ]
 
 const ReportsPage = () => {

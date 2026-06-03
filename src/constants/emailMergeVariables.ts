@@ -18,8 +18,8 @@ export type EmailMergeVariableKey =
   | 'verify_url'
   | 'lifetime'
   | 'payment_link'
-  | 'booking_id'
-  | 'booking_title'
+  | 'quotation_id'
+  | 'quotation_title'
   | 'transaction_id'
   | 'amount_paid'
   | 'event_title'
@@ -53,8 +53,8 @@ export const EMAIL_MERGE_VARIABLES: readonly EmailMergeVariableDef[] = [
   { key: 'verify_url', label: 'Verification URL' },
   { key: 'lifetime', label: 'Link lifetime (hours)' },
   { key: 'payment_link', label: 'Payment link' },
-  { key: 'booking_id', label: 'Quotation ID' },
-  { key: 'booking_title', label: 'Quotation title' },
+  { key: 'quotation_id', label: 'Quotation ID' },
+  { key: 'quotation_title', label: 'Quotation title' },
   { key: 'transaction_id', label: 'Transaction ID' },
   { key: 'amount_paid', label: 'Amount paid' },
   { key: 'event_title', label: 'Event title' },

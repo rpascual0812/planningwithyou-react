@@ -4,7 +4,7 @@ export type HistoryRecord = {
   id: number
   resource_type: string
   resource_id: number
-  booking_id: number | null
+  quotation_id: number | null
   entity_type: string
   entity_id: number | null
   action: 'create' | 'update' | 'delete' | 'replace'

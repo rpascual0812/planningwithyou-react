@@ -42,7 +42,7 @@ const FIELD_LABELS: Record<string, Record<string, string>> = {
     company_org_id: 'Company',
     notes: 'Notes',
   },
-  booking_status: {
+  quotation_status: {
     title: 'Title',
     description: 'Description',
     color: 'Color',
@@ -73,7 +73,7 @@ const RESOURCE_LABELS: Record<string, string> = {
   company: 'company',
   user: 'user',
   contact: 'contact',
-  booking_status: 'status',
+  quotation_status: 'status',
   email_template: 'email template',
   form_template: 'form template',
   supplier_setting: 'supplier setting',
@@ -199,7 +199,7 @@ export function describeResourceHistoryEntry(entry: HistoryRecord): {
   if (entry.resource_type === 'form_template') {
     lines.push(...summarizeNestedRows('Fields', changes.template_fields as never))
   }
-  if (entry.resource_type === 'booking_status') {
+  if (entry.resource_type === 'quotation_status') {
     lines.push(...summarizeNestedRows('Tags', changes.tags as never))
   }
 

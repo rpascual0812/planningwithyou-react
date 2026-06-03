@@ -13,9 +13,9 @@ type Props = {
 function describeEntry(entry: HistoryRecord, bookingMode: boolean) {
   if (
     bookingMode
-    || entry.entity_type === 'booking'
-    || entry.entity_type === 'booking_line'
-    || entry.entity_type === 'booking_group'
+    || entry.entity_type === 'quotation'
+    || entry.entity_type === 'quotation_item'
+    || entry.entity_type === 'quotation_group'
   ) {
     return describeHistoryEntry(entry as never)
   }

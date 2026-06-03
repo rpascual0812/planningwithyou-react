@@ -52,7 +52,7 @@ type SupplierFieldInputProps = {
   /** Booking form ``Date of Booking`` (YYYY-MM-DD). */
   dateOfEvent?: string
   /** When editing a booking, exclude it from the daily capacity count. */
-  excludeBookingId?: number | null
+  excludeQuotationId?: number | null
   tierLabel?: string
   packageLabel?: string
   supplierLabel?: string
@@ -65,7 +65,7 @@ export default function SupplierFieldInput({
   onChange,
   required = false,
   dateOfEvent = '',
-  excludeBookingId = null,
+  excludeQuotationId = null,
   packageLabel = 'Package',
   supplierLabel = 'Supplier',
   supplierTypeLabel = 'Supplier type',
@@ -259,7 +259,7 @@ export default function SupplierFieldInput({
       const result = await fetchSupplierBookingCapacity({
         supplierId,
         dateOfEvent: eventDate,
-        excludeBookingId,
+        excludeQuotationId,
       })
       return result.at_capacity
     } catch {
@@ -327,7 +327,7 @@ export default function SupplierFieldInput({
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateOfEvent, excludeBookingId])
+  }, [dateOfEvent, excludeQuotationId])
 
   useEffect(() => {
     if (!supplierMenuOpen) return

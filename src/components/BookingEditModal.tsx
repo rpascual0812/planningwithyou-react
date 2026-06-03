@@ -86,7 +86,7 @@ export type BookingFormState = {
   totalAmount?: string
   /** Persisted ``bookings.required_downpayment_amount`` (set after save). */
   requiredDownpaymentAmount?: string
-  /** Sum of successful ``booking_payments`` base credited (edit). */
+  /** Sum of successful ``quotation_payments`` base credited (edit). */
   paidAmount?: string
   paidChargeAmount?: string
   paidProcessingFees?: string
@@ -539,8 +539,8 @@ const BookingEditModal = ({
         user: emailMergeUser,
         company: emailMergeCompany,
         paymentLinkUrl: paymentUrl,
-        bookingId: form.uniqueId?.trim() || form.id,
-        bookingTitle: form.title,
+        quotationId: form.uniqueId?.trim() || form.id,
+        quotationTitle: form.title,
         amountPaid: form.paidChargeAmount || form.paidAmount || '0',
       })
       const payload: EmailPayload = {
@@ -1540,7 +1540,7 @@ const BookingEditModal = ({
           <SupplierFieldInput
             value={field.value}
             dateOfEvent={form.dateOfEvent}
-            excludeBookingId={form.mode === 'edit' ? form.id : null}
+            excludeQuotationId={form.mode === 'edit' ? form.id : null}
             onChange={(value, price, packageRequiredDownpayment) =>
               updateField(idx, {
                 value,

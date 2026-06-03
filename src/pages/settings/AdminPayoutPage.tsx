@@ -200,7 +200,7 @@ const AdminPayoutPage = () => {
   const handleMarkSent = async (row: AdminBookingPaymentRecord) => {
     if (row.payout_sent) return
 
-    const bookingRef = row.booking_unique_id || row.booking_title || 'this quotation'
+    const bookingRef = row.quotation_unique_id || row.quotation_title || 'this quotation'
     const result = await Swal.fire({
       title: 'Mark payout as sent?',
       html: `Confirm that <strong>${formatMoney(row.base_amount)}</strong> has been sent to <strong>${row.company_name}</strong> for quotation <strong>${bookingRef}</strong>.`,
@@ -328,9 +328,9 @@ const AdminPayoutPage = () => {
                   <td className="fw-semibold">{row.company_name}</td>
                   <td>
                     <div className="small fw-semibold">
-                      {row.booking_unique_id || '—'}
+                      {row.quotation_unique_id || '—'}
                     </div>
-                    <div className="text-muted small">{row.booking_title}</div>
+                    <div className="text-muted small">{row.quotation_title}</div>
                   </td>
                   <td className="small">
                     <PaymentBreakdown row={row} />

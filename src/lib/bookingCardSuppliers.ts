@@ -6,8 +6,8 @@ export type BookingCardSupplier = {
   logoUrl: string
 }
 
-/** Distinct suppliers from booking line rows (``booking_items``). */
-export function bookingCardSuppliersFromFieldValues(
+/** Distinct suppliers from quotation line rows (``quotation_items``). */
+export function quotationCardSuppliersFromFieldValues(
   fieldValues: BookingFieldValueRecord[] | undefined,
 ): BookingCardSupplier[] {
   const seen = new Set<number>()

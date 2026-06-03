@@ -27,7 +27,7 @@ export type DashboardCompanySummary = {
     paid_amount: string
     remaining_amount: string
     downpayment_required: string
-    outstanding_booking_count: number
+    outstanding_quotation_count: number
     downpayment_due_count: number
     upcoming: DashboardUpcomingBooking[]
   }

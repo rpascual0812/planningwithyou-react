@@ -55,7 +55,7 @@ export async function fetchSupplierOptions(
 export type SupplierBookingCapacityResult = {
   supplier_id: number
   max_bookings_per_day: number
-  booking_count: number
+  quotation_count: number
   at_capacity: boolean
   available: boolean
 }
@@ -63,14 +63,13 @@ export type SupplierBookingCapacityResult = {
 export async function fetchSupplierBookingCapacity(params: {
   supplierId: number
   dateOfEvent: string
-  excludeBookingId?: number | null
+  excludeQuotationId?: number | null
 }): Promise<SupplierBookingCapacityResult> {
   const search = new URLSearchParams()
   search.set('supplier_id', String(params.supplierId))
   search.set('date_of_event', params.dateOfEvent)
-  if (params.excludeBookingId != null) {
-    search.set('exclude_booking_id', String(params.excludeBookingId))
-  }
+  if (params.excludeQuotationId != null) {
+    search.set('exclude_quotation_id', String(params.excludeQuotationId))  }
   const res = await apiFetch(
     buildApiUrl(`/supplier-quotation-capacity/?${search.toString()}`),
     { headers: authHeaders() },

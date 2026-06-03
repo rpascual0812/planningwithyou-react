@@ -82,9 +82,9 @@ export default function PublicPayPage() {
     <div className="public-pay-page">
       <div className="public-pay-card">
         <p className="public-pay-card__eyebrow mb-1">{data.company_name}</p>
-        <h1 className="h4 mb-1">{data.booking_title}</h1>
-        {data.booking_unique_id && (
-          <p className="text-muted small mb-3">Quotation ID: {data.booking_unique_id}</p>
+        <h1 className="h4 mb-1">{data.quotation_title}</h1>
+        {data.quotation_unique_id && (
+          <p className="text-muted small mb-3">Quotation ID: {data.quotation_unique_id}</p>
         )}
 
         {statusParam === 'success' && !isPaid && (
@@ -100,7 +100,7 @@ export default function PublicPayPage() {
 
         {isPaid ? (
           <div className="alert alert-success" role="status">
-            <strong>Thank you.</strong> This booking has been paid.
+            <strong>Thank you.</strong> This quotation has been paid.
           </div>
         ) : isExpired ? (
           <div className="alert alert-secondary" role="status">

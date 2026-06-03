@@ -68,8 +68,8 @@ export type BookingPaymentLinksResponse = {
 export type PublicPaymentLinkRecord = {
   token: string
   status: string
-  booking_title: string
-  booking_unique_id: string
+  quotation_title: string
+  quotation_unique_id: string
   company_name: string
   currency: string
   currency_symbol: string
@@ -115,6 +115,36 @@ export async function cancelBookingPaymentLink(
       throw new Error('Failed to cancel payment link')
     }
   }
+}
+
+export type ManualBookingPaymentPayload = {
+  amount: string
+  payment_method: 'Cash' | 'Cheque' | 'Bank Transfer'
+  notes?: string
+}
+
+export async function createManualBookingPayment(
+  bookingId: number,
+  payload: ManualBookingPaymentPayload,
+): Promise<BookingPaymentRecord> {
+  const res = await apiFetch(
+    buildApiUrl(`/quotation-items/${bookingId}/manual-payments/`),
+    {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    },
+  )
+  if (!res.ok) {
+    try {
+      const body = await res.json()
+      throw new Error(extractError(body) || 'Failed to record manual payment')
+    } catch (e) {
+      if (e instanceof Error) throw e
+      throw new Error('Failed to record manual payment')
+    }
+  }
+  return res.json()
 }
 
 export async function createBookingPaymentLink(
