@@ -3087,6 +3087,85 @@ body,
   scroll-behavior: auto;
 }
 
+.kanban-board--loading {
+  cursor: default;
+}
+
+.kanban-column--skeleton .kanban-column-header {
+  border-top-color: #e4e7eb;
+}
+
+.kanban-skeleton-bar {
+  display: block;
+  border-radius: 0.35rem;
+  background: linear-gradient(
+    90deg,
+    #e8ebef 0%,
+    #f3f5f7 45%,
+    #e8ebef 90%
+  );
+  background-size: 200% 100%;
+  animation: kanban-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes kanban-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.kanban-skeleton-bar--col-title {
+  width: 55%;
+  height: 0.55rem;
+}
+
+.kanban-card--skeleton {
+  pointer-events: none;
+  cursor: default;
+  position: relative;
+  padding-left: 0.875rem;
+}
+
+.kanban-card--skeleton .kanban-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem 0.7rem 0;
+}
+
+.kanban-skeleton-bar--strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0.5rem 0 0 0.5rem;
+  animation: none;
+  background: #e4e7eb;
+}
+
+.kanban-skeleton-bar--id {
+  width: 38%;
+  height: 0.45rem;
+}
+
+.kanban-skeleton-bar--title {
+  width: 78%;
+  height: 0.5rem;
+}
+
+.kanban-skeleton-bar--line {
+  width: 55%;
+  height: 0.45rem;
+}
+
+.kanban-card--skeleton.is-short .kanban-skeleton-bar--title {
+  width: 52%;
+}
+
 .kanban-column {
   flex: 0 0 320px;
   max-width: 320px;

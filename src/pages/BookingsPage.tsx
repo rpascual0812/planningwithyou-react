@@ -20,6 +20,7 @@ import {
 import BookingEditModal, { type BookingFormState, type BookingField, clearBookingDraft } from '../components/BookingEditModal'
 import { finalizeBookingFieldDefinitions } from '../lib/bookingFieldSave'
 import KanbanColumnStatusTags from '../components/KanbanColumnStatusTags'
+import KanbanBoardLoadingPlaceholder from '../components/KanbanBoardLoadingPlaceholder'
 import BookingPaymentStatusPill from '../components/BookingPaymentStatusPill'
 import { bookingPaymentStatus } from '../lib/bookingPaymentStatus'
 import AppointmentEditModal, {
@@ -855,6 +856,37 @@ const BookingsPage = () => {
   const cardsViewActive = activeView === 'cards'
   const boardSearchActive =
     (boardViewActive || cardsViewActive) && debouncedSearch.trim().length > 0
+
+  const boardLoading = useMemo(() => {
+    if (!boardViewActive) return false
+    if (loading) return true
+    if (boardSearchActive) {
+      return boardSearch.loading && boardSearch.items.length === 0
+    }
+    if (columns.length === 0) return false
+
+    const hasAnyItems =
+      columns.some((col) => (boardColumns[col.id]?.items.length ?? 0) > 0) ||
+      foreignBoard.items.length > 0
+    if (hasAnyItems) return false
+
+    return (
+      columns.some((col) => !boardColumns[col.id] || boardColumns[col.id].loading) ||
+      foreignBoard.loading
+    )
+  }, [
+    boardViewActive,
+    loading,
+    boardSearchActive,
+    boardSearch.loading,
+    boardSearch.items.length,
+    columns,
+    boardColumns,
+    foreignBoard.loading,
+    foreignBoard.items.length,
+  ])
+
+  const boardSkeletonColumns = Math.max(columns.length, 3)
 
   const cardsDisplayItems = useMemo(() => {
     if (!cardsViewActive) return []
@@ -2371,7 +2403,7 @@ const BookingsPage = () => {
     </section>
   )
 
-  if (loading) {
+  if (loading && activeView !== 'board') {
     return (
       <div className="app-content">
         <div className="container-fluid">
@@ -2473,7 +2505,11 @@ const BookingsPage = () => {
           )}
         </div>
 
-        {activeView === 'board' && (
+        {activeView === 'board' && boardLoading && (
+          <KanbanBoardLoadingPlaceholder columns={boardSkeletonColumns} />
+        )}
+
+        {activeView === 'board' && !boardLoading && (
           <div
             ref={boardRef}
             className="kanban-board"
