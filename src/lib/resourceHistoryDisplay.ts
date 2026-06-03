@@ -51,6 +51,8 @@ const FIELD_LABELS: Record<string, Record<string, string>> = {
   email_template: {
     name: 'Name',
     title: 'Title',
+    cc: 'CC',
+    bcc: 'BCC',
     subject: 'Subject',
     body: 'Body',
     is_active: 'Active',
@@ -80,6 +82,10 @@ const RESOURCE_LABELS: Record<string, string> = {
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '—'
+    return value.map((v) => String(v)).join(', ')
+  }
   return String(value)
 }
 

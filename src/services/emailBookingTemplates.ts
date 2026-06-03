@@ -6,6 +6,8 @@ export type EmailBookingTemplateRecord = {
   id: number
   name: string
   title: string
+  cc: string[]
+  bcc: string[]
   subject: string
   body: string
   type: 'bookings'
@@ -20,6 +22,8 @@ export type EmailBookingTemplateRecord = {
 export type EmailBookingTemplatePayload = {
   name: string
   title: string
+  cc?: string[]
+  bcc?: string[]
   subject: string
   body: string
   is_active: boolean

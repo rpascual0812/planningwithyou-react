@@ -31,7 +31,9 @@ import type {
   EmailCalendarTemplatePayload,
   EmailCalendarTemplateRecord,
 } from '../../services/emailCalendarTemplates'
+import EmailCcBccFields from '../../components/EmailRecipientFields'
 import CompanyFilterSelect from '../../components/CompanyFilterSelect'
+import { normalizeEmailList } from '../../lib/emailRecipients'
 import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
@@ -45,10 +47,19 @@ type EmailTemplatePayload =
   | EmailCalendarTemplatePayload
 
 /** Form state shown in the UI; `name` is derived from `title` when saving (hidden from user). */
-type EmailTemplateFormFields = Omit<EmailTemplatePayload, 'name'>
+type EmailTemplateFormFields = {
+  title: string
+  cc: string[]
+  bcc: string[]
+  subject: string
+  body: string
+  is_active: boolean
+}
 
 const EMPTY_FORM: EmailTemplateFormFields = {
   title: '',
+  cc: [],
+  bcc: [],
   subject: '',
   body: '',
   is_active: true,
@@ -73,6 +84,8 @@ type EmailTemplatesPanelConfig = {
 function formFromRecord(r: EmailTemplateRecord): EmailTemplateFormFields {
   return {
     title: r.title || r.name,
+    cc: normalizeEmailList(r.cc ?? []),
+    bcc: normalizeEmailList(r.bcc ?? []),
     subject: r.subject,
     body: r.body,
     is_active: r.is_active,
@@ -105,6 +118,8 @@ function toApiPayload(
   return {
     name: mode === 'create' ? titleToTemplateName(form.title) : (existingName ?? 'untitled'),
     title: form.title.trim(),
+    cc: normalizeEmailList(form.cc),
+    bcc: normalizeEmailList(form.bcc),
     subject: normalizeSubject(form.subject),
     body: form.body,
     is_active: form.is_active,
@@ -403,6 +418,13 @@ export const EmailTemplatesPanel = ({
                       required
                     />
                   </div>
+                  <EmailCcBccFields
+                    value={{ cc: form.cc, bcc: form.bcc }}
+                    onChange={({ cc, bcc }) => {
+                      setForm((prev) => ({ ...prev, cc, bcc }))
+                    }}
+                    disabled={!templatesWrite}
+                  />
                   <div className="mb-3">
                     <span className="form-label d-block mb-2">Subject</span>
                     <div className="email-subject-editor">

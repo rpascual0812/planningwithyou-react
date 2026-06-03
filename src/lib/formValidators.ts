@@ -13,6 +13,16 @@ export function validateEmailAddress(value: string): string | null {
   return null
 }
 
+/** Empty input is valid; non-empty must match ``EMAIL_PATTERN``. */
+export function validateOptionalEmailAddress(value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (!EMAIL_PATTERN.test(trimmed)) {
+    return 'Please enter a valid email address.'
+  }
+  return null
+}
+
 export function validateMobileNumber(
   value: string,
   { required = true }: { required?: boolean } = {},

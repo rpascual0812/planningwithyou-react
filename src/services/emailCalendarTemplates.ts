@@ -6,6 +6,8 @@ export type EmailCalendarTemplateRecord = {
   id: number
   name: string
   title: string
+  cc: string[]
+  bcc: string[]
   subject: string
   body: string
   type: 'calendar'
@@ -20,6 +22,8 @@ export type EmailCalendarTemplateRecord = {
 export type EmailCalendarTemplatePayload = {
   name: string
   title: string
+  cc?: string[]
+  bcc?: string[]
   subject: string
   body: string
   is_active: boolean

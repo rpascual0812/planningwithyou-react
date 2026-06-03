@@ -19,86 +19,8 @@ import {
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,
 } from '../lib/tinymceEmailMergeVariables'
 import { TINYMCE_EDITOR_SHARED_PROPS } from '../lib/tinymceFreeEditor'
-
-/* ------------------------------------------------------------------ */
-/*  Inline email-list input (input + add button + tag list)            */
-/* ------------------------------------------------------------------ */
-
-type EmailListInputProps = {
-  label: string
-  emails: string[]
-  onChange: (emails: string[]) => void
-}
-
-const EmailListInput = ({ label, emails, onChange }: EmailListInputProps) => {
-  const [draft, setDraft] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const addEmails = () => {
-    const incoming = draft
-      .split(/[,;\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (incoming.length === 0) return
-    const unique = incoming.filter((e) => !emails.includes(e))
-    if (unique.length) onChange([...emails, ...unique])
-    setDraft('')
-    inputRef.current?.focus()
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addEmails()
-    }
-  }
-
-  const remove = (idx: number) => {
-    onChange(emails.filter((_, i) => i !== idx))
-  }
-
-  return (
-    <div>
-      <label className="form-label">{label}</label>
-      <div className="input-group input-group-sm">
-        <input
-          ref={inputRef}
-          type="email"
-          className="form-control"
-          placeholder="Add email address..."
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <button
-          type="button"
-          className="btn btn-outline-primary"
-          onClick={addEmails}
-          disabled={!draft.trim()}
-        >
-          <i className="bi bi-plus-lg" />
-        </button>
-      </div>
-      {emails.length > 0 && (
-        <div className="email-tag-list">
-          {emails.map((addr, idx) => (
-            <span key={idx} className="email-tag">
-              {addr}
-              <button
-                type="button"
-                className="email-tag-remove"
-                onClick={() => remove(idx)}
-                aria-label={`Remove ${addr}`}
-              >
-                <i className="bi bi-x" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+import { normalizeEmailList } from '../lib/emailRecipients'
+import { EmailRecipientFields } from './EmailRecipientFields'
 
 const statusBadge = (status: EmailRecord['status']) => {
   const cls =
@@ -359,7 +281,13 @@ const EmailSenderModal = ({
     initialSubjectRef.current = subject
     initialHtmlRef.current = body
     setForm((prev) => {
-      const next = { ...prev, subject, body }
+      const next = {
+        ...prev,
+        subject,
+        body,
+        cc: normalizeEmailList(template.cc ?? []),
+        bcc: normalizeEmailList(template.bcc ?? []),
+      }
       saveDraft(storageKey, next)
       return next
     })
@@ -513,24 +441,21 @@ const EmailSenderModal = ({
 
               <div className="row g-3 mb-3">
                 <div className="col-12">
-                  <EmailListInput
-                    label="To"
-                    emails={form.to ?? []}
-                    onChange={(val) => setField('to', val)}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <EmailListInput
-                    label="CC"
-                    emails={form.cc ?? []}
-                    onChange={(val) => setField('cc', val)}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <EmailListInput
-                    label="BCC"
-                    emails={form.bcc ?? []}
-                    onChange={(val) => setField('bcc', val)}
+                  <EmailRecipientFields
+                    fields={['to', 'cc', 'bcc']}
+                    value={{
+                      to: form.to ?? [],
+                      cc: form.cc ?? [],
+                      bcc: form.bcc ?? [],
+                    }}
+                    onChange={({ to, cc, bcc }) => {
+                      setForm((prev) => {
+                        const next = { ...prev, to, cc, bcc }
+                        saveDraft(storageKey, next)
+                        return next
+                      })
+                    }}
+                    disabled={sending || !canWrite}
                   />
                 </div>
                 <div className="col-12">

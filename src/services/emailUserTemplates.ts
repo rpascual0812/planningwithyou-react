@@ -6,6 +6,8 @@ export type EmailUserTemplateRecord = {
   id: number
   name: string
   title: string
+  cc: string[]
+  bcc: string[]
   subject: string
   body: string
   type: 'users'
@@ -20,6 +22,8 @@ export type EmailUserTemplateRecord = {
 export type EmailUserTemplatePayload = {
   name: string
   title: string
+  cc?: string[]
+  bcc?: string[]
   subject: string
   body: string
   is_active: boolean

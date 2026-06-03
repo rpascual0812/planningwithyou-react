@@ -7327,6 +7327,123 @@ body,
   color: var(--bs-danger);
 }
 
+.email-recipient-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.email-recipient-fields__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.email-cc-bcc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.email-recipient-field {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.email-recipient-field--full {
+  grid-column: 1 / -1;
+}
+
+.email-recipient-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: calc(1.5em + 0.75rem + 2px);
+  height: auto;
+  padding: 0.35rem 0.5rem;
+  cursor: text;
+}
+
+.email-recipient-box.is-disabled {
+  background-color: var(--bs-secondary-bg);
+  cursor: not-allowed;
+}
+
+.email-recipient-box.is-drop-target {
+  border-color: var(--brand-green);
+  box-shadow: 0 0 0 0.2rem rgba(62, 176, 133, 0.2);
+}
+
+.email-recipient-box:focus-within {
+  border-color: #86b7fe;
+  outline: 0;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.email-recipient-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.1rem 0.35rem 0.1rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  background: var(--brand-green-soft, #e6f5ed);
+  color: var(--brand-green-dark, #2a8e6a);
+  border: 1px solid var(--brand-green-light, #7ed0ad);
+  border-radius: 1rem;
+  max-width: 100%;
+  cursor: grab;
+  user-select: none;
+}
+
+.email-recipient-badge.is-dragging {
+  opacity: 0.45;
+}
+
+.email-recipient-badge:active {
+  cursor: grabbing;
+}
+
+.email-recipient-badge-remove {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  font-size: 0.85rem;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.email-recipient-badge-remove:hover {
+  opacity: 1;
+  color: var(--bs-danger);
+}
+
+.email-recipient-input,
+.email-recipient-edit-input {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0.1rem 0.25rem;
+  font-size: 0.875rem;
+}
+
+.email-recipient-edit-input {
+  flex: 0 1 auto;
+  min-width: 6rem;
+  max-width: 100%;
+  border: 1px solid var(--brand-green);
+  border-radius: 0.25rem;
+  background: #fff;
+  padding: 0.15rem 0.4rem;
+}
+
 .tag-typeahead-input {
   flex: 1 1 8rem;
   min-width: 6rem;
