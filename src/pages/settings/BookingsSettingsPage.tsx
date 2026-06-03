@@ -951,16 +951,12 @@ const TemplateFormModal = ({
     onSave(payload)
   }
 
-  /* -- body overflow lock + Escape -- */
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handler)
     return () => {
-      document.body.style.overflow = prev
       window.removeEventListener('keydown', handler)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2019,14 +2019,12 @@ const BookingsPage = () => {
     columns,
   ])
 
-  // --- Esc / body scroll lock for modals -----------------------------------
+  // --- Escape to close modals ----------------------------------------------
 
   useEffect(() => {
     if (!statusModal && !itemModal) {
       return
     }
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setStatusModal(null)
@@ -2037,7 +2035,6 @@ const BookingsPage = () => {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      document.body.style.overflow = prevOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [statusModal, itemModal])

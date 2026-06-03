@@ -147,14 +147,11 @@ const IntegrationGroupContent = ({ purpose }: IntegrationGroupContentProps) => {
 
   useEffect(() => {
     if (!selectedIntegration) return
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelectedIntegration(null)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      document.body.style.overflow = prevOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [selectedIntegration])

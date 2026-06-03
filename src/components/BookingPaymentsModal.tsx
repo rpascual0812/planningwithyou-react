@@ -169,8 +169,6 @@ export default function BookingPaymentsModal({
   }, [loadPayments])
 
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !nestedModalOpen && !manualPaymentOpen && !kybModalOpen) {
         onClose()
@@ -178,7 +176,6 @@ export default function BookingPaymentsModal({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
-      document.body.style.overflow = prev
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [onClose, nestedModalOpen, manualPaymentOpen, kybModalOpen])

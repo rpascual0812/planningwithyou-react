@@ -79,14 +79,11 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
   }, [selectedFolderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handler)
     return () => {
-      document.body.style.overflow = prev
       window.removeEventListener('keydown', handler)
     }
   }, [onClose])
