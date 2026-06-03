@@ -5,6 +5,7 @@ export type UserRecord = {
   account: number | null
   company: number | null
   company_name?: string
+  company_timezone?: string
   company_logo_url?: string
   photo_url?: string
   username: string

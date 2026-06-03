@@ -21,6 +21,10 @@ import {
 import { TINYMCE_EDITOR_SHARED_PROPS } from '../lib/tinymceFreeEditor'
 import { normalizeEmailList } from '../lib/emailRecipients'
 import { EmailRecipientFields } from './EmailRecipientFields'
+import {
+  emailLogDisplayTimeZone,
+  formatAppDateTime,
+} from '../lib/formatDateTime'
 
 const statusBadge = (status: EmailRecord['status']) => {
   const cls =
@@ -598,12 +602,24 @@ const EmailSenderModal = ({
                   </div>
                   <div className="col-auto">
                     <strong>Created:</strong>{' '}
-                    {new Date(email.created_at).toLocaleString()}
+                    {formatAppDateTime(
+                      email.created_at,
+                      emailLogDisplayTimeZone(
+                        email,
+                        mergeCompany ? [mergeCompany] : [],
+                      ),
+                    )}
                   </div>
                   {email.sent_at && (
                     <div className="col-auto">
                       <strong>Sent:</strong>{' '}
-                      {new Date(email.sent_at).toLocaleString()}
+                      {formatAppDateTime(
+                        email.sent_at,
+                        emailLogDisplayTimeZone(
+                          email,
+                          mergeCompany ? [mergeCompany] : [],
+                        ),
+                      )}
                     </div>
                   )}
                 </div>

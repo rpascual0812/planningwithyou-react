@@ -4,6 +4,7 @@ import {
   type BookingPayoutsPage,
   type BookingPayoutRecord,
 } from '../../services/bookingPayouts'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const PAYOUT_FILTER_OPTIONS = [
   { value: '', label: 'All payouts' },
@@ -20,12 +21,6 @@ function formatMoney(value: string | number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
 function csvEscape(value: string): string {
@@ -52,9 +47,9 @@ function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
     formatMoney(row.booking_credit),
     row.transaction_id || '',
     row.transaction_status || '',
-    formatDateTime(row.transaction_date),
+    formatAppDateTime(row.transaction_date),
     row.payout_sent ? 'Sent' : 'Pending',
-    formatDateTime(row.payout_sent_at),
+    formatAppDateTime(row.payout_sent_at),
   ])
   return [
     headers.map(csvEscape).join(','),
@@ -258,12 +253,12 @@ const ReportsPayoutPage = () => {
                     <div>{row.transaction_status || '—'}</div>
                   </td>
                   <td className="small text-muted">
-                    {formatDateTime(row.transaction_date)}
+                    {formatAppDateTime(row.transaction_date)}
                   </td>
                   <td>
                     {row.payout_sent ? (
                       <span className="badge text-bg-success">
-                        Sent {formatDateTime(row.payout_sent_at)}
+                        Sent {formatAppDateTime(row.payout_sent_at)}
                       </span>
                     ) : (
                       <span className="badge text-bg-warning">Pending</span>

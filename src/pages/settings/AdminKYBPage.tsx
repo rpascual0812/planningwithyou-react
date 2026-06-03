@@ -7,6 +7,7 @@ import {
   type AdminKybStatusFilter,
   type CompanyKybListRecord,
 } from '../../services/adminCompanyKyb'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const STATUS_OPTIONS: { value: AdminKybStatusFilter; label: string }[] = [
   { value: 'pending_paymongo', label: 'Pending PayMongo' },
@@ -27,12 +28,6 @@ const STATUS_LABEL: Record<string, string> = {
   pending_paymongo: 'Pending PayMongo',
   approved: 'Approved',
   rejected: 'Rejected',
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
 const AdminKYBPage = () => {
@@ -246,8 +241,8 @@ const AdminKYBPage = () => {
                           {STATUS_LABEL[row.status] ?? row.status}
                         </span>
                       </td>
-                      <td>{formatDateTime(row.submitted_at)}</td>
-                      <td>{formatDateTime(row.reviewed_at)}</td>
+                      <td>{formatAppDateTime(row.submitted_at)}</td>
+                      <td>{formatAppDateTime(row.reviewed_at)}</td>
                       <td className="emails-table-actions">
                         <button
                           type="button"

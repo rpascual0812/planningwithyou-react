@@ -15,12 +15,7 @@ import {
   type SupportTicketsPage,
   type SupportTicketRecord,
 } from '../../services/supportTickets'
-
-function formatDateTime(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return iso
-  return parsed.toLocaleString()
-}
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const ProfileSupportSection = () => {
   const [rows, setRows] = useState<SupportTicketRecord[]>([])
@@ -259,7 +254,7 @@ const ProfileSupportSection = () => {
                       {SUPPORT_TICKET_STATUS_LABELS[row.status] ?? row.status}
                     </td>
                     <td className="text-muted small">
-                      {formatDateTime(row.last_message_at || row.created_at)}
+                      {formatAppDateTime(row.last_message_at || row.created_at)}
                     </td>
                     <td className="text-end text-nowrap">
                       <button

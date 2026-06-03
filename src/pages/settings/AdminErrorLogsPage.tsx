@@ -10,6 +10,7 @@ import {
   type AdminErrorLogRecord,
 } from '../../services/adminErrorLogs'
 import { showErrorToast, showSuccessToast } from '../../utils/toast'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const METHOD_OPTIONS = [
   { value: '', label: 'All methods' },
@@ -50,12 +51,6 @@ const TIME_RANGE_OPTIONS = [
   { value: '30d', label: 'Last month' },
 ]
 const MODAL_TEXT_MAX = 1200
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
-}
 
 function truncate(text: string, max = 120): string {
   const trimmed = text.trim()
@@ -492,7 +487,7 @@ const AdminErrorLogsPage = () => {
                         onClick={() => handleOpenRow(row.id)}
                       >
                         <div className="text-muted admin-error-logs-when">
-                          {formatDateTime(row.created_at)}
+                          {formatAppDateTime(row.created_at)}
                         </div>
                         <div className="admin-error-logs-path" title={row.path}>
                           {truncate(row.path, 120)}
@@ -605,8 +600,8 @@ const AdminErrorLogsPage = () => {
                       <div><strong>User:</strong> {selectedLog.user_email || selectedLog.user || '—'}</div>
                       <div><strong>Account:</strong> {selectedLog.account_name || selectedLog.account || '—'}</div>
                       <div><strong>IP address:</strong> {selectedLog.ip_address || '—'}</div>
-                      <div><strong>Created:</strong> {formatDateTime(selectedLog.created_at)}</div>
-                      <div><strong>Resolved at:</strong> {formatDateTime(selectedLog.resolved_at)}</div>
+                      <div><strong>Created:</strong> {formatAppDateTime(selectedLog.created_at)}</div>
+                      <div><strong>Resolved at:</strong> {formatAppDateTime(selectedLog.resolved_at)}</div>
                       <hr />
                       <div className="mb-2">
                         <strong>User agent</strong>

@@ -12,6 +12,7 @@ export type EmailRecord = {
   attachments: string[]
   created_by: number | null
   company_id: number | null
+  company_timezone?: string
   status: 'queued' | 'sent' | 'failed'
   error: string
   attempts: number
@@ -45,19 +46,28 @@ export async function fetchEmails(
   return page.results
 }
 
-export async function fetchEmailsPage(
-  page = 1,
-  search = '',
-  statusFilter = '',
+function emailsQuerySuffix(
+  page: number,
+  search: string,
+  statusFilter: string,
   companyId?: number | null,
-): Promise<EmailsPage> {
+): string {
   const params = new URLSearchParams()
   params.set('page', String(page))
   params.set('paginated', 'true')
   if (search) params.set('search', search)
   if (statusFilter) params.set('status', statusFilter)
   if (companyId != null) params.set('company_id', String(companyId))
-  const qs = params.toString() ? `?${params.toString()}` : ''
+  return params.toString() ? `?${params.toString()}` : ''
+}
+
+export async function fetchEmailsPage(
+  page = 1,
+  search = '',
+  statusFilter = '',
+  companyId?: number | null,
+): Promise<EmailsPage> {
+  const qs = emailsQuerySuffix(page, search, statusFilter, companyId)
 
   const res = await apiFetch(buildApiUrl(`/emails/${qs}`), {
     headers: authHeaders(),
@@ -113,8 +123,12 @@ function apiEmailBody(data: EmailPayload): EmailPayload {
 
 export async function sendEmail(
   data: EmailPayload,
+  companyId?: number | null,
 ): Promise<EmailRecord> {
-  const res = await apiFetch(buildApiUrl('/emails/'), {
+  const params = new URLSearchParams()
+  if (companyId != null) params.set('company_id', String(companyId))
+  const qs = params.toString() ? `?${params.toString()}` : ''
+  const res = await apiFetch(buildApiUrl(`/emails/${qs}`), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(apiEmailBody(data)),

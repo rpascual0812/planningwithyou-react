@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
+import AppTimezoneSync from './components/AppTimezoneSync'
 import { useAuthSession } from './context/AuthSessionContext'
 import { accessFor } from './lib/featureAccess'
 import { canAccessAdmin, canAccessAnyAdminTab } from './lib/adminNavAccess'
@@ -253,6 +254,7 @@ function DashboardLayout() {
 
   return (
     <div className={wrapperClassName}>
+      <AppTimezoneSync />
       <ProductTourRunner onEnsureSidebarOpen={ensureSidebarOpenForTour} />
       <Navbar onToggleSidebar={handleToggleSidebar} />
       <Sidebar />

@@ -14,6 +14,7 @@ import { validateEmailAddress } from '../lib/formValidators'
 import { historyPaths } from '../services/history'
 import CompanyFilterSelect from '../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../hooks/useCompanyFilter'
+import { formatAppDate } from '../lib/formatDateTime'
 import {
   fetchUsersPage,
   fetchUserSeatUsage,
@@ -557,7 +558,7 @@ const UsersPage = () => {
                         {user.account ?? '—'}
                       </td>
                       <td className="users-table-office">
-                        {new Date(user.created_at).toLocaleDateString()}
+                        {formatAppDate(user.created_at)}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         {(usersWrite || usersRead) && (

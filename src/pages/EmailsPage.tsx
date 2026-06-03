@@ -12,6 +12,10 @@ import {
 import CompanyFilterSelect from '../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../hooks/useCompanyFilter'
 import { useFeatureAccess } from '../hooks/useFeatureAccess'
+import {
+  emailLogDisplayTimeZone,
+  formatAppDateTime,
+} from '../lib/formatDateTime'
 
 const EDIT_PARAM = 'edit'
 
@@ -264,7 +268,7 @@ const EmailsPage = () => {
       if (selected) {
         await resendEmail(selected.id, data)
       } else {
-        await sendEmail(data)
+        await sendEmail(data, activeCompanyId)
       }
       closeModal()
       await loadEmails(debouncedSearch, statusFilter, activeCompanyId)
@@ -387,11 +391,17 @@ const EmailsPage = () => {
                       <td className="emails-attempts">{email.attempts}</td>
                       <td className="emails-date">
                         {email.sent_at
-                          ? new Date(email.sent_at).toLocaleString()
+                          ? formatAppDateTime(
+                              email.sent_at,
+                              emailLogDisplayTimeZone(email, companies),
+                            )
                           : '—'}
                       </td>
                       <td className="emails-date">
-                        {new Date(email.created_at).toLocaleString()}
+                        {formatAppDateTime(
+                          email.created_at,
+                          emailLogDisplayTimeZone(email, companies),
+                        )}
                       </td>
                       <td>
                         <div className="emails-actions">

@@ -16,6 +16,8 @@ import {
   clearStoredTokens,
 } from '../services/auth'
 import { fetchMe, type UserRecord } from '../services/users'
+import { setActiveAppTimeZone } from '../lib/appTimezone'
+import { resolveTimezoneInput } from '../lib/timezones'
 
 type AuthSessionContextValue = {
   isAuthenticated: boolean
@@ -71,12 +73,18 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       const user = await fetchMe()
       setCurrentUser(user)
       setSubscriptionPlan(user.subscription_plan ?? 'free')
+      setActiveAppTimeZone(
+        user.company_timezone?.trim()
+          ? resolveTimezoneInput(user.company_timezone)
+          : undefined,
+      )
       hasLoadedUserRef.current = true
     } catch (err) {
       if (isAbortError(err)) return
       hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
+      setActiveAppTimeZone(undefined)
       setIsAuthenticated(false)
       clearStoredTokens()
     } finally {
@@ -100,6 +108,11 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const updateCurrentUser = useCallback((user: UserRecord) => {
     setCurrentUser(user)
     setSubscriptionPlan(user.subscription_plan ?? 'free')
+    setActiveAppTimeZone(
+      user.company_timezone?.trim()
+        ? resolveTimezoneInput(user.company_timezone)
+        : undefined,
+    )
     hasLoadedUserRef.current = true
     setUserLoading(false)
   }, [])

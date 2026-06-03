@@ -14,6 +14,10 @@ import {
   fetchCompaniesDirectory,
   type CompanyRecord,
 } from '../../services/companies'
+import {
+  emailLogDisplayTimeZone,
+  formatAppDateTime,
+} from '../../lib/formatDateTime'
 
 const EDIT_PARAM = 'edit'
 
@@ -388,11 +392,17 @@ const AdminEmailPage = () => {
                       <td className="emails-attempts">{email.attempts}</td>
                       <td className="emails-date">
                         {email.sent_at
-                          ? new Date(email.sent_at).toLocaleString()
+                          ? formatAppDateTime(
+                              email.sent_at,
+                              emailLogDisplayTimeZone(email, companies),
+                            )
                           : '—'}
                       </td>
                       <td className="emails-date">
-                        {new Date(email.created_at).toLocaleString()}
+                        {formatAppDateTime(
+                          email.created_at,
+                          emailLogDisplayTimeZone(email, companies),
+                        )}
                       </td>
                       <td>
                         <div className="emails-actions">

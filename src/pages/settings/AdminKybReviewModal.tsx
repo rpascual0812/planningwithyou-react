@@ -5,6 +5,7 @@ import {
 } from '../../services/adminCompanyKyb'
 import type { CompanyKybRecord } from '../../services/companyKyb'
 import { showErrorToast, showSuccessToast } from '../../utils/toast'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 type Props = {
   verificationId: number
@@ -26,12 +27,6 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
   sole_proprietor: 'Sole proprietorship',
   partnership: 'Partnership',
   corporation: 'Corporation',
-}
-
-function formatDateTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
 function KybReadOnlyText({
@@ -165,13 +160,13 @@ const AdminKybReviewModal = ({
                     <div className="col-sm-6">
                       <KybReadOnlyText
                         label="Started at"
-                        value={formatDateTime(record.submitted_at)}
+                        value={formatAppDateTime(record.submitted_at)}
                       />
                     </div>
                     <div className="col-sm-6">
                       <KybReadOnlyText
                         label="Reviewed at"
-                        value={formatDateTime(record.reviewed_at)}
+                        value={formatAppDateTime(record.reviewed_at)}
                       />
                     </div>
                   </div>

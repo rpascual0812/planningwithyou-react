@@ -13,6 +13,7 @@ import {
   type SupportTicketRecord,
   type SupportTicketStatus,
 } from '../../services/supportTickets'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const STATUS_OPTIONS: { value: '' | SupportTicketStatus; label: string }[] = [
   { value: '', label: 'All statuses' },
@@ -21,12 +22,6 @@ const STATUS_OPTIONS: { value: '' | SupportTicketStatus; label: string }[] = [
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
 ]
-
-function formatDateTime(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return iso
-  return parsed.toLocaleString()
-}
 
 const AdminSupportPage = () => {
   const { canWrite: supportWrite } = useFeatureAccess('admin_support')
@@ -225,7 +220,7 @@ const AdminSupportPage = () => {
                     {SUPPORT_TICKET_STATUS_LABELS[row.status] ?? row.status}
                   </td>
                   <td className="text-muted small">
-                    {formatDateTime(row.last_message_at || row.created_at)}
+                    {formatAppDateTime(row.last_message_at || row.created_at)}
                   </td>
                   <td className="text-end">
                     <button

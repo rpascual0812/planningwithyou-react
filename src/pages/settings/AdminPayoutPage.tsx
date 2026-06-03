@@ -12,6 +12,7 @@ import {
   markAdminBookingPayoutSent,
   type AdminBookingPaymentRecord,
 } from '../../services/adminBookingPayouts'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const PAYOUT_FILTER_OPTIONS = [
   { value: '', label: 'All payouts' },
@@ -28,12 +29,6 @@ function formatMoney(value: string | number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
 function PaymentBreakdown({ row }: { row: AdminBookingPaymentRecord }) {
@@ -345,12 +340,12 @@ const AdminPayoutPage = () => {
                     <div>{row.transaction_status || '—'}</div>
                   </td>
                   <td className="small text-muted">
-                    {formatDateTime(row.transaction_date)}
+                    {formatAppDateTime(row.transaction_date)}
                   </td>
                   <td>
                     {row.payout_sent ? (
                       <span className="badge text-bg-success">
-                        Sent {formatDateTime(row.payout_sent_at)}
+                        Sent {formatAppDateTime(row.payout_sent_at)}
                       </span>
                     ) : (
                       <span className="badge text-bg-warning">Pending</span>

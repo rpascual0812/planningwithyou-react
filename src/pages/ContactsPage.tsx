@@ -17,6 +17,7 @@ import {
 } from '../services/contacts'
 import { fetchMe } from '../services/users'
 import { useFeatureAccess } from '../hooks/useFeatureAccess'
+import { formatAppDate } from '../lib/formatDateTime'
 
 const EDIT_PARAM = 'edit'
 
@@ -379,7 +380,7 @@ const ContactsPage = () => {
                         )}
                       </td>
                       <td className="users-table-office">
-                        {new Date(c.created_at).toLocaleDateString()}
+                        {formatAppDate(c.created_at)}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         {(contactsWrite || contactsRead) && (

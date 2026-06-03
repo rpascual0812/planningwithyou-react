@@ -132,16 +132,28 @@ function summarizeChanges(entry: HistoryRecord): string[] {
   return lines
 }
 
-export function formatHistoryTimestamp(iso: string): string {
+import { getActiveAppTimeZone } from './appTimezone'
+
+export function formatHistoryTimestamp(
+  iso: string,
+  timeZone?: string,
+): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString(undefined, {
+  const tz = (timeZone ?? getActiveAppTimeZone())?.trim()
+  const opts: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  })
+  }
+  if (!tz) return d.toLocaleString(undefined, opts)
+  try {
+    return d.toLocaleString(undefined, { ...opts, timeZone: tz })
+  } catch {
+    return d.toLocaleString(undefined, opts)
+  }
 }
 
 export function describeHistoryEntry(entry: HistoryRecord): {

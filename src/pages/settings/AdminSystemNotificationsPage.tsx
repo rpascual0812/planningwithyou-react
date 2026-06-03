@@ -14,6 +14,7 @@ import {
   type SystemNotificationPayload,
   type SystemNotificationRecord,
 } from '../../services/systemNotifications'
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -27,18 +28,6 @@ const EMPTY_FORM: SystemNotificationPayload = {
   message: '',
   start_date: '',
   end_date: '',
-}
-
-function formatDateTime(iso: string): string {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return iso
-  return parsed.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }
 
 function toDatetimeLocalValue(iso: string): string {
@@ -332,8 +321,8 @@ const AdminSystemNotificationsPage = () => {
                   <td className="sys-notif-admin-message" title={htmlToPlainText(row.message)}>
                     {htmlToPlainText(row.message) || '—'}
                   </td>
-                  <td>{formatDateTime(row.start_date)}</td>
-                  <td>{formatDateTime(row.end_date)}</td>
+                  <td>{formatAppDateTime(row.start_date)}</td>
+                  <td>{formatAppDateTime(row.end_date)}</td>
                   <td>
                     <span className={`sys-notif-status ${statusClass(row)}`}>
                       {statusLabel(row)}

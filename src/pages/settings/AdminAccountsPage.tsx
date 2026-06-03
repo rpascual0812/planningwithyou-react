@@ -4,12 +4,7 @@ import {
   type AdminAccountsPage as AdminAccountsPageResponse,
   type AdminAccountRecord,
 } from '../../services/adminAccounts'
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
-}
+import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const AdminAccountsPage = () => {
   const [rows, setRows] = useState<AdminAccountRecord[]>([])
@@ -225,7 +220,7 @@ const AdminAccountsPage = () => {
                             {row.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td>{formatDateTime(row.created_at)}</td>
+                        <td>{formatAppDateTime(row.created_at)}</td>
                         <td className="text-end">
                           <button
                             type="button"
