@@ -55,9 +55,9 @@ export type EmailSenderModalProps = {
   initialBookingTemplateName?: string
   /** Replace ``{payment_link}`` in subject/body on send. */
   paymentLinkUrl?: string
-  /** Optional booking merge values used by TinyMCE variables. */
-  bookingId?: string | number | null
-  bookingTitle?: string | null
+  /** Optional quotation merge values used by TinyMCE variables. */
+  quotationId?: string | number | null
+  quotationTitle?: string | null
   transactionId?: string | null
   amountPaid?: string | number | null
   /** Scope booking templates to the logged-in user's company. */
@@ -138,8 +138,8 @@ const EmailSenderModal = ({
   draftScope,
   initialBookingTemplateName,
   paymentLinkUrl,
-  bookingId,
-  bookingTitle,
+  quotationId,
+  quotationTitle,
   transactionId,
   amountPaid,
   bookingTemplateCompanyId,
@@ -363,8 +363,8 @@ const EmailSenderModal = ({
       user: currentUser,
       company: mergeCompany,
       paymentLinkUrl: paymentLinkUrl ?? '',
-      bookingId,
-      bookingTitle,
+      quotationId,
+      quotationTitle,
       transactionId,
       amountPaid,
     })
