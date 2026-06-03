@@ -77,7 +77,7 @@ const Sidebar = () => {
                 </NavLink>
               </li>
             )}
-            {canRead(currentUser, 'bookings') && (
+            {canRead(currentUser, 'quotations') && (
               <li className="nav-item">
                 <NavLink to="/quotations" className={linkClassName} data-tour="nav-bookings">
                   <i className="nav-icon bi bi-kanban" />

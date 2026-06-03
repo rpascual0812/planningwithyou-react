@@ -9,7 +9,7 @@ export type BookingFieldOption = {
 export type BookingField = {
   label: string
   group_name: string
-  booking_group_id?: number | null
+  quotation_group_id?: number | null
   field_type: FieldType
   is_required: boolean
   options: BookingFieldOption[]

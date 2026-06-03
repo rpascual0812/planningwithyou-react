@@ -583,8 +583,8 @@ const BookingEditModal = ({
       map.set(normalizeBookingGroupName(group.name), group.id)
     }
     for (const field of form.fields) {
-      if (field.booking_group_id != null) {
-        map.set(normalizeBookingGroupName(field.group_name), field.booking_group_id)
+      if (field.quotation_group_id != null) {
+        map.set(normalizeBookingGroupName(field.group_name), field.quotation_group_id)
       }
     }
     return map
@@ -804,12 +804,12 @@ const BookingEditModal = ({
     groupName: string,
   ): BookingField[] => {
     const normalized = normalizeBookingGroupName(groupName)
-    const booking_group_id = groupIdByName.get(normalized) ?? null
+    const quotation_group_id = groupIdByName.get(normalized) ?? null
     const baseOrder = form.fields.length
     return tpl.fields.map((f, idx) => ({
       label: f.label,
       group_name: normalized,
-      booking_group_id,
+      quotation_group_id,
       field_type: f.field_type,
       is_required: f.is_required,
       options: f.options.map((o) => ({
@@ -834,7 +834,7 @@ const BookingEditModal = ({
 
   const addFieldToGroup = (groupName: string) => {
     const normalized = normalizeBookingGroupName(groupName)
-    const booking_group_id = groupIdByName.get(normalized) ?? null
+    const quotation_group_id = groupIdByName.get(normalized) ?? null
     onChange({
       ...form,
       fields: [
@@ -842,7 +842,7 @@ const BookingEditModal = ({
         {
           ...EMPTY_FIELD,
           group_name: normalized,
-          booking_group_id,
+          quotation_group_id,
           sort_order: form.fields.length,
         },
       ],
@@ -878,12 +878,12 @@ const BookingEditModal = ({
     if (!tpl?.fields.length) return
     openManageGroup(groupName)
     const normalized = groupNameNormalized(groupName)
-    const booking_group_id = groupIdByName.get(normalized) ?? null
+    const quotation_group_id = groupIdByName.get(normalized) ?? null
     const baseOrder = form.fields.length
     const appended = tpl.fields.map((f, idx) => ({
       label: f.label,
       group_name: normalized,
-      booking_group_id,
+      quotation_group_id,
       field_type: f.field_type,
       is_required: f.is_required,
       options: f.options.map((o) => ({

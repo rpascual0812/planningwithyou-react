@@ -308,7 +308,7 @@ function App() {
           <Route element={<RequireFeature featureKey="calendar" />}>
             <Route path="/calendar" element={<CalendarRoute />} />
           </Route>
-          <Route element={<RequireFeature featureKey="bookings" />}>
+          <Route element={<RequireFeature featureKey="quotations" />}>
             <Route path="/bookings" element={<Navigate to="/quotations" replace />} />
             <Route path="/quotations" element={<BookingsPage />} />
           </Route>

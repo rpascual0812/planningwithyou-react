@@ -18,7 +18,7 @@ import type { SettingsNavItem, SettingsSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<SettingsSection>([
-  'account', 'companies', 'suppliers', 'calendar', 'email-settings', 'bookings',
+  'account', 'companies', 'suppliers', 'calendar', 'email-settings', 'quotations',
   'email-templates', 'permissions', 'connection',
 ])
 
@@ -28,7 +28,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'suppliers', label: 'Supplier Settings', icon: 'bi-truck', description: 'Supplier Settings lets you manage your suppliers and their settings.' },
   { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', icon: 'bi-envelope-at', description: 'Email Settings lets you connect email providers to send and receive messages from your account.' },
-  { id: 'bookings', label: 'Quotation Settings', icon: 'bi-bookmark-check', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
+  { id: 'quotations', label: 'Quotation Settings', icon: 'bi-bookmark-check', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
   { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper', description: 'Email Templates lets you manage your user and quotation email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock', description: 'Roles and Permissions lets you manage your roles and permissions.' },
   // { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
@@ -151,7 +151,7 @@ const ActiveSettingsPage = ({
       return <CalendarSettingsPage />
     case 'email-settings':
       return <EmailSettingsPage />
-    case 'bookings':
+    case 'quotations':
       return <BookingsSettingsPage />
     case 'permissions':
       return <RolesPermissionsSettingsPage />

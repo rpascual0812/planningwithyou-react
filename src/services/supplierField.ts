@@ -72,7 +72,7 @@ export async function fetchSupplierBookingCapacity(params: {
     search.set('exclude_booking_id', String(params.excludeBookingId))
   }
   const res = await apiFetch(
-    buildApiUrl(`/supplier-booking-capacity/?${search.toString()}`),
+    buildApiUrl(`/supplier-quotation-capacity/?${search.toString()}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to check supplier booking capacity')

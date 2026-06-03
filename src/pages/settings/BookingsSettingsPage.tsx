@@ -123,7 +123,7 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
 /* ------------------------------------------------------------------ */
 
 const BookingsViewOptionsPanel = () => {
-  const { canWrite: settingsWrite } = useFeatureAccess('booking_settings_statuses')
+  const { canWrite: settingsWrite } = useFeatureAccess('quotation_settings_statuses')
   const [savedView, setSavedView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
   const [view, setView] = useState<BookingsView>(BOOKING_VIEW_DEFAULT)
   const [loading, setLoading] = useState(true)
@@ -225,7 +225,7 @@ const BookingsViewOptionsPanel = () => {
 }
 
 const BookingsGroupNamePanel = () => {
-  const { canWrite: settingsWrite } = useFeatureAccess('booking_settings_statuses')
+  const { canWrite: settingsWrite } = useFeatureAccess('quotation_settings_statuses')
   const [savedName, setSavedName] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(true)
@@ -433,7 +433,7 @@ const BookingsSettingsPage = () => {
 /* ------------------------------------------------------------------ */
 
 const FormTemplatesPanel = () => {
-  const { canWrite: templatesWrite } = useFeatureAccess('booking_settings_statuses')
+  const { canWrite: templatesWrite } = useFeatureAccess('quotation_settings_statuses')
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [error, setError] = useState<string | null>(null)

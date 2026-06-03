@@ -15,7 +15,7 @@ import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
 const BookingStatusesPanel = () => {
-  const { canWrite: statusesWrite } = useFeatureAccess('booking_settings_statuses')
+  const { canWrite: statusesWrite } = useFeatureAccess('quotation_settings_statuses')
   const [statuses, setStatuses] = useState<BookingStatusRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

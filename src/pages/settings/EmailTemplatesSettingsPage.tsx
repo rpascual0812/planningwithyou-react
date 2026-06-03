@@ -584,7 +584,7 @@ const USERS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
 }
 
 const BOOKINGS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
-  typeLabel: 'bookings',
+  typeLabel: 'quotations',
   emptyMessage: 'No quotation email templates yet.',
   fetchTemplates: fetchEmailBookingTemplates,
   createTemplate: createEmailBookingTemplate,

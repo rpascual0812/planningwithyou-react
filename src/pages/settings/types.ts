@@ -5,7 +5,7 @@ export type SettingsSection =
   | 'email-templates'
   | 'calendar'
   | 'email-settings'
-  | 'bookings'
+  | 'quotations'
   | 'permissions'
   | 'connection'
 

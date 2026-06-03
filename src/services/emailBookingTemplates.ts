@@ -1,6 +1,6 @@
 import { apiFetch, authHeaders, buildApiUrl } from './api'
 
-const BASE = '/email-templates/bookings/'
+const BASE = '/email-templates/quotations/'
 
 export type EmailBookingTemplateRecord = {
   id: number
@@ -10,7 +10,7 @@ export type EmailBookingTemplateRecord = {
   bcc: string[]
   subject: string
   body: string
-  type: 'bookings'
+  type: 'quotations'
   is_active: boolean
   is_default: boolean
   company_id: number | null

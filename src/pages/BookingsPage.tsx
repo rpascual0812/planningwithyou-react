@@ -79,7 +79,7 @@ function fieldValuesToFields(item: BookingItem): BookingField[] {
     return {
       label: fv.label,
       group_name: fv.group_name ?? 'Suppliers',
-      booking_group_id: fv.booking_group_id ?? null,
+      quotation_group_id: fv.quotation_group_id ?? null,
       field_type: fieldType,
       is_required: fv.is_required,
       options: (fv.options ?? []).map((o) => ({
@@ -430,8 +430,8 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
 }
 
 const BookingsPage = () => {
-  const { canRead: bookingsRead, canWrite: bookingsWrite } = useFeatureAccess('bookings')
-  const { canWrite: statusesWrite } = useFeatureAccess('booking_settings_statuses')
+  const { canRead: bookingsRead, canWrite: bookingsWrite } = useFeatureAccess('quotations')
+  const { canWrite: statusesWrite } = useFeatureAccess('quotation_settings_statuses')
   const canMutate = (item: BookingItem) => canMutateBookingItem(item, bookingsWrite)
   const [columns, setColumns] = useState<BookingColumn[]>([])
   const [boardColumns, setBoardColumns] = useState<

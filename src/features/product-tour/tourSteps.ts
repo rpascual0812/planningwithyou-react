@@ -23,7 +23,7 @@ const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; descrip
   { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when quoting.' },
   { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', tour: 'settings-email-settings', description: 'Email Settings lets you connect Gmail, Outlook, Apple Mail, and Yahoo to your account.' },
-  { id: 'bookings', label: 'Quotation Settings', tour: 'settings-bookings', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
+  { id: 'quotations', label: 'Quotation Settings', tour: 'settings-bookings', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
   { id: 'email-templates', label: 'Email Templates', tour: 'settings-email-templates', description: 'Email Templates lets you manage your user and quotation email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', tour: 'settings-permissions', description: 'Roles and Permissions lets you manage your user\'s roles and permissions.' },
 ]
@@ -47,7 +47,7 @@ const SIDEBAR_ITEMS: {
 }[] = [
   { feature: 'dashboard', label: 'Dashboard', tour: 'nav-dashboard', path: '/', description: 'Main menu: open Dashboard to work with this area of the app.' },
   { feature: 'calendar', label: 'Calendar', tour: 'nav-calendar', path: '/calendar', description: 'Calendar lets you manage your appointments and events.' },
-  { feature: 'bookings', label: 'Quotations', tour: 'nav-bookings', path: '/quotations', description: 'Quotations simplifies the entire client quotation process—from quotation to payment. Create and send professional quotations, accept online payments through secure payment links, and keep clients engaged with automated reminder emails.' },
+  { feature: 'quotations', label: 'Quotations', tour: 'nav-bookings', path: '/quotations', description: 'Quotations simplifies the entire client quotation process—from quotation to payment. Create and send professional quotations, accept online payments through secure payment links, and keep clients engaged with automated reminder emails.' },
   { feature: 'contacts', label: 'Contacts', tour: 'nav-contacts', path: '/contacts', description: 'Contacts lets you manage your clients and their contact information.' },
   { feature: 'users', label: 'Users', tour: 'nav-users', path: '/users', description: 'Users lets you manage your users and their permissions.' },
   { feature: 'emails', label: 'Emails', tour: 'nav-emails', path: '/emails', description: 'Emails lists all the emails sent by the system.' },

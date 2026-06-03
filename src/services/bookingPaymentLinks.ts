@@ -88,7 +88,7 @@ export async function fetchBookingPaymentLinks(
   bookingId: number,
 ): Promise<BookingPaymentLinksResponse> {
   const res = await apiFetch(
-    buildApiUrl(`/booking-items/${bookingId}/payment-links/`),
+    buildApiUrl(`/quotation-items/${bookingId}/payment-links/`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load payment links')
@@ -100,7 +100,7 @@ export async function cancelBookingPaymentLink(
   linkId: number,
 ): Promise<void> {
   const res = await apiFetch(
-    buildApiUrl(`/booking-items/${bookingId}/payment-links/${linkId}/`),
+    buildApiUrl(`/quotation-items/${bookingId}/payment-links/${linkId}/`),
     {
       method: 'DELETE',
       headers: authHeaders(),
@@ -122,7 +122,7 @@ export async function createBookingPaymentLink(
   amount: number,
 ): Promise<BookingPaymentLinkRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/booking-items/${bookingId}/payment-links/`),
+    buildApiUrl(`/quotation-items/${bookingId}/payment-links/`),
     {
       method: 'POST',
       headers: authHeaders(),

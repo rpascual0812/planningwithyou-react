@@ -68,7 +68,7 @@ export type BookingGroupWrite = {
 export type BookingFieldValueRecord = {
   id?: number
   label: string
-  booking_group_id?: number | null
+  quotation_group_id?: number | null
   group_name?: string
   company?: number | null
   company_logo_url?: string
@@ -115,7 +115,7 @@ export type BookingItemRecord = {
 /* ── Statuses ── */
 
 export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
-  const res = await apiFetch(buildApiUrl('/booking-statuses/'), {
+  const res = await apiFetch(buildApiUrl('/quotation-statuses/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking statuses')
@@ -125,7 +125,7 @@ export async function fetchBookingStatuses(): Promise<BookingStatusRecord[]> {
 export async function createBookingStatus(
   data: BookingStatusWrite,
 ): Promise<BookingStatusRecord> {
-  const res = await apiFetch(buildApiUrl('/booking-statuses/'), {
+  const res = await apiFetch(buildApiUrl('/quotation-statuses/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -138,7 +138,7 @@ export async function updateBookingStatus(
   id: number,
   data: Partial<BookingStatusWrite>,
 ): Promise<BookingStatusRecord> {
-  const res = await apiFetch(buildApiUrl(`/booking-statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-statuses/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -148,7 +148,7 @@ export async function updateBookingStatus(
 }
 
 export async function deleteBookingStatus(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/booking-statuses/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-statuses/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -156,7 +156,7 @@ export async function deleteBookingStatus(id: number): Promise<void> {
 }
 
 export async function reorderBookingStatuses(order: number[]): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/booking-statuses/reorder/'), {
+  const res = await apiFetch(buildApiUrl('/quotation-statuses/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ order }),
@@ -181,7 +181,7 @@ export async function fetchBookingItems(
   if (statusId) params.set('status', String(statusId))
   if (options?.all !== false) params.set('all', 'true')
   const qs = params.toString() ? `?${params}` : ''
-  const res = await apiFetch(buildApiUrl(`/booking-items/${qs}`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-items/${qs}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking items')
@@ -196,7 +196,7 @@ export async function fetchBookingItemsPage(
   if (filters.search?.trim()) params.set('search', filters.search.trim())
   if (filters.statusId != null) params.set('status', String(filters.statusId))
   const res = await apiFetch(
-    buildApiUrl(`/booking-items/?${params}`),
+    buildApiUrl(`/quotation-items/?${params}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load booking items')
@@ -222,7 +222,7 @@ export async function fetchBookingItemsBoardPage(
     params.set('board_column', String(filters.boardColumnId))
   }
   const res = await apiFetch(
-    buildApiUrl(`/booking-items/?${params}`),
+    buildApiUrl(`/quotation-items/?${params}`),
     { headers: authHeaders() },
   )
   if (!res.ok) throw new Error('Failed to load booking items')
@@ -230,7 +230,7 @@ export async function fetchBookingItemsBoardPage(
 }
 
 export async function fetchBookingItem(id: number): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-items/${id}/`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load booking')
@@ -249,7 +249,7 @@ export async function createBookingItem(
     | 'notes'
   > & { contact?: number | null; groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl('/booking-items/'), {
+  const res = await apiFetch(buildApiUrl('/quotation-items/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -275,7 +275,7 @@ export async function updateBookingItem(
     >
   > & { groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-items/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -289,7 +289,7 @@ export async function deleteBookingGroup(
   groupId: number,
 ): Promise<void> {
   const res = await apiFetch(
-    buildApiUrl(`/booking-items/${bookingId}/groups/${groupId}/`),
+    buildApiUrl(`/quotation-items/${bookingId}/groups/${groupId}/`),
     {
       method: 'DELETE',
       headers: authHeaders(),
@@ -299,7 +299,7 @@ export async function deleteBookingGroup(
 }
 
 export async function deleteBookingItem(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-items/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
@@ -311,7 +311,7 @@ export async function moveBookingItem(
   statusId: number,
   sortOrder: number,
 ): Promise<BookingItemRecord> {
-  const res = await apiFetch(buildApiUrl(`/booking-items/${id}/move/`), {
+  const res = await apiFetch(buildApiUrl(`/quotation-items/${id}/move/`), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ status: statusId, sort_order: sortOrder }),
@@ -323,7 +323,7 @@ export async function moveBookingItem(
 export async function reorderBookingItems(
   items: { id: number; status: number; sort_order: number }[],
 ): Promise<void> {
-  const res = await apiFetch(buildApiUrl('/booking-items/reorder/'), {
+  const res = await apiFetch(buildApiUrl('/quotation-items/reorder/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ items }),
