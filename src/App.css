@@ -5341,6 +5341,30 @@ body,
   position: relative;
 }
 
+.searchable-select--embedded {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.searchable-select--embedded .searchable-select__trigger {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0.7rem 2rem 0.7rem 0.35rem;
+}
+
+.searchable-select--embedded .searchable-select__trigger:hover:not(:disabled),
+.searchable-select--embedded .searchable-select__trigger.is-open,
+.searchable-select--embedded .searchable-select__trigger:focus-visible {
+  border: 0;
+  box-shadow: none;
+}
+
+.searchable-select--embedded .searchable-select__panel {
+  z-index: 1060;
+}
+
 .searchable-select--sm .searchable-select__trigger {
   font-size: 0.875rem;
   padding: 0.25rem 2rem 0.25rem 0.5rem;

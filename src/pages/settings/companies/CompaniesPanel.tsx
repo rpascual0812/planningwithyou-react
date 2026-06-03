@@ -6,6 +6,7 @@ import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { historyPaths } from '../../../services/history'
 import { resizeImageFileToMaxWidth } from '../../../lib/resizeImageFile'
 import { fetchSecuredFileBlobUrl } from '../../../lib/securedFileUrl'
+import { fetchCurrentAccount } from '../../../services/accounts'
 import {
   createCompany,
   deleteCompany,
@@ -19,9 +20,9 @@ import {
   type SupplierTypeRecord,
 } from '../../../services/supplierTypes'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
+import TimezoneSelect from '../../../components/TimezoneSelect'
+import { resolveTimezoneInput } from '../../../lib/timezones'
 import CompanyKybModal from './CompanyKybModal'
-
-const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
 
 const DEFAULT_MAX_BOOKINGS_PER_DAY = 1
 
@@ -83,6 +84,7 @@ const CompaniesPanel = () => {
 
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
   const [supplierTypesLoading, setSupplierTypesLoading] = useState(true)
+  const [accountTimezone, setAccountTimezone] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -102,6 +104,20 @@ const CompaniesPanel = () => {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchCurrentAccount()
+      .then((account) => {
+        if (!cancelled) setAccountTimezone(account.timezone?.trim() ?? '')
+      })
+      .catch(() => {
+        if (!cancelled) setAccountTimezone('')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -200,6 +216,7 @@ const CompaniesPanel = () => {
     setEditing(null)
     setForm({
       ...EMPTY_FORM,
+      timezone: accountTimezone,
       max_bookings_per_day: DEFAULT_MAX_BOOKINGS_PER_DAY,
       is_main: companies.length === 0,
     })
@@ -261,7 +278,7 @@ const CompaniesPanel = () => {
     const payload: CompanyPayload = {
       name: trimmed,
       supplier_type: form.supplier_type,
-      timezone: form.timezone.trim(),
+      timezone: resolveTimezoneInput(form.timezone),
       contact_person: form.contact_person.trim(),
       contact_email: form.contact_email.trim(),
       phone_number: form.phone_number.trim(),
@@ -517,26 +534,16 @@ const CompaniesPanel = () => {
                       }
                     />
                   </div>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="company-timezone">
-                      Timezone
-                    </label>
-                    <select
-                      id="company-timezone"
-                      className="form-select"
-                      value={form.timezone}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, timezone: e.target.value }))
-                      }
-                    >
-                      <option value="">Choose…</option>
-                      {TIMEZONES.map((tz) => (
-                        <option key={tz} value={tz}>
-                          {tz}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <TimezoneSelect
+                    label="Timezone"
+                    triggerId="company-timezone"
+                    labelClassName="form-label"
+                    wrapperClassName="mb-3"
+                    value={form.timezone}
+                    onChange={(timezone) =>
+                      setForm((prev) => ({ ...prev, timezone }))
+                    }
+                  />
                   <div className="mb-3">
                     <label className="form-label" htmlFor="company-contact-person">
                       Contact person

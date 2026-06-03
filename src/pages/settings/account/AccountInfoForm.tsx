@@ -7,8 +7,8 @@ import {
 } from '../../../services/accounts'
 import { historyPaths } from '../../../services/history'
 import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
-
-const TIMEZONES = [...Intl.supportedValuesOf('timeZone')].sort()
+import TimezoneSelect from '../../../components/TimezoneSelect'
+import { resolveTimezoneInput } from '../../../lib/timezones'
 
 const AccountInfoForm = () => {
   const { canWrite: accountWrite } = useFeatureAccess('account_settings')
@@ -69,7 +69,7 @@ const AccountInfoForm = () => {
         contact_person: contactPerson.trim(),
         contact_email: contactEmail.trim(),
         contact_mobile_number: contactMobile.trim(),
-        timezone,
+        timezone: resolveTimezoneInput(timezone),
       })
       applyAccount(updated)
       setSuccess('Account saved.')
@@ -153,23 +153,18 @@ const AccountInfoForm = () => {
       </label>
 
       <label className="account-info-field">
-        <span className="account-info-label">Timezone</span>
-        <span className="account-info-control account-info-control--select">
-          <select
+        <span className="account-info-label" id="account-timezone-label">
+          Timezone
+        </span>
+        <span className="account-info-control">
+          <i className="bi bi-globe2 account-info-icon" aria-hidden="true" />
+          <TimezoneSelect
+            hideLabel
+            embedded
+            labelledBy="account-timezone-label"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            aria-label="Timezone"
-          >
-            <option value="">Choose…</option>
-            {TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
-          <i
-            className="bi bi-chevron-down account-info-chevron"
-            aria-hidden="true"
+            onChange={setTimezone}
+            disabled={!accountWrite}
           />
         </span>
       </label>

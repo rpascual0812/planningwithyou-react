@@ -29,6 +29,14 @@ type SearchableSelectProps = {
   labelClassName?: string
   /** Match Bootstrap `form-select-sm` density in toolbars. */
   size?: 'sm' | 'md'
+  /** Hide the built-in label (use an external label with ``labelledBy``). */
+  hideLabel?: boolean
+  /** ``id`` on the trigger button (for ``htmlFor`` on external labels). */
+  triggerId?: string
+  /** ``aria-labelledby`` when ``hideLabel`` is true. */
+  labelledBy?: string
+  /** Borderless trigger for fields inside a shared control shell (e.g. account info). */
+  embedded?: boolean
 }
 
 export default function SearchableSelect({
@@ -46,6 +54,10 @@ export default function SearchableSelect({
   wrapperClassName = 'auth-field',
   labelClassName = 'auth-label',
   size = 'md',
+  hideLabel = false,
+  triggerId,
+  labelledBy,
+  embedded = false,
 }: SearchableSelectProps) {
   const listId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -111,25 +123,38 @@ export default function SearchableSelect({
     }
   }
 
+  const labelId = `${listId}-label`
+  const triggerLabelledBy = hideLabel
+    ? labelledBy
+    : labelId
+
   return (
     <div className={wrapperClassName} ref={rootRef}>
-      <span className={labelClassName} id={`${listId}-label`}>
-        {label}
-        {required && (
-          <span className="searchable-select__required" aria-hidden="true">
-            {' '}
-            *
-          </span>
-        )}
-      </span>
+      {!hideLabel && (
+        <span className={labelClassName} id={labelId}>
+          {label}
+          {required && (
+            <span className="searchable-select__required" aria-hidden="true">
+              {' '}
+              *
+            </span>
+          )}
+        </span>
+      )}
 
-      <div className={`searchable-select${size === 'sm' ? ' searchable-select--sm' : ''}`}>
+      <div
+        className={`searchable-select${size === 'sm' ? ' searchable-select--sm' : ''}${
+          embedded ? ' searchable-select--embedded' : ''
+        }`}
+      >
         <button
           type="button"
+          id={triggerId}
           className={`searchable-select__trigger${open ? ' is-open' : ''}`}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-labelledby={`${listId}-label`}
+          aria-labelledby={triggerLabelledBy || undefined}
+          aria-label={hideLabel && !labelledBy ? label : undefined}
           disabled={disabled || loading}
           onClick={() => (open ? close() : openList())}
           onKeyDown={handleTriggerKeyDown}
@@ -160,7 +185,11 @@ export default function SearchableSelect({
                 autoComplete="off"
               />
             </div>
-            <ul className="searchable-select__list" role="listbox" aria-labelledby={`${listId}-label`}>
+            <ul
+              className="searchable-select__list"
+              role="listbox"
+              aria-labelledby={triggerLabelledBy || labelId}
+            >
               {filtered.length === 0 ? (
                 <li className="searchable-select__empty" role="presentation">
                   {emptyMessage}
