@@ -11,7 +11,7 @@ export type AdminBookingPaymentRecord = {
   id: number
   company: number
   company_name: string
-  booking: number
+  quotation: number
   quotation_unique_id: string
   quotation_title: string
   base_amount: string
@@ -20,6 +20,7 @@ export type AdminBookingPaymentRecord = {
   net_amount: string
   charge_amount: string
   payment_method: string
+  notes: string
   transaction_id: string
   transaction_status: string
   transaction_date: string | null
@@ -66,7 +67,7 @@ export async function fetchAdminBookingPaymentsPage(
     params.set('search', options.search.trim())
   }
   const res = await apiFetch(
-    buildApiUrl(apiPathWithQuery('/admin/booking-payments', params)),
+    buildApiUrl(apiPathWithQuery('/admin/quotation-payments', params)),
     { headers: authHeaders() },
   )
   if (!res.ok) {
@@ -79,7 +80,7 @@ export async function markAdminBookingPayoutSent(
   paymentId: number,
 ): Promise<AdminBookingPaymentRecord> {
   const res = await apiFetch(
-    buildApiUrl(`/admin/booking-payments/${paymentId}/mark-payout-sent/`),
+    buildApiUrl(`/admin/quotation-payments/${paymentId}/mark-payout-sent/`),
     {
       method: 'POST',
       headers: authHeaders(),

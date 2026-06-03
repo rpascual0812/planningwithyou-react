@@ -21,7 +21,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { id: 'accounts', label: 'Accounts', icon: 'bi-people' },
   { id: 'kyb', label: 'Company Verification', icon: 'bi-buildings' },
   { id: 'emails', label: 'Emails', icon: 'bi-envelope' },
-  { id: 'payouts', label: 'Payouts', icon: 'bi-cash-stack' },
+  { id: 'payouts', label: 'Payment Received', icon: 'bi-cash-stack' },
   { id: 'notifications', label: 'System Notifications', icon: 'bi-megaphone' },
   { id: 'support', label: 'Support', icon: 'bi-chat-dots' },
   { id: 'error-logs', label: 'Error Logs', icon: 'bi-bug' },

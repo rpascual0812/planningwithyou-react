@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Swal from 'sweetalert2'
-import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import SearchableSelect from '../../components/SearchableSelect'
 import {
   fetchCompaniesDirectory,
@@ -9,22 +7,22 @@ import {
 import {
   fetchAdminBookingPaymentsPage,
   type AdminBookingPaymentsPage,
-  markAdminBookingPayoutSent,
   type AdminBookingPaymentRecord,
 } from '../../services/adminBookingPayouts'
 import { formatAppDateTime } from '../../lib/formatDateTime'
 
-const PAYOUT_FILTER_OPTIONS = [
-  { value: '', label: 'All payouts' },
-  { value: 'pending', label: 'Pending payout' },
-  { value: 'sent', label: 'Payout sent' },
-] as const
+function formatPaymentMethod(value: string | null | undefined): string {
+  return value?.trim() || '—'
+}
 
-type PayoutFilter = (typeof PAYOUT_FILTER_OPTIONS)[number]['value']
+function formatNotes(value: string | null | undefined): string {
+  return value?.trim() || '—'
+}
 
-function formatMoney(value: string | number): string {
+function formatMoney(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
   const n = typeof value === 'string' ? Number(value) : value
-  if (Number.isNaN(n)) return String(value)
+  if (Number.isNaN(n)) return '—'
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -62,7 +60,6 @@ function PaymentBreakdown({ row }: { row: AdminBookingPaymentRecord }) {
 }
 
 const AdminPayoutPage = () => {
-  const { canWrite: payoutsWrite } = useFeatureAccess('admin_payouts')
   const [companies, setCompanies] = useState<CompanyRecord[]>([])
   const [companiesLoading, setCompaniesLoading] = useState(true)
   const [companyFilterId, setCompanyFilterId] = useState<number | null>(null)
@@ -76,9 +73,6 @@ const AdminPayoutPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [payoutFilter, setPayoutFilter] = useState<PayoutFilter>('')
-  const [markingId, setMarkingId] = useState<number | null>(null)
-
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadingMoreRef = useRef(false)
   const scrollRootRef = useRef<HTMLDivElement | null>(null)
@@ -134,7 +128,6 @@ const AdminPayoutPage = () => {
     try {
       const data: AdminBookingPaymentsPage = await fetchAdminBookingPaymentsPage(pageNum, {
         companyId: companyFilterId,
-        payout: payoutFilter || undefined,
         search: debouncedSearch,
       })
       setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
@@ -142,7 +135,7 @@ const AdminPayoutPage = () => {
       setPage(pageNum)
       setHasMore(data.next != null)
     } catch (e) {
-      const message = e instanceof Error ? e.message : 'Failed to load payouts'
+      const message = e instanceof Error ? e.message : 'Failed to load payments received'
       if (replace) {
         setError(message)
         setRows([])
@@ -158,7 +151,7 @@ const AdminPayoutPage = () => {
         setLoadingMore(false)
       }
     }
-  }, [companyFilterId, payoutFilter, debouncedSearch])
+  }, [companyFilterId, debouncedSearch])
 
   useEffect(() => {
     void loadPage(1, true)
@@ -197,35 +190,6 @@ const AdminPayoutPage = () => {
     return () => window.removeEventListener('scroll', maybeLoadNextPage)
   }, [maybeLoadNextPage])
 
-  const handleMarkSent = async (row: AdminBookingPaymentRecord) => {
-    if (row.payout_sent) return
-
-    const bookingRef = row.quotation_unique_id || row.quotation_title || 'this quotation'
-    const result = await Swal.fire({
-      title: 'Mark payout as sent?',
-      html: `Confirm that <strong>${formatMoney(row.base_amount)}</strong> has been sent to <strong>${row.company_name}</strong> for quotation <strong>${bookingRef}</strong>.`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Payout sent',
-      cancelButtonText: 'Cancel',
-      confirmButtonColor: '#198754',
-    })
-    if (!result.isConfirmed) return
-
-    setMarkingId(row.id)
-    setError(null)
-    try {
-      const updated = await markAdminBookingPayoutSent(row.id)
-      setRows((prev) =>
-        prev.map((r) => (r.id === updated.id ? updated : r)),
-      )
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to mark payout sent')
-    } finally {
-      setMarkingId(null)
-    }
-  }
-
   return (
     <div className="emails-table-card">
       <div className="row g-2 align-items-end mb-3 px-2 pt-2">
@@ -258,7 +222,7 @@ const AdminPayoutPage = () => {
             placeholder="Search company, quotation, transaction…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search payouts"
+            aria-label="Search payments received"
           />
           {search && (
             <button
@@ -272,18 +236,6 @@ const AdminPayoutPage = () => {
           )}
         </div>
         <div className="emails-toolbar-right">
-          <select
-            className="form-select form-select-sm emails-status-filter"
-            value={payoutFilter}
-            onChange={(e) => setPayoutFilter(e.target.value as PayoutFilter)}
-            aria-label="Filter by payout status"
-          >
-            {PAYOUT_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value || 'all'} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
           <span className="emails-search-count">
             {totalCount > 0
               ? `${rows.length} of ${totalCount} payments`
@@ -299,7 +251,7 @@ const AdminPayoutPage = () => {
       >
         {loading && rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
-            <span className="emails-table-empty">Loading payouts…</span>
+            <span className="emails-table-empty">Loading payments received…</span>
           </div>
         ) : error && rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
@@ -307,7 +259,7 @@ const AdminPayoutPage = () => {
           </div>
         ) : rows.length === 0 ? (
           <div className="emails-table-empty-wrap">
-            <span className="emails-table-empty">No booking payments found.</span>
+            <span className="emails-table-empty">No payments received found.</span>
           </div>
         ) : (
           <table className="emails-table">
@@ -316,10 +268,10 @@ const AdminPayoutPage = () => {
                 <th>Company</th>
                 <th>Quotation</th>
                 <th>Payment breakdown</th>
+                <th>Payment method</th>
+                <th>Notes</th>
                 <th>Transaction</th>
-                <th>Paid</th>
-                <th>Payout status</th>
-                <th className="text-end">Action</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody>
@@ -336,47 +288,16 @@ const AdminPayoutPage = () => {
                     <PaymentBreakdown row={row} />
                   </td>
                   <td className="small text-muted">
-                    <div>{row.transaction_id || '—'}</div>
-                    <div>{row.transaction_status || '—'}</div>
+                    {formatPaymentMethod(row.payment_method)}
+                  </td>
+                  <td className="small text-muted">
+                    {formatNotes(row.notes)}
+                  </td>
+                  <td className="small text-muted font-monospace">
+                    {row.transaction_id || '—'}
                   </td>
                   <td className="small text-muted">
                     {formatAppDateTime(row.transaction_date)}
-                  </td>
-                  <td>
-                    {row.payout_sent ? (
-                      <span className="badge text-bg-success">
-                        Sent {formatAppDateTime(row.payout_sent_at)}
-                      </span>
-                    ) : (
-                      <span className="badge text-bg-warning">Pending</span>
-                    )}
-                  </td>
-                  <td className="text-end">
-                    {row.payout_sent ? (
-                      <span className="text-muted small">—</span>
-                    ) : payoutsWrite ? (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-success"
-                        disabled={markingId === row.id}
-                        onClick={() => void handleMarkSent(row)}
-                      >
-                        {markingId === row.id ? (
-                          <>
-                            <span
-                              className="spinner-border spinner-border-sm me-1"
-                              role="status"
-                              aria-hidden="true"
-                            />
-                            Saving…
-                          </>
-                        ) : (
-                          'Payout sent'
-                        )}
-                      </button>
-                    ) : (
-                      <span className="text-muted small">—</span>
-                    )}
                   </td>
                 </tr>
               ))}

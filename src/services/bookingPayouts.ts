@@ -9,11 +9,17 @@ import {
 
 export type BookingPayoutRecord = {
   id: number
-  booking: number
-  quotation_unique_id: string
-  quotation_title: string
-  quotation_credit: string
+  quotation: number
+  quotation_unique_id?: string
+  quotation_title?: string
+  quotation_credit?: string
+  /** @deprecated API may still return these before deploy */
+  booking?: number
+  booking_unique_id?: string
+  booking_title?: string
+  booking_credit?: string
   payment_method: string
+  notes: string
   transaction_id: string
   transaction_status: string
   transaction_date: string | null

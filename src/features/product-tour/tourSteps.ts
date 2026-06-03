@@ -32,7 +32,7 @@ const ADMIN_TABS: { id: AdminSection; label: string; tour: string, description: 
   { id: 'accounts', label: 'Accounts', tour: 'admin-accounts', description: 'Accounts lists every tenant account on the platform with company and user counts.' },
   { id: 'kyb', label: 'Company Verification', tour: 'admin-kyb', description: 'Company Verification lets you see each company that has been verified and their verification status.' },
   { id: 'emails', label: 'Admin Emails', tour: 'admin-emails', description: 'Admin Emails lets you see each company\'s sent emails and their status.' },
-  { id: 'payouts', label: 'Payouts', tour: 'admin-payouts', description: 'Payouts lets you manage all the payouts that needs to be processed.' },
+  { id: 'payouts', label: 'Payment Received', tour: 'admin-payouts', description: 'Payment Received lists customer payments across all companies on the platform.' },
   { id: 'notifications', label: 'System Notifications', tour: 'admin-notifications', description: 'System Notifications lets you manage your system notifications and alerts.' },
   { id: 'support', label: 'Admin Support', tour: 'admin-support', description: 'Admin Support lets you see all the support requests and tickets that have been made.' },
   { id: 'error-logs', label: 'Error Logs', tour: 'admin-error-logs', description: 'Error Logs shows captured API and server errors for debugging and triage.' },
@@ -382,7 +382,7 @@ export function buildProductTourSteps(user: UserRecord): TourStepMeta[] {
       step(
         'nav-admin',
         'Admin',
-        'Platform admin tools for verification, email, payouts, and support.',
+        'Platform admin tools for verification, email, payment received, and support.',
         '/admin',
       ),
     )

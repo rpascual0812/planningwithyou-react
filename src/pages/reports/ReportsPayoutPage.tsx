@@ -6,17 +6,18 @@ import {
 } from '../../services/bookingPayouts'
 import { formatAppDateTime } from '../../lib/formatDateTime'
 
-const PAYOUT_FILTER_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'sent', label: 'Received' },
-] as const
+function formatPaymentMethod(value: string | null | undefined): string {
+  return value?.trim() || '—'
+}
 
-type PayoutFilter = (typeof PAYOUT_FILTER_OPTIONS)[number]['value']
+function formatNotes(value: string | null | undefined): string {
+  return value?.trim() || '—'
+}
 
-function formatMoney(value: string | number): string {
+function formatMoney(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
   const n = typeof value === 'string' ? Number(value) : value
-  if (Number.isNaN(n)) return String(value)
+  if (Number.isNaN(n)) return '—'
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -35,21 +36,19 @@ function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
     'Quotation ID',
     'Quotation title',
     'Amount',
+    'Payment method',
+    'Notes',
     'Transaction ID',
-    'Transaction status',
-    'Paid',
-    'Payment received',
-    'Payment received at',
+    'Date',
   ]
   const lines = rows.map((row) => [
-    row.quotation_unique_id || '',
-    row.quotation_title || '',
-    formatMoney(row.quotation_credit),
+    row.quotation_unique_id || row.booking_unique_id || '',
+    row.quotation_title || row.booking_title || '',
+    formatMoney(row.quotation_credit ?? row.booking_credit),
+    formatPaymentMethod(row.payment_method),
+    formatNotes(row.notes),
     row.transaction_id || '',
-    row.transaction_status || '',
     formatAppDateTime(row.transaction_date),
-    row.payout_sent ? 'Sent' : 'Pending',
-    formatAppDateTime(row.payout_sent_at),
   ])
   return [
     headers.map(csvEscape).join(','),
@@ -77,8 +76,6 @@ const ReportsPayoutPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [payoutFilter, setPayoutFilter] = useState<PayoutFilter>('')
-
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rowsLoadingMoreRef = useRef(false)
   const rowsScrollRef = useRef<HTMLDivElement | null>(null)
@@ -103,7 +100,6 @@ const ReportsPayoutPage = () => {
     setError(null)
     try {
       const data: BookingPayoutsPage = await fetchBookingPayoutsPage(pageNum, {
-        payout: payoutFilter || undefined,
         search: debouncedSearch,
       })
       setRows((prev) => (replace ? data.results : [...prev, ...data.results]))
@@ -121,7 +117,7 @@ const ReportsPayoutPage = () => {
         setRowsLoadingMore(false)
       }
     }
-  }, [payoutFilter, debouncedSearch])
+  }, [debouncedSearch])
 
   const loadRows = useCallback(async () => {
     await loadRowsPage(1, true)
@@ -183,18 +179,6 @@ const ReportsPayoutPage = () => {
           )}
         </div>
         <div className="emails-toolbar-right">
-          <select
-            className="form-select form-select-sm emails-status-filter"
-            value={payoutFilter}
-            onChange={(e) => setPayoutFilter(e.target.value as PayoutFilter)}
-            aria-label="Filter by payment received status"
-          >
-            {PAYOUT_FILTER_OPTIONS.map((opt) => (
-              <option key={opt.value || 'all'} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             className="btn btn-sm btn-outline-secondary"
@@ -231,9 +215,10 @@ const ReportsPayoutPage = () => {
               <tr>
                 <th>Quotation</th>
                 <th>Amount</th>
+                <th>Payment method</th>
+                <th>Notes</th>
                 <th>Transaction</th>
-                <th>Paid</th>
-                <th>Payment received</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody>
@@ -241,46 +226,44 @@ const ReportsPayoutPage = () => {
                 <tr key={row.id}>
                   <td>
                     <div className="small fw-semibold">
-                      {row.quotation_unique_id || '—'}
+                      {row.quotation_unique_id || row.booking_unique_id || '—'}
                     </div>
-                    <div className="text-muted small">{row.quotation_title}</div>
+                    <div className="text-muted small">
+                      {row.quotation_title || row.booking_title || '—'}
+                    </div>
                   </td>
                   <td className="small fw-semibold font-monospace">
-                    {formatMoney(row.quotation_credit)}
+                    {formatMoney(row.quotation_credit ?? row.booking_credit)}
                   </td>
                   <td className="small text-muted">
-                    <div>{row.transaction_id || '—'}</div>
-                    <div>{row.transaction_status || '—'}</div>
+                    {formatPaymentMethod(row.payment_method)}
+                  </td>
+                  <td className="small text-muted">
+                    {formatNotes(row.notes)}
+                  </td>
+                  <td className="small text-muted font-monospace">
+                    {row.transaction_id || '—'}
                   </td>
                   <td className="small text-muted">
                     {formatAppDateTime(row.transaction_date)}
-                  </td>
-                  <td>
-                    {row.payout_sent ? (
-                      <span className="badge text-bg-success">
-                        Sent {formatAppDateTime(row.payout_sent_at)}
-                      </span>
-                    ) : (
-                      <span className="badge text-bg-warning">Pending</span>
-                    )}
                   </td>
                 </tr>
               ))}
               {rowsHasMore && rows.length > 0 && (
                 <tr ref={rowsSentinelRef} className="emails-list-sentinel" aria-hidden="true">
-                  <td colSpan={5} />
+                  <td colSpan={6} />
                 </tr>
               )}
               {rowsLoadingMore && (
                 <tr className="emails-list-end">
-                  <td colSpan={5} className="emails-table-empty">
+                  <td colSpan={6} className="emails-table-empty">
                     Loading more payments received…
                   </td>
                 </tr>
               )}
               {!rowsHasMore && rows.length > 0 && !loading && (
                 <tr className="emails-list-end">
-                  <td colSpan={5} className="emails-table-empty">
+                  <td colSpan={6} className="emails-table-empty">
                     All {rowsTotal} payments loaded
                   </td>
                 </tr>

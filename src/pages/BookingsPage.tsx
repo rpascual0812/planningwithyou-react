@@ -50,7 +50,7 @@ import {
   buildBookingGroupsPayload,
   emptyBookingGroupNamesFromItem,
 } from '../lib/bookingFieldGroups'
-import { bookingCardSuppliersFromFieldValues } from '../lib/bookingCardSuppliers'
+import { quotationCardSuppliersFromFieldValues } from '../lib/bookingCardSuppliers'
 import {
   bookingPriceSummaryRequiredDownpaymentAmount,
   bookingPriceSummaryTotalAmount,
@@ -2592,7 +2592,7 @@ const BookingsPage = () => {
                     ? '#6c757d'
                     : (column?.color ?? '#1f3a5f')
                 const iconClass = bookingCardIconClass(item)
-                const suppliers = bookingCardSuppliersFromFieldValues(
+                const suppliers = quotationCardSuppliersFromFieldValues(
                   item.field_values,
                 )
                 const avatarSuppliers = suppliers.slice(0, 4)
