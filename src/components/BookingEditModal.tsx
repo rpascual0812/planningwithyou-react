@@ -91,6 +91,7 @@ export type BookingFormState = {
   paidChargeAmount?: string
   paidProcessingFees?: string
   paidPlatformFees?: string
+  refundedAmount?: string
   /** False when another company appears on the quotation; view-only in the UI. */
   canEdit?: boolean
   /** Owner company name (``bookings.company_id``); shown in view-only mode. */
@@ -716,6 +717,10 @@ const BookingEditModal = ({
   const paidPlatformTotal = useMemo(
     () => parseAmount(form.paidPlatformFees),
     [form.paidPlatformFees],
+  )
+  const refundedTotal = useMemo(
+    () => parseAmount(form.refundedAmount),
+    [form.refundedAmount],
   )
   const balanceTotal =
     storedBookingTotal > 0 ? storedBookingTotal : priceTotal
@@ -2205,6 +2210,14 @@ const BookingEditModal = ({
                               </span>
                             </div>
                           )}
+                          {refundedTotal > 0 && (
+                            <div className="booking-price-summary__total booking-price-summary__refunded">
+                              <span>Refunded</span>
+                              <span>
+                                {formatCurrency(refundedTotal, currencyOptions)}
+                              </span>
+                            </div>
+                          )}
                           <div className="booking-price-summary__total booking-price-summary__remaining">
                             <span>Remaining</span>
                             <span>
@@ -2494,6 +2507,7 @@ const BookingEditModal = ({
                     paidChargeAmount: summary.paid_charge_amount ?? '0',
                     paidProcessingFees: summary.paid_processing_fees ?? '0',
                     paidPlatformFees: summary.paid_platform_fees ?? '0',
+                    refundedAmount: summary.refunded_amount ?? '0',
                   })
                 })
                 .catch(() => {})

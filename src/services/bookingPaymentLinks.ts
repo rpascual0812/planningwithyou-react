@@ -34,6 +34,7 @@ export type BookingPaymentSummary = {
   total_amount: string
   required_downpayment_amount: string
   paid_amount: string
+  refunded_amount: string
   paid_charge_amount: string
   paid_processing_fees: string
   paid_platform_fees: string
@@ -121,6 +122,8 @@ export type ManualBookingPaymentPayload = {
   amount: string
   payment_method: 'Cash' | 'Cheque' | 'Bank Transfer'
   notes?: string
+  /** ``refund`` posts to manual-payments (works before manual-refunds route is deployed). */
+  kind?: 'payment' | 'refund'
 }
 
 export async function createManualBookingPayment(
@@ -142,6 +145,42 @@ export async function createManualBookingPayment(
     } catch (e) {
       if (e instanceof Error) throw e
       throw new Error('Failed to record manual payment')
+    }
+  }
+  return res.json()
+}
+
+export async function createManualBookingRefund(
+  bookingId: number,
+  payload: ManualBookingPaymentPayload,
+): Promise<BookingPaymentRecord> {
+  const body = { ...payload, kind: 'refund' as const }
+  const paymentUrl = buildApiUrl(
+    `/quotation-items/${bookingId}/manual-payments/`,
+  )
+  const refundUrl = buildApiUrl(
+    `/quotation-items/${bookingId}/manual-refunds/`,
+  )
+  let res = await apiFetch(paymentUrl, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (res.status === 404) {
+    const { kind: _kind, ...legacyBody } = body
+    res = await apiFetch(refundUrl, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(legacyBody),
+    })
+  }
+  if (!res.ok) {
+    try {
+      const errBody = await res.json()
+      throw new Error(extractError(errBody) || 'Failed to record refund')
+    } catch (e) {
+      if (e instanceof Error) throw e
+      throw new Error('Failed to record refund')
     }
   }
   return res.json()

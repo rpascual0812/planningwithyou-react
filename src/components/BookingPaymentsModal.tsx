@@ -8,6 +8,7 @@ import {
   type BookingPaymentSummary,
 } from '../services/bookingPaymentLinks'
 import ManualPaymentModal from './ManualPaymentModal'
+import RefundModal from './RefundModal'
 import CompanyKybModal from '../pages/settings/companies/CompanyKybModal'
 import { fetchCompanies, type CompanyRecord } from '../services/companies'
 import { formatCurrency } from '../utils/currency'
@@ -53,6 +54,9 @@ function paymentStatusClass(status: string): string {
   const s = status.trim().toLowerCase()
   if (s === 'paid' || s === 'succeeded' || s === 'success') {
     return 'booking-payments-status booking-payments-status--success'
+  }
+  if (s === 'refunded') {
+    return 'booking-payments-status booking-payments-status--refunded'
   }
   if (s === 'failed' || s === 'cancelled' || s === 'canceled' || s === 'void') {
     return 'booking-payments-status booking-payments-status--failed'
@@ -105,6 +109,7 @@ export default function BookingPaymentsModal({
   const [companyLoading, setCompanyLoading] = useState(true)
   const [kybModalOpen, setKybModalOpen] = useState(false)
   const [manualPaymentOpen, setManualPaymentOpen] = useState(false)
+  const [refundOpen, setRefundOpen] = useState(false)
 
   const kybVerified = mainCompany?.kyb_verified === true
 
@@ -197,6 +202,9 @@ export default function BookingPaymentsModal({
     const paidPlatform = summary
       ? parseSummaryAmount(summary.paid_platform_fees)
       : 0
+    const refunded = summary
+      ? parseSummaryAmount(summary.refunded_amount)
+      : 0
     const remaining = summary
       ? parseSummaryAmount(summary.remaining_amount)
       : Math.max(0, total - paid)
@@ -207,6 +215,7 @@ export default function BookingPaymentsModal({
       paidCharge,
       paidProcessing,
       paidPlatform,
+      refunded,
       remaining,
     }
   }, [summary, bookingTotal, requiredDownpayment])
@@ -277,6 +286,8 @@ export default function BookingPaymentsModal({
     if (!Number.isNaN(base) && base > 0) return base
     return Number(payment.amount) || 0
   }
+
+  const paidBalance = parseSummaryAmount(summary?.paid_amount)
 
   const chargeLabel = summary?.has_paid_payment
     ? 'Amount to collect (remaining balance)'
@@ -386,6 +397,14 @@ export default function BookingPaymentsModal({
                         </div>
                       )}
                     </>
+                  )}
+                  {summaryDisplay.refunded > 0 && (
+                    <div className="booking-payments-summary-dl__row">
+                      <dt>Refunded</dt>
+                      <dd>
+                        {formatCurrency(summaryDisplay.refunded, currencyOptions)}
+                      </dd>
+                    </div>
                   )}
                   <div className="booking-payments-summary-dl__row booking-payments-summary-dl__row--emphasis">
                     <dt>Remaining</dt>
@@ -635,6 +654,14 @@ export default function BookingPaymentsModal({
               >
                 Add Manual Payment
               </button>
+              <button
+                type="button"
+                className="btn btn-outline-danger"
+                disabled={paidBalance <= 0}
+                onClick={() => setRefundOpen(true)}
+              >
+                Record Refund
+              </button>
               <button type="button" className="btn btn-secondary" onClick={onClose}>
                 Close
               </button>
@@ -649,6 +676,19 @@ export default function BookingPaymentsModal({
           contactEmail={contactEmail}
           defaultAmount={chargeInput}
           onClose={() => setManualPaymentOpen(false)}
+          onSaved={() => {
+            void loadPayments()
+            setActiveTab('made')
+          }}
+        />
+      )}
+
+      {refundOpen && (
+        <RefundModal
+          bookingId={bookingId}
+          maxRefundAmount={paidBalance}
+          defaultAmount={paidBalance > 0 ? paidBalance.toFixed(2) : ''}
+          onClose={() => setRefundOpen(false)}
           onSaved={() => {
             void loadPayments()
             setActiveTab('made')

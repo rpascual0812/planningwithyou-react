@@ -97,6 +97,7 @@ export type BookingItemRecord = {
   paid_charge_amount?: string
   paid_processing_fees?: string
   paid_platform_fees?: string
+  refunded_amount?: string
   remaining_amount?: string
   package_required_downpayment_amount?: string
   groups?: BookingGroupRecord[]

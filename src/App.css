@@ -10036,9 +10036,39 @@ body,
   color: #9b2c2c;
 }
 
+.booking-payments-status--refunded {
+  background: rgba(180, 120, 40, 0.14);
+  color: #7a4f12;
+}
+
 .booking-payments-status--pending {
   background: rgba(59, 125, 216, 0.12);
   color: #1e4f8f;
+}
+
+.reports-payment-type-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.reports-payment-type-badge--payment {
+  background: var(--brand-green-soft);
+  color: var(--brand-green-dark);
+}
+
+.reports-payment-type-badge--refund {
+  background: rgba(214, 90, 90, 0.12);
+  color: #9b2c2c;
+}
+
+.reports-payment-type-badge--other {
+  background: rgba(31, 58, 95, 0.08);
+  color: #374151;
 }
 
 .booking-price-summary__downpayment {
@@ -10053,6 +10083,11 @@ body,
   padding-top: 0.35rem;
   border-top: 1px dashed rgba(31, 58, 95, 0.12);
   font-size: 0.9rem;
+}
+
+.booking-price-summary__refunded span:last-child {
+  color: #7a4f12;
+  font-weight: 800;
 }
 
 .booking-price-summary__remaining {

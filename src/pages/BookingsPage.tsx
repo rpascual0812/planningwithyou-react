@@ -425,6 +425,7 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     paidChargeAmount: item.paid_charge_amount ?? '0',
     paidProcessingFees: item.paid_processing_fees ?? '0',
     paidPlatformFees: item.paid_platform_fees ?? '0',
+    refundedAmount: item.refunded_amount ?? '0',
     canEdit: item.can_edit === true,
     companyName: item.company_name ?? '',
   }
@@ -1861,6 +1862,7 @@ const BookingsPage = () => {
             paidChargeAmount: created.paid_charge_amount ?? '0',
             paidProcessingFees: created.paid_processing_fees ?? '0',
             paidPlatformFees: created.paid_platform_fees ?? '0',
+            refundedAmount: created.refunded_amount ?? '0',
           })
           setSearchParams(
             (prev) => {
@@ -1899,6 +1901,8 @@ const BookingsPage = () => {
               updated.paid_processing_fees ?? itemModal.paidProcessingFees ?? '0',
             paidPlatformFees:
               updated.paid_platform_fees ?? itemModal.paidPlatformFees ?? '0',
+            refundedAmount:
+              updated.refunded_amount ?? itemModal.refundedAmount ?? '0',
           })
         }
       }

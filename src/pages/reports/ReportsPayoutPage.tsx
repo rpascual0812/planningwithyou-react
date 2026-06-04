@@ -14,6 +14,33 @@ function formatNotes(value: string | null | undefined): string {
   return value?.trim() || '—'
 }
 
+function formatTransactionType(value: string | null | undefined): string {
+  const status = (value ?? '').trim().toLowerCase()
+  if (status === 'paid') return 'Payment'
+  if (status === 'refunded') return 'Refund'
+  if (!status) return '—'
+  return (value ?? '').trim().replace(/_/g, ' ')
+}
+
+function transactionTypeBadgeClass(value: string | null | undefined): string {
+  const status = (value ?? '').trim().toLowerCase()
+  if (status === 'paid') {
+    return 'reports-payment-type-badge reports-payment-type-badge--payment'
+  }
+  if (status === 'refunded') {
+    return 'reports-payment-type-badge reports-payment-type-badge--refund'
+  }
+  return 'reports-payment-type-badge reports-payment-type-badge--other'
+}
+
+function TransactionTypeBadge({ status }: { status: string | null | undefined }) {
+  const label = formatTransactionType(status)
+  if (label === '—') {
+    return <span className="text-muted">—</span>
+  }
+  return <span className={transactionTypeBadgeClass(status)}>{label}</span>
+}
+
 function formatMoney(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === '') return '—'
   const n = typeof value === 'string' ? Number(value) : value
@@ -38,6 +65,7 @@ function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
     'Amount',
     'Payment method',
     'Notes',
+    'Type',
     'Transaction ID',
     'Date',
   ]
@@ -47,6 +75,7 @@ function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
     formatMoney(row.quotation_credit ?? row.booking_credit),
     formatPaymentMethod(row.payment_method),
     formatNotes(row.notes),
+    formatTransactionType(row.transaction_status),
     row.transaction_id || '',
     formatAppDateTime(row.transaction_date),
   ])
@@ -217,6 +246,7 @@ const ReportsPayoutPage = () => {
                 <th>Amount</th>
                 <th>Payment method</th>
                 <th>Notes</th>
+                <th>Type</th>
                 <th>Transaction</th>
                 <th>Date</th>
               </tr>
@@ -241,6 +271,9 @@ const ReportsPayoutPage = () => {
                   <td className="small text-muted">
                     {formatNotes(row.notes)}
                   </td>
+                  <td>
+                    <TransactionTypeBadge status={row.transaction_status} />
+                  </td>
                   <td className="small text-muted font-monospace">
                     {row.transaction_id || '—'}
                   </td>
@@ -251,19 +284,19 @@ const ReportsPayoutPage = () => {
               ))}
               {rowsHasMore && rows.length > 0 && (
                 <tr ref={rowsSentinelRef} className="emails-list-sentinel" aria-hidden="true">
-                  <td colSpan={6} />
+                  <td colSpan={7} />
                 </tr>
               )}
               {rowsLoadingMore && (
                 <tr className="emails-list-end">
-                  <td colSpan={6} className="emails-table-empty">
+                  <td colSpan={7} className="emails-table-empty">
                     Loading more payments received…
                   </td>
                 </tr>
               )}
               {!rowsHasMore && rows.length > 0 && !loading && (
                 <tr className="emails-list-end">
-                  <td colSpan={6} className="emails-table-empty">
+                  <td colSpan={7} className="emails-table-empty">
                     All {rowsTotal} payments loaded
                   </td>
                 </tr>
