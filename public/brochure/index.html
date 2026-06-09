@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planning With You — Brochure</title>
+    <link rel="icon" type="image/png" href="/assets/images/logo_sm.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --brand-navy: #1c365a;
+        --brand-navy-dark: #122846;
+        --brand-navy-darker: #081427;
+        --brand-navy-light: #2d527e;
+        --brand-navy-soft: #eaeff5;
+        --brand-green: #3eb085;
+        --brand-green-dark: #2a8e6a;
+        --brand-green-light: #7ed0ad;
+        --brand-green-soft: #e6f5ed;
+        --brand-gold: #d4af6a;
+        --brand-ink: #0c1b32;
+        --brand-mute: #6b7889;
+        --brand-surface: #f1f4f8;
+        --r-md: 0.75rem;
+        --r-lg: 1rem;
+        --shadow-2: 0 1px 2px rgba(8, 20, 39, 0.05),
+          0 8px 18px rgba(8, 20, 39, 0.06);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        color: var(--brand-ink);
+        background: #dde3eb;
+        line-height: 1.45;
+      }
+
+      /* ---- Screen toolbar ---- */
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.85rem 1.5rem;
+        background: var(--brand-navy-darker);
+        color: #fff;
+        box-shadow: var(--shadow-2);
+      }
+
+      .toolbar-brand {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+
+      .toolbar-brand img {
+        height: 28px;
+        width: auto;
+      }
+
+      .toolbar-actions {
+        display: flex;
+        gap: 0.6rem;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 999px;
+        padding: 0.55rem 1.1rem;
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+      }
+
+      .btn:active {
+        transform: scale(0.98);
+      }
+
+      .btn-primary {
+        background: var(--brand-green);
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background: var(--brand-green-dark);
+      }
+
+      .btn-ghost {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+      }
+
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .png-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        justify-content: center;
+        margin-top: -0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .png-links a {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--brand-navy);
+        text-decoration: none;
+        padding: 0.3rem 0.65rem;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid rgba(28, 54, 90, 0.12);
+      }
+
+      .png-links a:hover {
+        border-color: var(--brand-green);
+        color: var(--brand-green-dark);
+      }
+
+      /* ---- Brochure layout ---- */
+      .brochure-wrap {
+        max-width: 1100px;
+        margin: 2rem auto 3rem;
+        padding: 0 1rem;
+      }
+
+      .brochure-note {
+        text-align: center;
+        color: var(--brand-mute);
+        font-size: 0.875rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .sheet {
+        background: #fff;
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+        margin-bottom: 2rem;
+      }
+
+      .sheet-label {
+        padding: 0.6rem 1rem;
+        background: var(--brand-navy-soft);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--brand-navy-light);
+      }
+
+      .panels {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        min-height: 520px;
+      }
+
+      .panel {
+        padding: 1.75rem 1.5rem;
+        border-right: 1px dashed rgba(28, 54, 90, 0.12);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .panel:last-child {
+        border-right: none;
+      }
+
+      /* Panel themes */
+      .panel-cover {
+        background: linear-gradient(
+          155deg,
+          var(--brand-navy-darker) 0%,
+          var(--brand-navy) 55%,
+          var(--brand-navy-light) 100%
+        );
+        color: #fff;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+
+      .panel-cover .logo-lg {
+        width: 96px;
+        height: auto;
+        margin-bottom: 1rem;
+        filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.25));
+      }
+
+      .panel-cover h1 {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+      }
+
+      .panel-cover .tagline {
+        margin: 0.65rem 0 0;
+        font-size: 0.92rem;
+        color: rgba(255, 255, 255, 0.82);
+        max-width: 16rem;
+      }
+
+      .panel-cover .gold-line {
+        width: 48px;
+        height: 3px;
+        background: var(--brand-gold);
+        border-radius: 999px;
+        margin: 1rem auto;
+      }
+
+      .panel-cover .url {
+        margin-top: auto;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--brand-green-light);
+        letter-spacing: 0.02em;
+      }
+
+      .panel-problem {
+        background: var(--brand-surface);
+      }
+
+      .panel-center {
+        background: #fff;
+      }
+
+      .panel-features {
+        background: var(--brand-green-soft);
+      }
+
+      .panel-teams {
+        background: #fff;
+      }
+
+      .panel-cta {
+        background: linear-gradient(
+          160deg,
+          var(--brand-navy) 0%,
+          var(--brand-navy-dark) 100%
+        );
+        color: #fff;
+        justify-content: center;
+      }
+
+      .eyebrow {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--brand-green-dark);
+      }
+
+      .panel-cta .eyebrow {
+        color: var(--brand-green-light);
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+        color: var(--brand-navy);
+      }
+
+      .panel-cover h2,
+      .panel-cta h2 {
+        color: #fff;
+      }
+
+      p {
+        margin: 0;
+        font-size: 0.82rem;
+        color: var(--brand-mute);
+      }
+
+      .panel-cover p,
+      .panel-cta p {
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      .feature-list {
+        list-style: none;
+        margin: 0.35rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+
+      .feature-list li {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.78rem;
+        color: var(--brand-ink);
+        line-height: 1.35;
+      }
+
+      .feature-list li strong {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--brand-navy);
+      }
+
+      .check {
+        flex-shrink: 0;
+        width: 1.1rem;
+        height: 1.1rem;
+        border-radius: 50%;
+        background: var(--brand-green);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 0.62rem;
+        font-weight: 800;
+        margin-top: 0.1rem;
+      }
+
+      .plan-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+      }
+
+      .pill {
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 0.25rem 0.55rem;
+        border-radius: 999px;
+        background: var(--brand-navy-soft);
+        color: var(--brand-navy);
+      }
+
+      .pill-highlight {
+        background: var(--brand-green);
+        color: #fff;
+      }
+
+      .integrations {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.45rem;
+      }
+
+      .integration-tag {
+        font-size: 0.62rem;
+        font-weight: 600;
+        padding: 0.2rem 0.45rem;
+        border-radius: var(--r-md);
+        border: 1px solid rgba(28, 54, 90, 0.12);
+        background: #fff;
+        color: var(--brand-navy-light);
+      }
+
+      .cta-box {
+        margin-top: 0.75rem;
+        padding: 1rem;
+        border-radius: var(--r-md);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .cta-box ul {
+        list-style: none;
+        margin: 0.5rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+
+      .cta-box li {
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .cta-box li::before {
+        content: '✓';
+        color: var(--brand-green-light);
+        font-weight: 800;
+      }
+
+      .cta-url {
+        display: inline-block;
+        margin-top: 0.85rem;
+        padding: 0.55rem 1rem;
+        border-radius: 999px;
+        background: var(--brand-green);
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .cta-url:hover {
+        background: var(--brand-green-dark);
+      }
+
+      /* ---- One-page flyer ---- */
+      .flyer {
+        background: #fff;
+        border-radius: var(--r-lg);
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+      }
+
+      .flyer-front {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        min-height: 420px;
+      }
+
+      .flyer-front-copy {
+        padding: 2.25rem 2rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1rem;
+      }
+
+      .flyer-front-copy h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        color: var(--brand-navy);
+      }
+
+      .flyer-front-copy .lead {
+        font-size: 1rem;
+        color: var(--brand-mute);
+        max-width: 28rem;
+      }
+
+      .benefit-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        margin-top: 0.25rem;
+      }
+
+      .benefit {
+        display: flex;
+        gap: 0.65rem;
+        align-items: flex-start;
+      }
+
+      .benefit-num {
+        flex-shrink: 0;
+        width: 1.65rem;
+        height: 1.65rem;
+        border-radius: 50%;
+        background: var(--brand-navy);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 800;
+        display: grid;
+        place-items: center;
+      }
+
+      .benefit strong {
+        display: block;
+        font-size: 0.88rem;
+        color: var(--brand-navy);
+        margin-bottom: 0.1rem;
+      }
+
+      .benefit span {
+        font-size: 0.8rem;
+        color: var(--brand-mute);
+      }
+
+      .flyer-front-visual {
+        background: linear-gradient(
+          145deg,
+          var(--brand-navy-darker),
+          var(--brand-navy) 50%,
+          var(--brand-green-dark)
+        );
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: #fff;
+        text-align: center;
+      }
+
+      .flyer-front-visual img {
+        width: 120px;
+        margin-bottom: 1.25rem;
+      }
+
+      .flyer-front-visual p {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.9rem;
+        max-width: 14rem;
+      }
+
+      .flyer-back {
+        padding: 1.75rem 2rem 2rem;
+        border-top: 4px solid var(--brand-green);
+      }
+
+      .flyer-back h2 {
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+      }
+
+      .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .feature-card {
+        padding: 0.75rem;
+        border-radius: var(--r-md);
+        background: var(--brand-surface);
+        text-align: center;
+      }
+
+      .feature-card .icon {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .feature-card strong {
+        display: block;
+        font-size: 0.75rem;
+        color: var(--brand-navy);
+      }
+
+      .flyer-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(28, 54, 90, 0.1);
+      }
+
+      .flyer-footer .plans {
+        font-size: 0.8rem;
+        color: var(--brand-mute);
+      }
+
+      .flyer-footer .plans strong {
+        color: var(--brand-navy);
+      }
+
+      /* ---- Print ---- */
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .toolbar,
+        .brochure-note,
+        .png-links {
+          display: none !important;
+        }
+
+        .brochure-wrap {
+          max-width: none;
+          margin: 0;
+          padding: 0;
+        }
+
+        .sheet,
+        .flyer {
+          box-shadow: none;
+          border-radius: 0;
+          margin: 0;
+          page-break-after: always;
+        }
+
+        .sheet-label {
+          display: none;
+        }
+
+        .panels {
+          min-height: 0;
+          height: 7.5in;
+        }
+
+        .panel {
+          padding: 0.45in 0.38in;
+        }
+
+        .flyer-front {
+          min-height: 5.5in;
+        }
+
+        @page {
+          size: letter landscape;
+          margin: 0.25in;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .panels {
+          grid-template-columns: 1fr;
+          min-height: auto;
+        }
+
+        .panel {
+          border-right: none;
+          border-bottom: 1px dashed rgba(28, 54, 90, 0.12);
+        }
+
+        .flyer-front {
+          grid-template-columns: 1fr;
+        }
+
+        .feature-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="toolbar">
+      <div class="toolbar-brand">
+        <img src="/assets/images/logo.png" alt="" width="84" height="84" />
+        <span>Planning With You — Brochure</span>
+      </div>
+      <div class="toolbar-actions">
+        <button type="button" class="btn btn-ghost" onclick="window.location.href='/'">
+          Open app
+        </button>
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+          Print / Save PDF
+        </button>
+      </div>
+    </header>
+
+    <main class="brochure-wrap">
+      <p class="brochure-note">
+        Tri-fold layout — print landscape on letter paper, then fold into three panels.
+        Use <strong>Print / Save PDF</strong> and choose “Save as PDF”.
+        Regenerate PNGs with <code>npm run brochure:png</code>.
+      </p>
+      <nav class="png-links" aria-label="Download PNG exports">
+        <a href="/brochure/png/brochure-outside.png" download>Outside PNG</a>
+        <a href="/brochure/png/brochure-inside.png" download>Inside PNG</a>
+        <a href="/brochure/png/brochure-flyer.png" download>Flyer PNG</a>
+        <a href="/brochure/png/brochure-full.png" download>Full PNG</a>
+      </nav>
+
+      <!-- Outside (when flat: back-left | back cover | front cover) -->
+      <section class="sheet" aria-label="Brochure outside">
+        <div class="sheet-label">Outside — fold into tri-fold (panels read right to left when flat)</div>
+        <div class="panels">
+          <article class="panel panel-teams">
+            <span class="eyebrow">For teams</span>
+            <h2>Built to scale with you</h2>
+            <ul class="feature-list">
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Multiple companies</strong>Manage more than one brand or location from one account.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Team seats</strong>Add users with custom roles and permissions.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Supplier selection</strong>Let clients choose from your approved vendor list when quoting.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Packages &amp; tiers</strong>Set up pricing packages that match how you sell.</span>
+              </li>
+            </ul>
+            <div class="plan-pills">
+              <span class="pill">Free</span>
+              <span class="pill pill-highlight">Pro</span>
+              <span class="pill">AI Plus</span>
+            </div>
+            <p style="margin-top: 0.5rem; font-size: 0.72rem">
+              Pro: integrations, suppliers, multi-user. AI Plus: everything in Pro plus AI automation.
+            </p>
+          </article>
+
+          <article class="panel panel-cta">
+            <span class="eyebrow">Get started</span>
+            <h2>Start planning with confidence</h2>
+            <p>Everything you need to quote, schedule, invite, and get paid — in one platform.</p>
+            <div class="cta-box">
+              <ul>
+                <li>Quote to payment in one flow</li>
+                <li>Beautiful invitations with RSVP</li>
+                <li>Calendar and email integrations</li>
+                <li>Real-time payment reports</li>
+              </ul>
+            </div>
+            <a class="cta-url" href="/register">Create your free account →</a>
+          </article>
+
+          <article class="panel panel-cover">
+            <img
+              class="logo-lg"
+              src="/assets/images/logo.png"
+              alt="Planning With You"
+              width="96"
+              height="96"
+            />
+            <h1>Planning With You</h1>
+            <div class="gold-line" aria-hidden="true"></div>
+            <p class="tagline">
+              Plan events. Quote clients. Get paid — all in one place.
+            </p>
+            <p class="url">planningwithyou.com</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Inside -->
+      <section class="sheet" aria-label="Brochure inside">
+        <div class="sheet-label">Inside — problem, overview, and features</div>
+        <div class="panels">
+          <article class="panel panel-problem">
+            <span class="eyebrow">The challenge</span>
+            <h2>Stop juggling ten different tools</h2>
+            <p>
+              Most event businesses lose time switching between spreadsheets, email,
+              calendars, payment apps, and design tools. Clients wait longer. Payments
+              slip through. Invitations feel generic.
+            </p>
+            <p style="margin-top: 0.5rem">
+              <strong style="color: var(--brand-navy)">Planning With You</strong>
+              brings your workflow together — so you can focus on creating unforgettable
+              events.
+            </p>
+          </article>
+
+          <article class="panel panel-center">
+            <span class="eyebrow">The platform</span>
+            <h2>One place for your entire planning business</h2>
+            <p>
+              Built for event planners, wedding vendors, and planning companies who need
+              to manage clients, quotes, calendars, payments, and invitations from a
+              single dashboard.
+            </p>
+            <p style="margin-top: 0.5rem">
+              Whether you're a solo planner or a team with multiple companies, quote
+              faster, stay organized, and grow revenue.
+            </p>
+          </article>
+
+          <article class="panel panel-features">
+            <span class="eyebrow">Features</span>
+            <h2>Everything you need</h2>
+            <ul class="feature-list">
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Quotations</strong>Professional quotes, secure payment links, automated reminders.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Calendar</strong>Appointments and events synced with Google, Microsoft, Apple, or Yahoo.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Invitations</strong>Canva-style editor with countdown timers and RSVP forms.</span>
+              </li>
+              <li>
+                <span class="check" aria-hidden="true">✓</span>
+                <span><strong>Reports</strong>Track payments, transactions, and revenue in real time.</span>
+              </li>
+            </ul>
+            <div class="integrations" aria-label="Integrations">
+              <span class="integration-tag">Gmail</span>
+              <span class="integration-tag">Google Calendar</span>
+              <span class="integration-tag">Outlook</span>
+              <span class="integration-tag">Apple</span>
+              <span class="integration-tag">Yahoo</span>
+              <span class="integration-tag">Messenger</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- One-page flyer -->
+      <section class="flyer" aria-label="One-page flyer">
+        <div class="sheet-label">Bonus — single-page flyer (prints on one sheet)</div>
+        <div class="flyer-front">
+          <div class="flyer-front-copy">
+            <img
+              src="/assets/images/logo.png"
+              alt="Planning With You"
+              width="56"
+              height="56"
+              style="width: 56px; height: auto"
+            />
+            <h1>Plan smarter.<br />Quote faster.<br />Get paid sooner.</h1>
+            <p class="lead">
+              Planning With You is the all-in-one platform for event and wedding planning
+              businesses — from first quote to final RSVP.
+            </p>
+            <div class="benefit-row">
+              <div class="benefit">
+                <span class="benefit-num">1</span>
+                <div>
+                  <strong>Quote to cash</strong>
+                  <span>Professional quotations, online payments, and automated reminder emails.</span>
+                </div>
+              </div>
+              <div class="benefit">
+                <span class="benefit-num">2</span>
+                <div>
+                  <strong>Delight your clients</strong>
+                  <span>Custom invitations with RSVP forms and countdown widgets.</span>
+                </div>
+              </div>
+              <div class="benefit">
+                <span class="benefit-num">3</span>
+                <div>
+                  <strong>Stay in control</strong>
+                  <span>Dashboard, calendar, reports, and team permissions in one place.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flyer-front-visual">
+            <img src="/assets/images/logo.png" alt="" width="120" height="120" />
+            <p>The all-in-one SaaS platform for event planning professionals.</p>
+          </div>
+        </div>
+        <div class="flyer-back">
+          <h2>Platform at a glance</h2>
+          <div class="feature-grid">
+            <div class="feature-card"><div class="icon">📋</div><strong>Quotations</strong></div>
+            <div class="feature-card"><div class="icon">📅</div><strong>Calendar</strong></div>
+            <div class="feature-card"><div class="icon">💌</div><strong>Invitations</strong></div>
+            <div class="feature-card"><div class="icon">👥</div><strong>Contacts</strong></div>
+            <div class="feature-card"><div class="icon">📊</div><strong>Reports</strong></div>
+            <div class="feature-card"><div class="icon">📁</div><strong>File Manager</strong></div>
+            <div class="feature-card"><div class="icon">✉️</div><strong>Emails</strong></div>
+            <div class="feature-card"><div class="icon">🔗</div><strong>Integrations</strong></div>
+          </div>
+          <div class="flyer-footer">
+            <p class="plans">
+              Plans: <strong>Free</strong> · <strong>Pro</strong> · <strong>AI Plus</strong>
+            </p>
+            <a class="cta-url" href="/register" style="margin-top: 0">Get started free →</a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
