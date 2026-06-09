@@ -65,8 +65,14 @@ export type FormTemplateWritePayload = {
 /** Form editor / API write shape (company is set server-side from the signed-in user). */
 export type FormTemplatePayload = FormTemplateWritePayload
 
-export async function fetchFormTemplates(): Promise<FormTemplateRecord[]> {
-  const res = await apiFetch(buildApiUrl('/form-templates/'), {
+export async function fetchFormTemplates(
+  companyId?: number | null,
+): Promise<FormTemplateRecord[]> {
+  const params = new URLSearchParams()
+  if (companyId != null) params.set('company_id', String(companyId))
+  const query = params.toString()
+  const url = query ? `/form-templates/?${query}` : '/form-templates/'
+  const res = await apiFetch(buildApiUrl(url), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load form templates')

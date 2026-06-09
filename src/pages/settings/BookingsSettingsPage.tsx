@@ -14,6 +14,7 @@ import {
 } from '../../services/formTemplates'
 import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
+import CompanyFilterSelect from '../../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { historyPaths } from '../../services/history'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
@@ -435,10 +436,13 @@ const FormTemplatesPanel = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [error, setError] = useState<string | null>(null)
-  const { companiesLoading, activeCompanyId } = useCompanyFilter({
-    fetchCompanies: false,
-    onFetchError: setError,
-  })
+  const {
+    companies,
+    companiesLoading,
+    selectedCompanyId,
+    setSelectedCompanyId,
+    activeCompanyId,
+  } = useCompanyFilter({ onFetchError: setError })
 
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -481,7 +485,7 @@ const FormTemplatesPanel = () => {
     setLoading(true)
     setError(null)
     try {
-      setTemplates(await fetchFormTemplates())
+      setTemplates(await fetchFormTemplates(activeCompanyId))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load templates')
     } finally {
@@ -582,6 +586,20 @@ const FormTemplatesPanel = () => {
 
   return (
     <div>
+      <div className="row g-2 align-items-end mb-3">
+        <CompanyFilterSelect
+          id="form-templates-company"
+          className="col-sm-8 col-md-6"
+          companies={companies}
+          loading={companiesLoading}
+          value={selectedCompanyId}
+          onChange={(id) => {
+            setSelectedCompanyId(id)
+            closeModal()
+          }}
+        />
+      </div>
+
       {/* Toolbar */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
