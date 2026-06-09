@@ -54,25 +54,19 @@ export type FormTemplateRecord = {
   updated_at: string
 }
 
-export type FormTemplatePayload = {
+export type FormTemplateWritePayload = {
   name: string
   description: string
   is_active: boolean
   is_default: boolean
-  company_id?: number | null
   fields: Omit<TemplateField, 'id'>[]
 }
 
-export async function fetchFormTemplates(
-  companyId?: number | null,
-): Promise<FormTemplateRecord[]> {
-  const params = new URLSearchParams()
-  if (companyId != null) params.set('company_id', String(companyId))
-  const query = params.toString()
-  const url = query
-    ? `/form-templates/?${query}`
-    : '/form-templates/'
-  const res = await apiFetch(buildApiUrl(url), {
+/** Form editor / API write shape (company is set server-side from the signed-in user). */
+export type FormTemplatePayload = FormTemplateWritePayload
+
+export async function fetchFormTemplates(): Promise<FormTemplateRecord[]> {
+  const res = await apiFetch(buildApiUrl('/form-templates/'), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load form templates')
@@ -80,7 +74,7 @@ export async function fetchFormTemplates(
 }
 
 export async function createFormTemplate(
-  data: FormTemplatePayload,
+  data: FormTemplateWritePayload,
 ): Promise<FormTemplateRecord> {
   const res = await apiFetch(buildApiUrl('/form-templates/'), {
     method: 'POST',
@@ -96,7 +90,7 @@ export async function createFormTemplate(
 
 export async function updateFormTemplate(
   id: number,
-  data: Partial<FormTemplatePayload>,
+  data: Partial<FormTemplateWritePayload>,
 ): Promise<FormTemplateRecord> {
   const res = await apiFetch(buildApiUrl(`/form-templates/${id}/`), {
     method: 'PATCH',

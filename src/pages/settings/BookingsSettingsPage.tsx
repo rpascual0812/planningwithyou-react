@@ -14,7 +14,6 @@ import {
 } from '../../services/formTemplates'
 import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
-import CompanyFilterSelect from '../../components/CompanyFilterSelect'
 import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { historyPaths } from '../../services/history'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
@@ -102,7 +101,6 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
     description: r.description,
     is_active: r.is_active,
     is_default: r.is_default,
-    company_id: r.company_id,
     fields: r.fields.map((f) => ({
       label: f.label,
       field_type: f.field_type,
@@ -437,13 +435,10 @@ const FormTemplatesPanel = () => {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [error, setError] = useState<string | null>(null)
-  const {
-    companies,
-    companiesLoading,
-    selectedCompanyId,
-    setSelectedCompanyId,
-    activeCompanyId,
-  } = useCompanyFilter({ onFetchError: setError })
+  const { companiesLoading, activeCompanyId } = useCompanyFilter({
+    fetchCompanies: false,
+    onFetchError: setError,
+  })
 
   const [templates, setTemplates] = useState<FormTemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -486,7 +481,7 @@ const FormTemplatesPanel = () => {
     setLoading(true)
     setError(null)
     try {
-      setTemplates(await fetchFormTemplates(activeCompanyId))
+      setTemplates(await fetchFormTemplates())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load templates')
     } finally {
@@ -540,8 +535,8 @@ const FormTemplatesPanel = () => {
 
   /* -- save -- */
   const handleSave = async (payload: FormTemplatePayload) => {
-    if (!editing && activeCompanyId == null) {
-      setFormError('Select a company before creating a template.')
+    if (activeCompanyId == null) {
+      setFormError('Your account is not assigned to a company.')
       return
     }
     setSaving(true)
@@ -551,10 +546,7 @@ const FormTemplatesPanel = () => {
         await updateFormTemplate(editing.id, payload)
         setHistoryRefresh((k) => k + 1)
       } else {
-        const created = await createFormTemplate({
-          ...payload,
-          company_id: activeCompanyId!,
-        })
+        const created = await createFormTemplate(payload)
         writeTplParam(String(created.id))
       }
       await load()
@@ -590,20 +582,6 @@ const FormTemplatesPanel = () => {
 
   return (
     <div>
-      <div className="row g-2 align-items-end mb-3">
-        <CompanyFilterSelect
-          id="form-templates-company"
-          className="col-sm-8 col-md-6"
-          companies={companies}
-          loading={companiesLoading}
-          value={selectedCompanyId}
-          onChange={(id) => {
-            setSelectedCompanyId(id)
-            closeModal()
-          }}
-        />
-      </div>
-
       {/* Toolbar */}
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
