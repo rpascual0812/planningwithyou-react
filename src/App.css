@@ -9651,6 +9651,43 @@ body,
   text-decoration: none;
 }
 
+.attachment-name-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  color: var(--bs-link-color);
+  cursor: pointer;
+}
+
+.attachment-name-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.attachment-name-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.attachment-download {
+  border: none;
+  background: none;
+  padding: 0;
+  line-height: 1;
+  font-size: 1rem;
+  color: var(--bs-secondary);
+  flex-shrink: 0;
+}
+
+.attachment-download:hover:not(:disabled) {
+  color: var(--bs-primary);
+}
+
+.attachment-download:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .attachment-name:hover {
   text-decoration: underline;
 }

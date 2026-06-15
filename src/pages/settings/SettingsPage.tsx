@@ -10,7 +10,7 @@ import BookingsSettingsPage from './BookingsSettingsPage'
 import CalendarSettingsPage from './CalendarSettingsPage'
 import EmailSettingsPage from './EmailSettingsPage'
 import CompaniesSettingsPage from './CompaniesSettingsPage'
-import EmailTemplatesSettingsPage from './EmailTemplatesSettingsPage'
+import UserSettingsPage from './UserSettingsPage'
 import IntegrationsSettingsPage from './IntegrationsSettingsPage'
 import RolesPermissionsSettingsPage from './RolesPermissionsSettingsPage'
 import SupplierSettingsPage from './SupplierSettingsPage'
@@ -18,18 +18,18 @@ import type { SettingsNavItem, SettingsSection } from './types'
 
 const TAB_PARAM = 'tab'
 const VALID_TABS = new Set<SettingsSection>([
-  'account', 'companies', 'suppliers', 'calendar', 'email-settings', 'quotations',
-  'email-templates', 'permissions', 'connection',
+  'account', 'companies', 'user-settings', 'suppliers', 'calendar', 'email-settings', 'quotations',
+  'permissions', 'connection',
 ])
 
 const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'account', label: 'Account Settings', icon: 'bi-person-vcard', description: 'Account Settings lets you manage your account information, subscription, and receipts.' },
   { id: 'companies', label: 'Company Settings', icon: 'bi-building', description: 'Company Settings lets you manage your companies and their settings.' },
+  { id: 'user-settings', label: 'User Settings', icon: 'bi-people', description: 'User Settings lets you manage user-related email templates.' },
   { id: 'suppliers', label: 'Supplier Settings', icon: 'bi-truck', description: 'Supplier Settings lets you manage your suppliers and their settings.' },
   { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', icon: 'bi-envelope-at', description: 'Email Settings lets you connect email providers to send and receive messages from your account.' },
-  { id: 'quotations', label: 'Quotation Settings', icon: 'bi-bookmark-check', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
-  { id: 'email-templates', label: 'Email Templates', icon: 'bi-envelope-paper', description: 'Email Templates lets you manage your user and quotation email templates.' },
+  { id: 'quotations', label: 'Quotation Settings', icon: 'bi-bookmark-check', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, form templates, and email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock', description: 'Roles and Permissions lets you manage your roles and permissions.' },
   // { id: 'connection', label: 'Integrations', icon: 'bi-diagram-3' },
 ]
@@ -41,9 +41,11 @@ const SettingsPage = () => {
   const requestedNav: SettingsSection =
     rawTab === 'subscription'
       ? 'account'
-      : rawTab && VALID_TABS.has(rawTab as SettingsSection)
-        ? (rawTab as SettingsSection)
-        : 'account'
+      : rawTab === 'email-templates'
+        ? 'quotations'
+        : rawTab && VALID_TABS.has(rawTab as SettingsSection)
+          ? (rawTab as SettingsSection)
+          : 'account'
 
   const visibleNavItems = useMemo(
     () => NAV_ITEMS.filter((item) => canAccessSettingsTab(currentUser, item.id)),
@@ -143,10 +145,10 @@ const ActiveSettingsPage = ({
       return <AccountSettingsPage initialAccordion={accountAccordionOpen} />
     case 'companies':
       return <CompaniesSettingsPage />
+    case 'user-settings':
+      return <UserSettingsPage />
     case 'suppliers':
       return <SupplierSettingsPage />
-    case 'email-templates':
-      return <EmailTemplatesSettingsPage />
     case 'calendar':
       return <CalendarSettingsPage />
     case 'email-settings':

@@ -3,6 +3,10 @@ import { Editor } from '@tinymce/tinymce-react'
 import type { Editor as TinyMCEEditor } from 'tinymce'
 import type { EmailRecord, EmailPayload } from '../services/emails'
 import {
+  downloadEmailAttachment,
+  normalizeEmailAttachments,
+} from '../services/emails'
+import {
   fetchEmailBookingTemplates,
   findCompanyDefaultBookingTemplate,
   type EmailBookingTemplateRecord,
@@ -21,6 +25,11 @@ import {
 import { TINYMCE_EDITOR_SHARED_PROPS } from '../lib/tinymceFreeEditor'
 import { normalizeEmailList } from '../lib/emailRecipients'
 import { EmailRecipientFields } from './EmailRecipientFields'
+import {
+  attachmentFilenameFromUrl,
+  downloadSecuredFile,
+} from '../lib/securedFileUrl'
+import { showErrorToast } from '../utils/toast'
 import {
   emailLogDisplayTimeZone,
   formatAppDateTime,
@@ -118,7 +127,7 @@ function buildInitialForm(
       reply_to: email.reply_to ?? '',
       subject: email.subject,
       body: email.body,
-      attachments: email.attachments,
+      attachments: normalizeEmailAttachments(email.attachments).map((item) => item.url),
     }
   }
   const base: EmailPayload = { ...EMPTY_FORM, ...composeDefaults }
@@ -170,11 +179,24 @@ const EmailSenderModal = ({
   const [bookingTemplatesLoading, setBookingTemplatesLoading] = useState(false)
   const [selectedBookingTemplateId, setSelectedBookingTemplateId] = useState('')
   const initialTemplateAppliedRef = useRef(false)
+  const [downloadingAttachmentIdx, setDownloadingAttachmentIdx] = useState<number | null>(
+    null,
+  )
 
   const activeBookingTemplates = useMemo(
     () => bookingTemplates.filter((t) => t.is_active),
     [bookingTemplates],
   )
+
+  const attachmentFilenameByUrl = useMemo(() => {
+    if (!email) return new Map<string, string>()
+    return new Map(
+      normalizeEmailAttachments(email.attachments).map((item) => [
+        item.url,
+        item.filename,
+      ]),
+    )
+  }, [email])
 
   useEffect(() => {
     if (!isCompose) return
@@ -350,6 +372,24 @@ const EmailSenderModal = ({
 
   const bodyForSend = (): string =>
     editorRef.current?.getContent() ?? form.body ?? ''
+
+  const attachmentLabel = (url: string) =>
+    attachmentFilenameByUrl.get(url) ?? attachmentFilenameFromUrl(url)
+
+  const handleDownloadAttachment = async (url: string, idx: number) => {
+    setDownloadingAttachmentIdx(idx)
+    try {
+      if (!isCompose && email) {
+        await downloadEmailAttachment(email.id, idx, attachmentLabel(url))
+      } else {
+        await downloadSecuredFile(url, attachmentLabel(url))
+      }
+    } catch {
+      showErrorToast('Could not download attachment.')
+    } finally {
+      setDownloadingAttachmentIdx(null)
+    }
+  }
 
   const handleSendClick = () => {
     const body = bodyForSend()
@@ -549,6 +589,7 @@ const EmailSenderModal = ({
                     type="button"
                     className="btn btn-sm btn-outline-primary"
                     onClick={() => setDocsMode('attach')}
+                    disabled={!canWrite || sending}
                   >
                     <i className="bi bi-paperclip me-1" />
                     Attach
@@ -557,32 +598,53 @@ const EmailSenderModal = ({
                 {(form.attachments ?? []).length > 0 ? (
                   <div className="attachment-list">
                     {(form.attachments ?? []).map((url, idx) => {
-                      const filename = url.split('/').pop() || url
+                      const filename = attachmentLabel(url)
+                      const downloading = downloadingAttachmentIdx === idx
                       return (
                         <div key={idx} className="attachment-item">
                           <i className="bi bi-file-earmark me-1" />
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="attachment-name"
-                            title={url}
-                          >
-                            {filename}
-                          </a>
                           <button
                             type="button"
-                            className="attachment-remove"
-                            onClick={() =>
-                              setField(
-                                'attachments',
-                                (form.attachments ?? []).filter((_, i) => i !== idx),
-                              )
-                            }
-                            aria-label={`Remove ${filename}`}
+                            className="attachment-name attachment-name-btn"
+                            title={url}
+                            disabled={downloading}
+                            onClick={() => void handleDownloadAttachment(url, idx)}
                           >
-                            <i className="bi bi-x" />
+                            {filename}
                           </button>
+                          <button
+                            type="button"
+                            className="attachment-download"
+                            disabled={downloading}
+                            onClick={() => void handleDownloadAttachment(url, idx)}
+                            aria-label={`Download ${filename}`}
+                            title="Download"
+                          >
+                            {downloading ? (
+                              <span
+                                className="spinner-border spinner-border-sm"
+                                role="status"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <i className="bi bi-download" />
+                            )}
+                          </button>
+                          {canWrite && (
+                            <button
+                              type="button"
+                              className="attachment-remove"
+                              onClick={() =>
+                                setField(
+                                  'attachments',
+                                  (form.attachments ?? []).filter((_, i) => i !== idx),
+                                )
+                              }
+                              aria-label={`Remove ${filename}`}
+                            >
+                              <i className="bi bi-x" />
+                            </button>
+                          )}
                         </div>
                       )
                     })}

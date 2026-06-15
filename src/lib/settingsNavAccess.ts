@@ -5,11 +5,11 @@ import { canRead } from './featureAccess'
 const SETTINGS_TAB_ORDER: SettingsSection[] = [
   'account',
   'companies',
+  'user-settings',
   'suppliers',
   'calendar',
   'email-settings',
   'quotations',
-  'email-templates',
   'permissions',
   'connection',
 ]
@@ -18,11 +18,11 @@ const SETTINGS_TAB_ORDER: SettingsSection[] = [
 const TAB_READ_FEATURES: Record<SettingsSection, string | string[]> = {
   account: 'account_settings',
   companies: 'companies_settings',
+  'user-settings': 'email_templates',
   suppliers: 'supplier_settings',
   calendar: 'calendar_settings',
   'email-settings': 'settings',
   quotations: 'quotation_settings_statuses',
-  'email-templates': 'email_templates',
   permissions: 'roles_permissions',
   connection: 'settings',
 }

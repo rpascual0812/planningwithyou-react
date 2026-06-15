@@ -20,11 +20,11 @@ export type TourStepMeta = {
 const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; description: string }[] = [
   { id: 'account', label: 'Account Settings', tour: 'settings-account', description: 'Account Settings lets you manage your account information, subscription, and receipts.' },
   { id: 'companies', label: 'Company Settings', tour: 'settings-companies', description: 'Company Settings lets you manage your companies, tiers, and packages.' },
+  { id: 'user-settings', label: 'User Settings', tour: 'settings-user-settings', description: 'User Settings lets you manage user-related email templates.' },
   { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when quoting.' },
   { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', tour: 'settings-email-settings', description: 'Email Settings lets you connect Gmail, Outlook, Apple Mail, and Yahoo to your account.' },
-  { id: 'quotations', label: 'Quotation Settings', tour: 'settings-bookings', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, and form templates.' },
-  { id: 'email-templates', label: 'Email Templates', tour: 'settings-email-templates', description: 'Email Templates lets you manage your user and quotation email templates.' },
+  { id: 'quotations', label: 'Quotation Settings', tour: 'settings-bookings', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, form templates, and email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', tour: 'settings-permissions', description: 'Roles and Permissions lets you manage your user\'s roles and permissions.' },
 ]
 
@@ -92,6 +92,13 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       description: 'Set up packages and price points for quotations.',
     },
   ],
+  'user-settings': [
+    {
+      tour: 'settings-user-settings-email-templates',
+      title: 'Email templates',
+      description: 'Templates for user-related emails such as welcome, verify email, and password reset.',
+    },
+  ],
   calendar: [
     {
       tour: 'settings-calendar-statuses',
@@ -137,17 +144,10 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       title: 'Form templates',
       description: 'Build custom fields and forms for new quotations.',
     },
-  ],
-  'email-templates': [
     {
-      tour: 'settings-email-templates-users',
-      title: 'User email templates',
-      description: 'Templates for user-related emails such as password reset emails.',
-    },
-    {
-      tour: 'settings-email-templates-bookings',
-      title: 'Quotation email templates',
-      description: 'Templates for quotation emails, payment links, and payment received emails.',
+      tour: 'settings-bookings-email-templates',
+      title: 'Email templates',
+      description: 'Customize emails sent to contacts and companies when a quotation status changes.',
     },
   ],
 }

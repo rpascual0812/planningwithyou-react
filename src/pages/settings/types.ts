@@ -1,8 +1,8 @@
 export type SettingsSection =
   | 'account'
   | 'companies'
+  | 'user-settings'
   | 'suppliers'
-  | 'email-templates'
   | 'calendar'
   | 'email-settings'
   | 'quotations'

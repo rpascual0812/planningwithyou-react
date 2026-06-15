@@ -1,4 +1,10 @@
 import { apiFetch, authHeaders, buildApiUrl, apiErrorFromResponse, readJsonResponse } from './api'
+import { attachmentFilenameFromUrl, downloadSecuredFile } from '../lib/securedFileUrl'
+
+export type EmailAttachment = {
+  url: string
+  filename: string
+}
 
 export type EmailRecord = {
   id: number
@@ -9,7 +15,7 @@ export type EmailRecord = {
   reply_to: string
   subject: string
   body: string
-  attachments: string[]
+  attachments: EmailAttachment[]
   created_by: number | null
   company_id: number | null
   company_timezone?: string
@@ -18,6 +24,21 @@ export type EmailRecord = {
   attempts: number
   created_at: string
   sent_at: string | null
+}
+
+/** Normalize API attachments (objects or legacy URL strings). */
+export function normalizeEmailAttachments(
+  attachments: EmailAttachment[] | string[] | undefined,
+): EmailAttachment[] {
+  return (attachments ?? []).map((item) => {
+    if (typeof item === 'string') {
+      return { url: item, filename: attachmentFilenameFromUrl(item) }
+    }
+    return {
+      url: item.url,
+      filename: item.filename || attachmentFilenameFromUrl(item.url),
+    }
+  })
 }
 
 export type EmailPayload = {
@@ -114,6 +135,18 @@ export async function fetchEmail(id: number): Promise<EmailRecord> {
   })
   if (!res.ok) throw new Error('Failed to load email')
   return res.json()
+}
+
+/** Download one attachment from an email log via the API (not direct S3). */
+export async function downloadEmailAttachment(
+  emailId: number,
+  attachmentIndex: number,
+  fallbackFilename: string,
+): Promise<void> {
+  await downloadSecuredFile(
+    `/emails/${emailId}/attachments/${attachmentIndex}/`,
+    fallbackFilename,
+  )
 }
 
 function apiEmailBody(data: EmailPayload): EmailPayload {

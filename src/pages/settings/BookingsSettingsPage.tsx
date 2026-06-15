@@ -19,6 +19,7 @@ import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { historyPaths } from '../../services/history'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
 import BookingStatusesPanel from './bookings/BookingStatusesPanel'
+import QuotationEmailTemplatesPanel from './bookings/QuotationEmailTemplatesPanel'
 import {
   fetchBookingViewConfig,
   fetchBookingsGroupNameConfig,
@@ -326,6 +327,7 @@ const BookingsSettingsPage = () => {
   const [groupNameOpen, setGroupNameOpen] = useState(false)
   const [statusesOpen, setStatusesOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [emailTemplatesOpen, setEmailTemplatesOpen] = useState(false)
 
   return (
     <div className="account-settings">
@@ -399,6 +401,34 @@ const BookingsSettingsPage = () => {
           )}
         </li>
 
+        <li className={`faq-item${emailTemplatesOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            data-tour="settings-bookings-email-templates"
+            aria-expanded={emailTemplatesOpen}
+            onClick={() => setEmailTemplatesOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-envelope" />
+            </span>
+            <span className="faq-question">Email Templates</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {emailTemplatesOpen && (
+            <div className="faq-answer faq-answer--form">
+              <p className="text-muted small mb-3">
+                Customize emails sent when a quotation status changes. Default templates
+                include <code>new_quotation</code>, <code>updated_quotation</code>,{' '}
+                <code>quotation_status_company</code>, and <code>payment_link</code>.
+                Default templates cannot be deleted.
+              </p>
+              <QuotationEmailTemplatesPanel />
+            </div>
+          )}
+        </li>
 
         <li className={`faq-item${templatesOpen ? ' is-open' : ''}`}>
           <button

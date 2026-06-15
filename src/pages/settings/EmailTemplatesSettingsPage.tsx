@@ -11,21 +11,13 @@ import {
 } from '../../lib/tinymceEmailMergeVariables'
 import { TINYMCE_EDITOR_SHARED_PROPS } from '../../lib/tinymceFreeEditor'
 import type { DocumentRecord } from '../../services/documents'
-import {
-  createEmailBookingTemplate,
-  deleteEmailBookingTemplate,
-  fetchEmailBookingTemplates,
-  updateEmailBookingTemplate,
-  type EmailBookingTemplatePayload,
-  type EmailBookingTemplateRecord,
+import type {
+  EmailBookingTemplatePayload,
+  EmailBookingTemplateRecord,
 } from '../../services/emailBookingTemplates'
-import {
-  createEmailUserTemplate,
-  deleteEmailUserTemplate,
-  fetchEmailUserTemplates,
-  updateEmailUserTemplate,
-  type EmailUserTemplatePayload,
-  type EmailUserTemplateRecord,
+import type {
+  EmailUserTemplatePayload,
+  EmailUserTemplateRecord,
 } from '../../services/emailUserTemplates'
 import type {
   EmailCalendarTemplatePayload,
@@ -542,85 +534,3 @@ export const EmailTemplatesPanel = ({
     </div>
   )
 }
-
-type AccordionItemProps = {
-  open: boolean
-  onToggle: () => void
-  icon: string
-  title: string
-  tourId?: string
-  children: React.ReactNode
-}
-
-const EmailTemplatesAccordionItem = ({ open, onToggle, icon, title, tourId, children }: AccordionItemProps) => (
-  <li className={`faq-item${open ? ' is-open' : ''}`}>
-    <button
-      type="button"
-      className="faq-toggle"
-      data-tour={tourId}
-      aria-expanded={open}
-      onClick={onToggle}
-    >
-      <span className="faq-icon" aria-hidden="true">
-        <i className={icon} />
-      </span>
-      <span className="faq-question">{title}</span>
-      <span className="faq-chevron" aria-hidden="true">
-        <i className="bi bi-chevron-down" />
-      </span>
-    </button>
-    {open && <div className="faq-answer faq-answer--form">{children}</div>}
-  </li>
-)
-
-const USERS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
-  typeLabel: 'users',
-  emptyMessage: 'No user email templates yet.',
-  fetchTemplates: fetchEmailUserTemplates,
-  createTemplate: createEmailUserTemplate,
-  updateTemplate: updateEmailUserTemplate,
-  deleteTemplate: deleteEmailUserTemplate,
-  historyPathForId: historyPaths.emailTemplateUsers,
-}
-
-const BOOKINGS_PANEL_CONFIG: EmailTemplatesPanelConfig = {
-  typeLabel: 'quotations',
-  emptyMessage: 'No quotation email templates yet.',
-  fetchTemplates: fetchEmailBookingTemplates,
-  createTemplate: createEmailBookingTemplate,
-  updateTemplate: updateEmailBookingTemplate,
-  deleteTemplate: deleteEmailBookingTemplate,
-  historyPathForId: historyPaths.emailTemplateBookings,
-}
-
-const EmailTemplatesSettingsPage = () => {
-  const [usersOpen, setUsersOpen] = useState(false)
-  const [bookingsOpen, setBookingsOpen] = useState(false)
-
-  return (
-    <div className="account-settings">
-      <ul className="faq-list">
-        <EmailTemplatesAccordionItem
-          open={usersOpen}
-          onToggle={() => setUsersOpen((prev) => !prev)}
-          icon="bi bi-people"
-          title="Users"
-          tourId="settings-email-templates-users"
-        >
-          <EmailTemplatesPanel {...USERS_PANEL_CONFIG} />
-        </EmailTemplatesAccordionItem>
-        <EmailTemplatesAccordionItem
-          open={bookingsOpen}
-          onToggle={() => setBookingsOpen((prev) => !prev)}
-          icon="bi bi-calendar-check"
-          title="Quotations"
-          tourId="settings-email-templates-bookings"
-        >
-          <EmailTemplatesPanel {...BOOKINGS_PANEL_CONFIG} />
-        </EmailTemplatesAccordionItem>
-      </ul>
-    </div>
-  )
-}
-
-export default EmailTemplatesSettingsPage
