@@ -138,6 +138,7 @@ type BookingEditModalProps = {
   historyRefreshKey?: number
   /** When false, the modal is view-only (no save / field edits). */
   canWrite?: boolean
+  saving?: boolean
 }
 
 const EMPTY_FIELD: BookingField = {
@@ -210,6 +211,7 @@ const BookingEditModal = ({
   onSendToCalendar,
   historyRefreshKey = 0,
   canWrite = true,
+  saving = false,
 }: BookingEditModalProps) => {
   const viewOnly =
     !canWrite || (form.mode === 'edit' && form.canEdit === false)
@@ -1582,6 +1584,10 @@ const BookingEditModal = ({
                   e.preventDefault()
                   return
                 }
+                if (saving) {
+                  e.preventDefault()
+                  return
+                }
                 if (managingGroup) {
                   e.preventDefault()
                   showErrorToast(
@@ -2364,18 +2370,24 @@ const BookingEditModal = ({
                         type="button"
                         className="btn btn-secondary"
                         onClick={onClose}
+                        disabled={saving}
                       >
                         Cancel
                       </button>
-                      <button type="submit" className="btn btn-primary">
-                        Save
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={saving}
+                      >
+                        {saving ? 'Saving…' : 'Save'}
                       </button>
                       <button
                         type="submit"
                         className="btn btn-primary"
                         data-close-after="true"
+                        disabled={saving}
                       >
-                        Save and Close
+                        {saving ? 'Saving…' : 'Save and Close'}
                       </button>
                     </div>
                   </>

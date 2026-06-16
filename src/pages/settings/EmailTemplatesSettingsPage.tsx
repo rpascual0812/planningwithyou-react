@@ -4,7 +4,6 @@ import type { Editor as TinyMCEEditor } from 'tinymce'
 import DocumentsModal from '../../components/DocumentsModal'
 import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
-import { historyPaths } from '../../services/history'
 import {
   createEmailBodyEditorInit,
   SUBJECT_VARIABLES_ONLY_EDITOR_INIT,

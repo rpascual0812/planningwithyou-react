@@ -458,6 +458,7 @@ const BookingsPage = () => {
   const [appointmentStatuses, setAppointmentStatuses] = useState<CalendarStatusRecord[]>([])
   const [appointmentLoadingOptions, setAppointmentLoadingOptions] = useState(false)
   const [appointmentSaving, setAppointmentSaving] = useState(false)
+  const [itemSaving, setItemSaving] = useState(false)
   const [appointmentModalError, setAppointmentModalError] = useState<string | null>(null)
   const suppressEditFromUrl = useRef(false)
   const [search, setSearch] = useState('')
@@ -1632,6 +1633,7 @@ const BookingsPage = () => {
 
   const closeItemModal = () => {
     suppressEditFromUrl.current = true
+    setItemSaving(false)
     setItemModal(null)
     setModalBookingGroups([])
     clearEditParam()
@@ -1818,6 +1820,7 @@ const BookingsPage = () => {
     }
 
     try {
+      setItemSaving(true)
       const field_values = fieldsToFieldValues(fieldsForSave)
       const groups = buildBookingGroupsPayload(
         fieldsForSave,
@@ -1919,6 +1922,8 @@ const BookingsPage = () => {
       const message =
         err instanceof Error ? err.message : 'Could not save quotation.'
       showErrorToast(message)
+    } finally {
+      setItemSaving(false)
     }
   }
 
@@ -2977,6 +2982,7 @@ const BookingsPage = () => {
         <BookingEditModal
           form={itemModal}
           canWrite={bookingsWrite}
+          saving={itemSaving}
           statuses={columns}
           templates={templates}
           bookingGroups={modalBookingGroups ?? []}

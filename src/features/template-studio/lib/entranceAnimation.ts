@@ -25,10 +25,10 @@ export function entranceAnimationAttrs(
   animation: AnimationConfig | undefined,
   inView: boolean,
 ): EntranceAnimationAttrs {
-  const entrance = animation?.entrance
-  if (!isEntranceAnimation(entrance)) {
+  if (!animation || !isEntranceAnimation(animation.entrance)) {
     return { className: '' }
   }
+  const entrance = animation.entrance
 
   const style: CSSProperties = {}
   if (animation.delayMs != null && animation.delayMs > 0) {

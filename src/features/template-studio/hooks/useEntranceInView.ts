@@ -14,8 +14,8 @@ function prefersReducedMotion(): boolean {
  * Returns true once `ref` intersects the viewport (or immediately when animations
  * are disabled / reduced motion is preferred).
  */
-export function useEntranceInView(enabled: boolean): { ref: RefObject<HTMLElement | null>; inView: boolean } {
-  const ref = useRef<HTMLElement | null>(null)
+export function useEntranceInView(enabled: boolean): { ref: RefObject<HTMLDivElement | null>; inView: boolean } {
+  const ref = useRef<HTMLDivElement | null>(null)
   const [inView, setInView] = useState(() => !enabled || prefersReducedMotion())
 
   useEffect(() => {
