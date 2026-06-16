@@ -51,21 +51,45 @@ html.public-invitation-active #root {
   max-width: none;
 }
 
-/* Entrance animations use opacity/margin only so rotate() on elements is preserved */
-.inv-animate-fade {
-  animation: inv-fade 0.8s ease both;
+/* Entrance animations — hidden until element scrolls into view (.inv-animate-in-view) */
+.invitation-el[data-inv-entrance='fade']:not(.inv-animate-in-view) {
+  opacity: 0;
 }
 
-.inv-animate-slide-up {
-  animation: inv-slide-up 0.7s ease both;
+.invitation-el[data-inv-entrance='slide-up']:not(.inv-animate-in-view) {
+  opacity: 0;
+  margin-top: 1.5rem;
 }
 
-.inv-animate-slide-down {
-  animation: inv-slide-down 0.7s ease both;
+.invitation-el[data-inv-entrance='slide-down']:not(.inv-animate-in-view) {
+  opacity: 0;
+  margin-top: -1.5rem;
 }
 
-.inv-animate-zoom {
-  animation: inv-zoom 0.7s ease both;
+.invitation-el[data-inv-entrance='zoom']:not(.inv-animate-in-view) {
+  opacity: 0;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.invitation-el.inv-animate-in-view[data-inv-entrance='fade'] {
+  animation: inv-fade var(--inv-anim-duration, 0.8s) ease both;
+  animation-delay: var(--inv-anim-delay, 0ms);
+}
+
+.invitation-el.inv-animate-in-view[data-inv-entrance='slide-up'] {
+  animation: inv-slide-up var(--inv-anim-duration, 0.7s) ease both;
+  animation-delay: var(--inv-anim-delay, 0ms);
+}
+
+.invitation-el.inv-animate-in-view[data-inv-entrance='slide-down'] {
+  animation: inv-slide-down var(--inv-anim-duration, 0.7s) ease both;
+  animation-delay: var(--inv-anim-delay, 0ms);
+}
+
+.invitation-el.inv-animate-in-view[data-inv-entrance='zoom'] {
+  animation: inv-zoom var(--inv-anim-duration, 0.7s) ease both;
+  animation-delay: var(--inv-anim-delay, 0ms);
 }
 
 @keyframes inv-fade {
@@ -109,10 +133,13 @@ html.public-invitation-active #root {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inv-animate-fade,
-  .inv-animate-slide-up,
-  .inv-animate-slide-down,
-  .inv-animate-zoom {
+  .invitation-el[data-inv-entrance]:not(.inv-animate-in-view) {
+    opacity: 1;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .invitation-el.inv-animate-in-view[data-inv-entrance] {
     animation: none;
   }
 }

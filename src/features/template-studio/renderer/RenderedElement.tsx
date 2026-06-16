@@ -1,5 +1,7 @@
 import CountdownDisplay from '../components/countdown/CountdownDisplay'
+import { useEntranceInView } from '../hooks/useEntranceInView'
 import { designPixelStyle, designTextStyle } from '../lib/pageLayout'
+import { entranceAnimationAttrs, isEntranceAnimation } from '../lib/entranceAnimation'
 import type { CanvasElement, RsvpElement } from '../types/schema'
 import RsvpLiveForm from '../components/rsvp/RsvpLiveForm'
 import { toVideoEmbedUrl, videoIframeSrc } from '../lib/videoEmbed'
@@ -12,9 +14,14 @@ type RenderedElementProps = {
 
 /** DOM rendering for one canvas element (shared contract with Fabric editor geometry). */
 const RenderedElement = ({ element: el, pageScale, invitationSlug }: RenderedElementProps) => {
+  const hasEntrance = isEntranceAnimation(el.animation?.entrance)
+  const { ref, inView } = useEntranceInView(hasEntrance)
+  const entranceAnim = entranceAnimationAttrs(el.animation, inView)
+
   if (el.type === 'text') {
     return (
       <div
+        ref={ref}
         style={{
           ...designTextStyle(el.transform, pageScale),
           fontFamily: el.style.fontFamily,
@@ -28,10 +35,10 @@ const RenderedElement = ({ element: el, pageScale, invitationSlug }: RenderedEle
           lineHeight: el.style.lineHeight,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
-          animationDelay: el.animation?.delayMs ? `${el.animation.delayMs}ms` : undefined,
-          animationDuration: el.animation?.durationMs ? `${el.animation.durationMs}ms` : undefined,
+          ...entranceAnim.style,
         }}
-        className={`invitation-el invitation-el--text${el.animation?.entrance && el.animation.entrance !== 'none' ? ` inv-animate-${el.animation.entrance}` : ''}`}
+        className={`invitation-el invitation-el--text${entranceAnim.className}`}
+        data-inv-entrance={entranceAnim['data-inv-entrance']}
       >
         {el.content}
       </div>
