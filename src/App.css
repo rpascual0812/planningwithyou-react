@@ -8004,16 +8004,56 @@ body,
 }
 
 .booking-fields-manage-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  margin-bottom: 0.75rem;
   border-radius: 0.5rem;
   background: rgba(28, 54, 90, 0.06);
   font-size: 0.875rem;
+}
+
+.booking-fields-manage-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 12rem;
+}
+
+.booking-fields-manage-panel__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.booking-fields-manage-panel__top .booking-fields-manage-banner {
+  flex: 1;
+  min-width: 0;
+}
+
+.booking-fields-manage-panel__delete {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.booking-fields-manage-panel__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.booking-fields-manage-panel__add-field {
+  align-self: flex-start;
+  margin-top: 0.75rem;
+}
+
+.booking-fields-manage-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 2.5rem;
+  margin-bottom: 0.25rem;
+  border-top: 1px solid var(--brand-line);
 }
 
 .booking-fields-manage-banner__actions {
@@ -8057,10 +8097,6 @@ body,
 
 .booking-fields-group-actions--fill .form-select {
   max-width: 14rem;
-}
-
-.booking-fields-group-actions--manage {
-  margin-top: 1rem;
 }
 
 .booking-field-builder {
