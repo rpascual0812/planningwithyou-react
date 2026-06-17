@@ -15,6 +15,9 @@ export function bookingFieldDefinitionError(field: BookingField): string | null 
   ) {
     return 'Add at least one option for dropdown fields.'
   }
+  if (field.field_type === 'supplier' && field.supplier_type_id == null) {
+    return 'Select a supplier type for supplier fields.'
+  }
   const downpaymentError =
     field.field_type === 'supplier'
       ? validateBookingSupplierFieldDownpayment(field)

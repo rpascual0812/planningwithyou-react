@@ -17,6 +17,8 @@ export type BookingField = {
   /** Per-line downpayment (non-supplier fields); stored on ``quotation_items``. */
   requiredDownpayment?: string | null
   sort_order: number
+  /** Supplier category for ``supplier`` field definitions. */
+  supplier_type_id?: number | null
   saved: boolean
   value: string
   /** From active package ``required_downpayment_amount`` (supplier fields). */

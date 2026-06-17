@@ -8135,6 +8135,19 @@ body,
   white-space: nowrap;
 }
 
+.booking-field-builder__supplier-type-row {
+  margin-top: 0.15rem;
+}
+
+.booking-field-builder__supplier-type {
+  position: relative;
+  z-index: 3;
+}
+
+.booking-field-builder__supplier-type .searchable-select__panel {
+  z-index: 30;
+}
+
 .booking-contact-summary__toggle {
   display: flex;
   flex-wrap: wrap;

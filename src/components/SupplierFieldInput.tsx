@@ -53,6 +53,8 @@ type SupplierFieldInputProps = {
   dateOfEvent?: string
   /** When editing a booking, exclude it from the daily capacity count. */
   excludeQuotationId?: number | null
+  /** When set, supplier type is fixed by the field definition (customize fields). */
+  fixedSupplierTypeId?: number | null
   tierLabel?: string
   packageLabel?: string
   supplierLabel?: string
@@ -66,6 +68,7 @@ export default function SupplierFieldInput({
   required = false,
   dateOfEvent = '',
   excludeQuotationId = null,
+  fixedSupplierTypeId = null,
   packageLabel = 'Package',
   supplierLabel = 'Supplier',
   supplierTypeLabel = 'Supplier type',
@@ -110,6 +113,12 @@ export default function SupplierFieldInput({
   }, [])
 
   useEffect(() => {
+    if (fixedSupplierTypeId == null) return
+    setSupplierTypeId(fixedSupplierTypeId)
+  }, [fixedSupplierTypeId])
+
+  useEffect(() => {
+    if (fixedSupplierTypeId != null) return
     if (parsed.supplier_id == null || supplierTypeId !== '') return
     let cancelled = false
     fetchSupplierOptions({ supplierId: parsed.supplier_id })
@@ -124,7 +133,7 @@ export default function SupplierFieldInput({
     return () => {
       cancelled = true
     }
-  }, [parsed.supplier_id, supplierTypeId])
+  }, [parsed.supplier_id, supplierTypeId, fixedSupplierTypeId])
 
   useEffect(() => {
     if (supplierTypeId === '') {
@@ -360,29 +369,31 @@ export default function SupplierFieldInput({
 
   return (
     <div className="row g-2">
-      <div className="col-12">
-        <label className={labelClass}>{supplierTypeLabel}</label>
-        <select
-          className={selectClass}
-          value={supplierTypeId}
-          onChange={(e) => handleSupplierTypeChange(e.target.value)}
-          required={required}
-          disabled={loadingTypes}
-        >
-          <option value="">
-            {loadingTypes
-              ? 'Loading supplier types...'
-              : supplierTypes.length === 0
-                ? 'No supplier types available'
-                : 'Select supplier type...'}
-          </option>
-          {supplierTypes.map((type) => (
-            <option key={type.id} value={type.id}>
-              {type.name}
+      {fixedSupplierTypeId == null && (
+        <div className="col-12">
+          <label className={labelClass}>{supplierTypeLabel}</label>
+          <select
+            className={selectClass}
+            value={supplierTypeId}
+            onChange={(e) => handleSupplierTypeChange(e.target.value)}
+            required={required}
+            disabled={loadingTypes}
+          >
+            <option value="">
+              {loadingTypes
+                ? 'Loading supplier types...'
+                : supplierTypes.length === 0
+                  ? 'No supplier types available'
+                  : 'Select supplier type...'}
             </option>
-          ))}
-        </select>
-      </div>
+            {supplierTypes.map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="col-sm-6">
         <label className={labelClass}>{supplierLabel}</label>
         <div className="position-relative" ref={supplierMenuRef}>

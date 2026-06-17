@@ -73,6 +73,7 @@ export type BookingFieldValueRecord = {
   company?: number | null
   company_logo_url?: string
   field_type: string
+  supplier_type?: number | null
   is_required: boolean
   price: string | null
   required_downpayment?: string | null

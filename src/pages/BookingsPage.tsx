@@ -94,6 +94,7 @@ function fieldValuesToFields(item: BookingItem): BookingField[] {
       sort_order: fv.sort_order,
       saved: true,
       value: stored.value,
+      supplier_type_id: fv.supplier_type ?? null,
       packageRequiredDownpayment:
         fieldType === 'supplier'
           ? (fv.package_required_downpayment_amount ?? null)
@@ -119,6 +120,8 @@ function fieldsToFieldValues(fields: BookingField[]) {
         required_downpayment:
           f.field_type === 'supplier' ? null : f.requiredDownpayment ?? null,
         value: stored.value,
+        supplier_type:
+          f.field_type === 'supplier' ? (f.supplier_type_id ?? null) : null,
         options: f.options.map((o, oi) => ({
           label: o.label,
           price: o.price,

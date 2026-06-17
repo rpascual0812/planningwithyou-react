@@ -29,6 +29,7 @@ import BookingHistoryPanel from "./BookingHistoryPanel";
 import BookingPaymentsModal from "./BookingPaymentsModal";
 import ContactFormModal from "./ContactFormModal";
 import SupplierFieldInput from "./SupplierFieldInput";
+import SearchableSelect from "./SearchableSelect";
 import { EMPTY_CONTACT_FORM, validateContactPayload } from "../lib/contactForm";
 import {
   createContact,
@@ -38,6 +39,10 @@ import {
   type ContactRecord,
 } from "../services/contacts";
 import { fetchCompanies, type CompanyRecord } from "../services/companies";
+import {
+  fetchActiveSupplierTypes,
+  type SupplierTypeRecord,
+} from "../services/supplierTypes";
 import { fetchMe, type UserRecord } from "../services/users";
 import {
   contactAddressLabel,
@@ -144,6 +149,7 @@ const EMPTY_FIELD: BookingField = {
   options: [],
   price: null,
   requiredDownpayment: null,
+  supplier_type_id: null,
   sort_order: 0,
   saved: false,
   value: "",
@@ -269,6 +275,8 @@ const BookingEditModal = ({
   const [managingGroup, setManagingGroup] = useState<string | null>(null);
   const [contactDetailsOpen, setContactDetailsOpen] = useState(false);
   const [footerMoreOpen, setFooterMoreOpen] = useState(false);
+  const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([]);
+  const [supplierTypesLoading, setSupplierTypesLoading] = useState(false);
   const createSeededRef = useRef(false);
   type GroupNameModal =
     | { type: "add" }
@@ -319,6 +327,24 @@ const BookingEditModal = ({
         setEmailMergeCompany(company);
       })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSupplierTypesLoading(true);
+    fetchActiveSupplierTypes()
+      .then((data) => {
+        if (!cancelled) setSupplierTypes(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSupplierTypes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSupplierTypesLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -1207,6 +1233,11 @@ const BookingEditModal = ({
     const field = form.fields[idx];
     const showPricing =
       field.field_type !== "select" && field.field_type !== "supplier";
+    const isSupplierField = field.field_type === "supplier";
+    const supplierTypeSelectOptions = supplierTypes.map((type) => ({
+      value: String(type.id),
+      label: type.name,
+    }));
     return (
       <div
         key={idx}
@@ -1257,6 +1288,7 @@ const BookingEditModal = ({
                     field_type,
                     price: null,
                     requiredDownpayment: null,
+                    supplier_type_id: null,
                     value: "",
                     options: [],
                   });
@@ -1266,6 +1298,7 @@ const BookingEditModal = ({
                   updateField(idx, {
                     field_type,
                     price: null,
+                    supplier_type_id: null,
                     value: "",
                     options:
                       field.options.length > 0
@@ -1274,7 +1307,7 @@ const BookingEditModal = ({
                   });
                   return;
                 }
-                updateField(idx, { field_type });
+                updateField(idx, { field_type, supplier_type_id: null });
               }}
             >
               {FIELD_TYPE_OPTIONS.map((opt) => (
@@ -1304,6 +1337,36 @@ const BookingEditModal = ({
             </div>
           </div>
         </div>
+
+        {isSupplierField && (
+          <div className="row g-2 mt-0 booking-field-builder__supplier-type-row">
+            <div className="col-md-5 d-none d-md-block" aria-hidden="true" />
+            <div className="col-12 col-md-4">
+              <SearchableSelect
+                label="Supplier type"
+                labelClassName="form-label mb-1"
+                wrapperClassName="booking-field-builder__supplier-type"
+                size="sm"
+                value={
+                  field.supplier_type_id != null
+                    ? String(field.supplier_type_id)
+                    : ""
+                }
+                onChange={(next) =>
+                  updateField(idx, {
+                    supplier_type_id: next === "" ? null : Number(next),
+                  })
+                }
+                options={supplierTypeSelectOptions}
+                placeholder="Choose supplier type…"
+                searchPlaceholder="Search supplier types…"
+                required
+                loading={supplierTypesLoading}
+                emptyMessage="No supplier types match your search"
+              />
+            </div>
+          </div>
+        )}
 
         {(showPricing || field.field_type === "select") && (
           <div className="row g-2 mt-0">
@@ -1597,6 +1660,7 @@ const BookingEditModal = ({
             value={field.value}
             dateOfEvent={form.dateOfEvent}
             excludeQuotationId={form.mode === "edit" ? form.id : null}
+            fixedSupplierTypeId={field.supplier_type_id ?? null}
             onChange={(value, price, packageRequiredDownpayment) =>
               updateField(idx, {
                 value,
