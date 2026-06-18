@@ -12,6 +12,7 @@ import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 type Props = {
   companyId: number
   companyName: string
+  companyBusinessLegalName?: string
   onClose: () => void
   onSaved: () => void
   stacked?: boolean
@@ -24,10 +25,24 @@ type KybFormState = {
   merchant_mobile_number: string
 }
 
-function recordToForm(record: CompanyKybRecord, companyName: string): KybFormState {
+function companyDefaultBusinessName(
+  companyBusinessLegalName: string | undefined,
+  companyName: string,
+): string {
+  const legal = companyBusinessLegalName?.trim()
+  return legal || companyName
+}
+
+function recordToForm(
+  record: CompanyKybRecord,
+  companyBusinessLegalName: string | undefined,
+  companyName: string,
+): KybFormState {
   return {
     business_type: record.business_type ?? '',
-    merchant_business_name: record.merchant_business_name || companyName,
+    merchant_business_name:
+      record.merchant_business_name?.trim()
+      || companyDefaultBusinessName(companyBusinessLegalName, companyName),
     merchant_email: record.merchant_email ?? '',
     merchant_mobile_number: record.merchant_mobile_number ?? '',
   }
@@ -52,6 +67,7 @@ const STATUS_LABEL: Record<string, string> = {
 const CompanyKybModal = ({
   companyId,
   companyName,
+  companyBusinessLegalName,
   onClose,
   onSaved,
   stacked = false,
@@ -65,10 +81,11 @@ const CompanyKybModal = ({
     recordToForm(
       {
         business_type: '',
-        merchant_business_name: companyName,
+        merchant_business_name: '',
         merchant_email: '',
         merchant_mobile_number: '',
       } as CompanyKybRecord,
+      companyBusinessLegalName,
       companyName,
     ),
   )
@@ -94,14 +111,14 @@ const CompanyKybModal = ({
       const data = await fetchCompanyKyb(companyId)
       setRecord(data)
       setActiveOnboardingUrl((data.onboarding_url ?? '').trim())
-      setForm(recordToForm(data, companyName))
+      setForm(recordToForm(data, companyBusinessLegalName, companyName))
       setMissingFields(data.missing_fields ?? [])
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Failed to load verification')
     } finally {
       setLoading(false)
     }
-  }, [companyId, companyName])
+  }, [companyId, companyBusinessLegalName, companyName])
 
   useEffect(() => {
     void load()

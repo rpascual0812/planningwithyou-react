@@ -18,6 +18,7 @@ export type CompanySupplierTierSummary = {
 export type CompanyRecord = {
   id: number
   name: string
+  business_legal_name?: string
   supplier_type: number
   supplier_type_name: string
   supplier_tiers?: CompanySupplierTierSummary[]
@@ -42,6 +43,7 @@ export type CompanyRecord = {
 
 export type CompanyPayload = {
   name: string
+  business_legal_name?: string
   supplier_type?: number
   timezone?: string
   contact_person?: string

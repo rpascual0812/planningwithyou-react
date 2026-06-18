@@ -700,6 +700,7 @@ export default function BookingPaymentsModal({
         <CompanyKybModal
           companyId={mainCompany.id}
           companyName={mainCompany.name}
+          companyBusinessLegalName={mainCompany.business_legal_name}
           stacked
           onClose={() => setKybModalOpen(false)}
           onSaved={async () => {
