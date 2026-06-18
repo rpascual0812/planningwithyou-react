@@ -31,7 +31,13 @@ import BookingPaymentsModal from "./BookingPaymentsModal";
 import ContactFormModal from "./ContactFormModal";
 import SupplierFieldInput from "./SupplierFieldInput";
 import SearchableSelect from "./SearchableSelect";
-import { EMPTY_CONTACT_FORM, validateContactPayload } from "../lib/contactForm";
+import QuotationAiPanel from "./QuotationAiPanel";
+import { fetchAiAssistantStatus } from "../services/aiAssistant";
+import {
+  duplicateBookingItem,
+  fetchBookingItem,
+  type BookingItemRecord,
+} from "../services/bookings";
 import {
   createContact,
   fetchContact,
@@ -58,7 +64,7 @@ import { applyEmailMergeVariables } from "../lib/applyEmailMergeVariables";
 import { buildEmailMergeContext } from "../lib/emailMergeContext";
 import { fetchBookingPaymentLinks } from "../services/bookingPaymentLinks";
 import { sendEmail, type EmailPayload } from "../services/emails";
-import { fetchBookingItem } from "../services/bookings";
+import { EMPTY_CONTACT_FORM, validateContactPayload } from "../lib/contactForm";
 import { fetchSecuredFileBlobUrl } from "../lib/securedFileUrl";
 import { showErrorToast, showSuccessToast } from "../utils/toast";
 
@@ -136,6 +142,7 @@ type BookingEditModalProps = {
   onClose: () => void;
   onSubmit: (e: SubmitEvent<HTMLFormElement>) => void | Promise<void>;
   onSendToCalendar?: () => void;
+  onDuplicated?: (item: BookingItemRecord) => void | Promise<void>;
   historyRefreshKey?: number;
   /** When false, the modal is view-only (no save / field edits). */
   canWrite?: boolean;
@@ -215,6 +222,7 @@ const BookingEditModal = ({
   onClose,
   onSubmit,
   onSendToCalendar,
+  onDuplicated,
   historyRefreshKey = 0,
   canWrite = true,
   saving = false,
@@ -283,6 +291,12 @@ const BookingEditModal = ({
   const [managingGroup, setManagingGroup] = useState<string | null>(null);
   const [contactDetailsOpen, setContactDetailsOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const [footerMoreOpen, setFooterMoreOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [emailAiComposeDefaults, setEmailAiComposeDefaults] =
+    useState<Partial<EmailPayload> | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([]);
   const [supplierTypesLoading, setSupplierTypesLoading] = useState(false);
   const createSeededRef = useRef(false);
@@ -339,6 +353,24 @@ const BookingEditModal = ({
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (form.mode !== "edit" || form.id == null) {
+      setAiAvailable(false);
+      return;
+    }
+    fetchAiAssistantStatus()
+      .then((status) => {
+        if (!cancelled) setAiAvailable(status.available);
+      })
+      .catch(() => {
+        if (!cancelled) setAiAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.mode, form.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -564,6 +596,44 @@ const BookingEditModal = ({
     } finally {
       setPdfDownloading(false);
     }
+  };
+
+  const handleDuplicateQuotation = async () => {
+    if (form.id == null || viewOnly) return;
+    setFooterMoreOpen(false);
+    const result = await Swal.fire({
+      title: "Duplicate quotation?",
+      text: "Creates a copy with the same groups and line items. Payments are not copied.",
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Duplicate",
+      cancelButtonText: "Cancel",
+    });
+    if (!result.isConfirmed) return;
+
+    setDuplicating(true);
+    try {
+      const copy = await duplicateBookingItem(form.id);
+      showSuccessToast(`Duplicated as ${copy.unique_id || `#${copy.id}`}`);
+      await onDuplicated?.(copy);
+    } catch (err) {
+      showErrorToast(
+        err instanceof Error ? err.message : "Could not duplicate quotation.",
+      );
+    } finally {
+      setDuplicating(false);
+    }
+  };
+
+  const handleUseAiEmailDraft = (draft: {
+    subject: string;
+    body_html: string;
+  }) => {
+    setEmailAiComposeDefaults({
+      subject: draft.subject,
+      body: draft.body_html,
+    });
+    void openBookingEmailModal();
   };
 
   const handleBookingEmailSend = async (data: EmailPayload) => {
@@ -1882,7 +1952,10 @@ const BookingEditModal = ({
                     role="status"
                     aria-live="polite"
                   >
-                    <div className="spinner-border text-primary" aria-hidden="true" />
+                    <div
+                      className="spinner-border text-primary"
+                      aria-hidden="true"
+                    />
                     <span className="visually-hidden">Loading quotation…</span>
                   </div>
                 )}
@@ -1951,9 +2024,7 @@ const BookingEditModal = ({
                   <QuotationDocumentsPanel
                     quotationId={form.id}
                     readOnly={viewOnly}
-                    onHistoryChange={() =>
-                      setLocalHistoryRefresh((n) => n + 1)
-                    }
+                    onHistoryChange={() => setLocalHistoryRefresh((n) => n + 1)}
                   />
                 ) : (
                   <fieldset
@@ -2905,11 +2976,12 @@ const BookingEditModal = ({
           stacked={emailPaymentLinkMode && paymentsModalOpen}
           error={emailError}
           sending={emailSending}
-          composeDefaults={
-            emailPaymentLinkMode
+          composeDefaults={{
+            ...(emailPaymentLinkMode
               ? paymentLinkEmailDefaults
-              : bookingEmailDefaults
-          }
+              : bookingEmailDefaults),
+            ...(emailAiComposeDefaults ?? {}),
+          }}
           draftScope={
             emailPaymentLinkMode
               ? `booking-${form.id}-payment-link`
@@ -2928,8 +3000,23 @@ const BookingEditModal = ({
             setEmailModalOpen(false);
             setEmailPaymentLinkMode(false);
             setPaymentLinkUrlForEmail(null);
+            setEmailAiComposeDefaults(null);
             setEmailError(null);
           }}
+        />
+      )}
+
+      {aiPanelOpen && form.id != null && (
+        <QuotationAiPanel
+          open={aiPanelOpen}
+          quotationId={form.id}
+          quotationLabel={
+            form.uniqueId?.trim()
+              ? `${form.title.trim() || "Quotation"} (${form.uniqueId.trim()})`
+              : form.title.trim() || "Quotation"
+          }
+          onClose={() => setAiPanelOpen(false)}
+          onUseEmailDraft={handleUseAiEmailDraft}
         />
       )}
 

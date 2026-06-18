@@ -9851,6 +9851,32 @@ body,
   pointer-events: none;
 }
 
+.quotation-ai-panel-backdrop {
+  z-index: 1310;
+}
+
+.quotation-ai-panel.modal {
+  z-index: 1320;
+}
+
+.quotation-ai-panel__tabs .nav-link {
+  cursor: pointer;
+}
+
+.quotation-ai-panel__result {
+  background: rgba(28, 54, 90, 0.04);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.875rem;
+}
+
+.quotation-ai-panel__email-preview {
+  background: #fff;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+  pointer-events: none;
+}
+
 .booking-payments-modal.modal {
   z-index: 1340;
   overflow-y: auto;

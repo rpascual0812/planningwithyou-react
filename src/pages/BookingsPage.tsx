@@ -3061,6 +3061,24 @@ const BookingsPage = () => {
               ? () => void handleSendToCalendar()
               : undefined
           }
+          onDuplicated={async (item) => {
+            setModalBookingGroups(item.groups ?? [])
+            setItemModal({
+              ...bookingItemToEditForm(item),
+              canEdit: canMutate(item),
+            })
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev)
+                next.set(EDIT_PARAM, String(item.id))
+                return next
+              },
+              { replace: true },
+            )
+            reloadBoardData()
+            reloadCardsBookings()
+            reloadListBookings()
+          }}
         />
       )}
 

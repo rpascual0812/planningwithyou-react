@@ -308,6 +308,20 @@ export async function deleteBookingItem(id: number): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete item')
 }
 
+export async function duplicateBookingItem(
+  id: number,
+  title?: string,
+): Promise<BookingItemRecord> {
+  const body = title != null && title.trim() ? { title: title.trim() } : {}
+  const res = await apiFetch(buildApiUrl(`/quotation-items/${id}/duplicate/`), {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw await bookingApiError(res, 'Failed to duplicate quotation')
+  return res.json()
+}
+
 export async function moveBookingItem(
   id: number,
   statusId: number,
