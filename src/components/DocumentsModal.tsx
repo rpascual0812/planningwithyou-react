@@ -11,6 +11,8 @@ import {
 export type DocumentsModalProps = {
   onSelect: (doc: DocumentRecord) => void
   onClose: () => void
+  /** When true, only pick existing File Manager files (no upload/delete). */
+  selectionOnly?: boolean
 }
 
 const FILE_ICON_MAP: Record<string, string> = {
@@ -39,7 +41,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
+const DocumentsModal = ({ onSelect, onClose, selectionOnly = false }: DocumentsModalProps) => {
   const [docs, setDocs] = useState<DocumentRecord[]>([])
   const [folders, setFolders] = useState<FolderRecord[]>([])
   const [selectedFolderId, setSelectedFolderId] = useState<number | null>(null)
@@ -121,12 +123,6 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
     }
   }
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    setDragOver(false)
-    handleUpload(e.dataTransfer.files)
-  }
-
   return (
     <>
       <div
@@ -144,7 +140,7 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
             <div className="modal-header">
               <h1 id="documentsModalTitle" className="modal-title fs-5">
                 <i className="bi bi-folder2-open me-2" />
-                Documents
+                {selectionOnly ? 'Select from File Manager' : 'Documents'}
               </h1>
               <button
                 type="button"
@@ -186,15 +182,17 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
                   multiple
                   onChange={(e) => handleUpload(e.target.files)}
                 />
-                <button
-                  type="button"
-                  className="btn btn-primary text-nowrap"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  <i className="bi bi-upload me-1" />
-                  {uploading ? 'Uploading...' : 'Upload'}
-                </button>
+                {!selectionOnly && (
+                  <button
+                    type="button"
+                    className="btn btn-primary text-nowrap"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <i className="bi bi-upload me-1" />
+                    {uploading ? 'Uploading...' : 'Upload'}
+                  </button>
+                )}
               </div>
 
               {error && (
@@ -205,9 +203,24 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
 
               <div
                 className={`docs-grid-area ${dragOver ? 'docs-drag-over' : ''}`}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
+                onDragOver={
+                  selectionOnly
+                    ? undefined
+                    : (e) => {
+                        e.preventDefault()
+                        setDragOver(true)
+                      }
+                }
+                onDragLeave={selectionOnly ? undefined : () => setDragOver(false)}
+                onDrop={
+                  selectionOnly
+                    ? undefined
+                    : (e) => {
+                        e.preventDefault()
+                        setDragOver(false)
+                        handleUpload(e.dataTransfer.files)
+                      }
+                }
               >
                 {loading ? (
                   <div className="text-center py-5 text-muted">
@@ -228,14 +241,16 @@ const DocumentsModal = ({ onSelect, onClose }: DocumentsModalProps) => {
                         onClick={() => onSelect(doc)}
                         title={doc.original_name}
                       >
-                        <button
-                          type="button"
-                          className="docs-thumb-delete"
-                          onClick={(e) => handleDelete(doc.id, e)}
-                          title="Delete"
-                        >
-                          <i className="bi bi-x" />
-                        </button>
+                        {!selectionOnly && (
+                          <button
+                            type="button"
+                            className="docs-thumb-delete"
+                            onClick={(e) => handleDelete(doc.id, e)}
+                            title="Delete"
+                          >
+                            <i className="bi bi-x" />
+                          </button>
+                        )}
                         <div className="docs-thumb-preview">
                           {doc.is_image ? (
                             <img src={doc.url} alt={doc.original_name} />

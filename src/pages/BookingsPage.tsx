@@ -398,6 +398,47 @@ function bookingCardColumnForItem(
   return columnId != null ? columns.find((c) => c.id === columnId) : undefined
 }
 
+function bookingItemNeedsFullFetch(item: BookingItem): boolean {
+  return !Array.isArray(item.field_values)
+}
+
+function bookingItemStub(id: number, fallbackStatusId: number): BookingItem {
+  return {
+    id,
+    unique_id: '',
+    status: fallbackStatusId,
+    contact: null,
+    title: '',
+    date_of_event: null,
+    total_amount: '',
+    required_downpayment_amount: '',
+    notes: '',
+    sort_order: 0,
+    created_by: null,
+    pdf_url: '',
+    created_at: '',
+    updated_at: '',
+    company: 0,
+    can_edit: true,
+  }
+}
+
+function isItemModalHydrated(
+  modal: BookingFormState | null,
+  quotationId: number,
+  loading: boolean,
+): boolean {
+  if (loading || !modal || modal.mode !== 'edit' || modal.id !== quotationId) {
+    return false
+  }
+  return Boolean(
+    modal.title.trim() ||
+      modal.fields.length > 0 ||
+      modal.notes.trim() ||
+      modal.dateOfEvent.trim(),
+  )
+}
+
 function bookingItemToEditForm(item: BookingItem): BookingFormState {
   let dateOfEvent = ''
   let timeOfEvent = ''
@@ -452,6 +493,7 @@ const BookingsPage = () => {
   const [drag, setDrag] = useState<DragState | null>(null)
   const [statusModal, setStatusModal] = useState<StatusFormState | null>(null)
   const [itemModal, setItemModal] = useState<BookingFormState | null>(null)
+  const [itemModalLoading, setItemModalLoading] = useState(false)
   const [modalBookingGroups, setModalBookingGroups] = useState<
     BookingItem['groups']
   >([])
@@ -1637,10 +1679,61 @@ const BookingsPage = () => {
   const closeItemModal = () => {
     suppressEditFromUrl.current = true
     setItemSaving(false)
+    setItemModalLoading(false)
     setItemModal(null)
     setModalBookingGroups([])
     clearEditParam()
   }
+
+  const populateItemModal = useCallback(
+    async (item: BookingItem, options?: { updateUrl?: boolean }) => {
+      if (options?.updateUrl !== false) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev)
+            next.set(EDIT_PARAM, String(item.id))
+            return next
+          },
+          { replace: true },
+        )
+      }
+
+      if (bookingItemNeedsFullFetch(item)) {
+        setItemModalLoading(true)
+        setModalBookingGroups([])
+        setItemModal({
+          ...bookingItemToEditForm({ ...item, field_values: [] }),
+          canEdit: canMutate(item),
+        })
+        try {
+          const full = await fetchBookingItem(item.id)
+          setModalBookingGroups(full.groups ?? [])
+          setItemModal({
+            ...bookingItemToEditForm(full),
+            canEdit: canMutate(full),
+          })
+        } catch {
+          showErrorToast('Could not load quotation details.')
+          suppressEditFromUrl.current = true
+          setItemModalLoading(false)
+          setItemModal(null)
+          setModalBookingGroups([])
+          clearEditParam()
+        } finally {
+          setItemModalLoading(false)
+        }
+        return
+      }
+
+      setItemModalLoading(false)
+      setModalBookingGroups(item.groups ?? [])
+      setItemModal({
+        ...bookingItemToEditForm(item),
+        canEdit: canMutate(item),
+      })
+    },
+    [canMutate, setSearchParams],
+  )
 
   const handleDeleteBookingGroup = async (bookingId: number, groupId: number) => {
     await deleteBookingGroup(bookingId, groupId)
@@ -1655,6 +1748,7 @@ const BookingsPage = () => {
 
   const openCreateItem = (statusId: number) => {
     if (!bookingsWrite) return
+    setItemModalLoading(false)
     setItemModal({
       mode: 'create',
       id: null,
@@ -1670,29 +1764,8 @@ const BookingsPage = () => {
     })
   }
 
-  const openEditItem = async (item: BookingItem) => {
-    let full: BookingItem = item
-    if (!Array.isArray(item.field_values)) {
-      try {
-        full = await fetchBookingItem(item.id)
-      } catch {
-        showErrorToast('Could not load quotation details.')
-        return
-      }
-    }
-    setModalBookingGroups(full.groups ?? [])
-    setItemModal({
-      ...bookingItemToEditForm(full),
-      canEdit: canMutate(full),
-    })
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        next.set(EDIT_PARAM, String(item.id))
-        return next
-      },
-      { replace: true },
-    )
+  const openEditItem = (item: BookingItem) => {
+    void populateItemModal(item)
   }
 
   const handleSendToCalendar = async () => {
@@ -1969,7 +2042,17 @@ const BookingsPage = () => {
       clearEditParam()
       return
     }
+    if (isItemModalHydrated(itemModal, numId, itemModalLoading)) {
+      return
+    }
+    if (itemModalLoading && itemModal?.id === numId) {
+      return
+    }
+
     const findLoaded = (): BookingItem | undefined => {
+      if (activeView === 'list') {
+        return listItems.find((it) => it.id === numId)
+      }
       if (activeView === 'cards') {
         return cardsItems.find((it) => it.id === numId)
       }
@@ -1982,53 +2065,27 @@ const BookingsPage = () => {
       }
       return foreignBoard.items.find((it) => it.id === numId)
     }
+
     const loaded = findLoaded()
-    if (loaded) {
-      if (itemModal?.mode === 'edit' && itemModal.id === loaded.id) {
-        return
-      }
-      void (async () => {
-        try {
-          const full = await fetchBookingItem(numId)
-          setModalBookingGroups(full.groups ?? [])
-          setItemModal({
-            ...bookingItemToEditForm(full),
-            canEdit: canMutate(full),
-          })
-        } catch {
-          clearEditParam()
-        }
-      })()
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      try {
-        const full = await fetchBookingItem(numId)
-        if (cancelled) return
-        setModalBookingGroups(full.groups ?? [])
-        setItemModal({
-          ...bookingItemToEditForm(full),
-          canEdit: canMutate(full),
-        })
-      } catch {
-        if (!cancelled) clearEditParam()
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const fallbackStatusId = loaded?.status ?? columns[0]?.id ?? 0
+    void populateItemModal(
+      loaded ?? bookingItemStub(numId, fallbackStatusId),
+      { updateUrl: false },
+    )
   }, [
     loading,
     searchParams,
     activeView,
     boardColumns,
-    cardsItems,
-    foreignBoard.items,
     boardSearch.items,
     boardSearchActive,
+    cardsItems,
     columns,
+    foreignBoard.items,
+    itemModal,
+    itemModalLoading,
+    listItems,
+    populateItemModal,
   ])
 
   // --- Escape to close modals ----------------------------------------------
@@ -2984,6 +3041,7 @@ const BookingsPage = () => {
       {itemModal && (
         <BookingEditModal
           form={itemModal}
+          loadingDetails={itemModalLoading}
           canWrite={bookingsWrite}
           saving={itemSaving}
           statuses={columns}

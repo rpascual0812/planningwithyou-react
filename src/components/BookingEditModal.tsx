@@ -26,6 +26,7 @@ import {
   type CurrencyFormatOptions,
 } from "../utils/currency";
 import BookingHistoryPanel from "./BookingHistoryPanel";
+import QuotationDocumentsPanel from "./QuotationDocumentsPanel";
 import BookingPaymentsModal from "./BookingPaymentsModal";
 import ContactFormModal from "./ContactFormModal";
 import SupplierFieldInput from "./SupplierFieldInput";
@@ -139,6 +140,8 @@ type BookingEditModalProps = {
   /** When false, the modal is view-only (no save / field edits). */
   canWrite?: boolean;
   saving?: boolean;
+  /** Full quotation payload is still loading (board/cards slim list). */
+  loadingDetails?: boolean;
 };
 
 const EMPTY_FIELD: BookingField = {
@@ -215,10 +218,12 @@ const BookingEditModal = ({
   historyRefreshKey = 0,
   canWrite = true,
   saving = false,
+  loadingDetails = false,
 }: BookingEditModalProps) => {
   const viewOnly =
     !canWrite || (form.mode === "edit" && form.canEdit === false);
   const showHistoryTab = form.mode === "edit" && form.id != null;
+  const showDocumentsTab = showHistoryTab;
 
   useEffect(() => {
     setModalTab("details");
@@ -254,7 +259,10 @@ const BookingEditModal = ({
   const [emailMergeUser, setEmailMergeUser] = useState<UserRecord | null>(null);
   const [emailMergeCompany, setEmailMergeCompany] =
     useState<CompanyRecord | null>(null);
-  const [modalTab, setModalTab] = useState<"details" | "history">("details");
+  const [modalTab, setModalTab] = useState<"details" | "documents" | "history">(
+    "details",
+  );
+  const [localHistoryRefresh, setLocalHistoryRefresh] = useState(0);
   const [paymentsModalOpen, setPaymentsModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailPaymentLinkMode, setEmailPaymentLinkMode] = useState(false);
@@ -1693,7 +1701,7 @@ const BookingEditModal = ({
           <div className="modal-content">
             <form
               onSubmit={(e) => {
-                if (viewOnly) {
+                if (viewOnly || loadingDetails) {
                   e.preventDefault();
                   return;
                 }
@@ -1737,7 +1745,17 @@ const BookingEditModal = ({
                   onClick={onClose}
                 />
               </div>
-              <div className="modal-body">
+              <div className="modal-body booking-edit-modal__body">
+                {loadingDetails && (
+                  <div
+                    className="booking-edit-modal__loading"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div className="spinner-border text-primary" aria-hidden="true" />
+                    <span className="visually-hidden">Loading quotation…</span>
+                  </div>
+                )}
                 {viewOnly && modalTab === "details" && (
                   <div
                     className="alert alert-info py-2 small mb-3"
@@ -1766,6 +1784,19 @@ const BookingEditModal = ({
                         Details
                       </button>
                     </li>
+                    {showDocumentsTab && (
+                      <li className="nav-item" role="presentation">
+                        <button
+                          type="button"
+                          role="tab"
+                          className={`nav-link${modalTab === "documents" ? " active" : ""}`}
+                          aria-selected={modalTab === "documents"}
+                          onClick={() => setModalTab("documents")}
+                        >
+                          Documents
+                        </button>
+                      </li>
+                    )}
                     <li className="nav-item" role="presentation">
                       <button
                         type="button"
@@ -1782,7 +1813,17 @@ const BookingEditModal = ({
                 {modalTab === "history" && showHistoryTab && form.id != null ? (
                   <BookingHistoryPanel
                     bookingId={form.id}
-                    refreshKey={historyRefreshKey}
+                    refreshKey={historyRefreshKey + localHistoryRefresh}
+                  />
+                ) : modalTab === "documents" &&
+                  showDocumentsTab &&
+                  form.id != null ? (
+                  <QuotationDocumentsPanel
+                    quotationId={form.id}
+                    readOnly={viewOnly}
+                    onHistoryChange={() =>
+                      setLocalHistoryRefresh((n) => n + 1)
+                    }
                   />
                 ) : (
                   <fieldset
@@ -2509,7 +2550,7 @@ const BookingEditModal = ({
               </div>
               <div className="modal-footer booking-edit-modal-footer">
                 <div className="booking-edit-modal-footer__end">
-                  {modalTab === "history" ? (
+                  {modalTab === "history" || modalTab === "documents" ? (
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -2662,7 +2703,7 @@ const BookingEditModal = ({
                         <button
                           type="submit"
                           className="btn btn-primary"
-                          disabled={saving}
+                          disabled={saving || loadingDetails}
                         >
                           {saving ? "Saving…" : "Save"}
                         </button>
@@ -2670,7 +2711,7 @@ const BookingEditModal = ({
                           type="submit"
                           className="btn btn-primary"
                           data-close-after="true"
-                          disabled={saving}
+                          disabled={saving || loadingDetails}
                         >
                           {saving ? "Saving…" : "Save and Close"}
                         </button>

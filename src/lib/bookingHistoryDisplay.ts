@@ -33,6 +33,16 @@ function formatValue(value: unknown): string {
 
 function actionTitle(entry: HistoryRecord): string {
   const who = entry.actor_name?.trim() || 'System'
+  if (entry.entity_type === 'quotation_document') {
+    switch (entry.action) {
+      case 'create':
+        return `${who} added a document`
+      case 'delete':
+        return `${who} removed a document`
+      default:
+        return `${who} updated a document`
+    }
+  }
   switch (entry.action) {
     case 'create':
       return `${who} created this quotation`
@@ -72,6 +82,18 @@ function summarizeChanges(entry: HistoryRecord): string[] {
 
   if (entry.entity_type === 'quotation_group' && typeof changes.name === 'string') {
     lines.push(`Group: ${changes.name}`)
+    return lines
+  }
+
+  if (entry.entity_type === 'quotation_document') {
+    if (typeof changes.name === 'string') {
+      lines.push(`File: ${changes.name}`)
+    }
+    if (changes.source === 'file_manager' && changes.source_document_name) {
+      lines.push(`From File Manager: ${formatValue(changes.source_document_name)}`)
+    } else if (changes.source === 'upload') {
+      lines.push('Source: uploaded to quotation')
+    }
     return lines
   }
 

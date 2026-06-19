@@ -16,6 +16,7 @@ function describeEntry(entry: HistoryRecord, bookingMode: boolean) {
     || entry.entity_type === 'quotation'
     || entry.entity_type === 'quotation_item'
     || entry.entity_type === 'quotation_group'
+    || entry.entity_type === 'quotation_document'
   ) {
     return describeHistoryEntry(entry as never)
   }

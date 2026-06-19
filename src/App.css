@@ -2091,6 +2091,21 @@ body,
   overflow-y: auto;
 }
 
+.booking-edit-modal__body {
+  position: relative;
+}
+
+.booking-edit-modal__loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: inherit;
+}
+
 .contact-form-modal-elevated.user-details-modal-backdrop {
   z-index: 1310;
 }
