@@ -6,6 +6,7 @@ import { useCompanyFilter } from '../hooks/useCompanyFilter'
 import {
   fetchActiveProjectsTagConfig,
   fetchProfitProgressTagConfig,
+  parseConfiguredTagIds,
 } from '../services/config'
 import {
   fetchDashboardActiveProjects,
@@ -17,6 +18,7 @@ import {
 const emptyProfit = (companyId: number): DashboardProfitProgress => ({
   company_id: companyId,
   tag_id: null,
+  tag_ids: [],
   tag_name: '',
   total_amount: '0.00',
   display_value: '0.00+',
@@ -25,16 +27,11 @@ const emptyProfit = (companyId: number): DashboardProfitProgress => ({
 const emptyActiveProjects = (companyId: number): DashboardActiveProjects => ({
   company_id: companyId,
   tag_id: null,
+  tag_ids: [],
   tag_name: '',
   count: 0,
   display_value: '0',
 })
-
-const parseConfiguredTagId = (raw: string): number | null => {
-  const trimmed = raw.trim()
-  const parsed = trimmed ? Number.parseInt(trimmed, 10) : NaN
-  return Number.isFinite(parsed) ? parsed : null
-}
 
 const DashboardPage = () => {
   const {
@@ -49,9 +46,9 @@ const DashboardPage = () => {
   const [activeProjects, setActiveProjects] = useState<DashboardActiveProjects | null>(
     null,
   )
-  const [configuredProfitTagId, setConfiguredProfitTagId] = useState<number | null>(null)
-  const [configuredProjectsTagId, setConfiguredProjectsTagId] = useState<number | null>(
-    null,
+  const [configuredProfitTagIds, setConfiguredProfitTagIds] = useState<number[]>([])
+  const [configuredProjectsTagIds, setConfiguredProjectsTagIds] = useState<number[]>(
+    [],
   )
   const [profitLoading, setProfitLoading] = useState(true)
   const [activeProjectsLoading, setActiveProjectsLoading] = useState(true)
@@ -63,10 +60,10 @@ const DashboardPage = () => {
         fetchProfitProgressTagConfig(companyId),
         fetchDashboardProfitProgress(companyId),
       ])
-      setConfiguredProfitTagId(parseConfiguredTagId(profitConfig.value))
+      setConfiguredProfitTagIds(parseConfiguredTagIds(profitConfig.value))
       setProfit(profitData)
     } catch {
-      setConfiguredProfitTagId(null)
+      setConfiguredProfitTagIds([])
       setProfit(emptyProfit(companyId))
     } finally {
       setProfitLoading(false)
@@ -80,10 +77,10 @@ const DashboardPage = () => {
         fetchActiveProjectsTagConfig(companyId),
         fetchDashboardActiveProjects(companyId),
       ])
-      setConfiguredProjectsTagId(parseConfiguredTagId(projectsConfig.value))
+      setConfiguredProjectsTagIds(parseConfiguredTagIds(projectsConfig.value))
       setActiveProjects(projectsData)
     } catch {
-      setConfiguredProjectsTagId(null)
+      setConfiguredProjectsTagIds([])
       setActiveProjects(emptyActiveProjects(companyId))
     } finally {
       setActiveProjectsLoading(false)
@@ -94,8 +91,8 @@ const DashboardPage = () => {
     if (activeCompanyId == null) {
       setProfit(null)
       setActiveProjects(null)
-      setConfiguredProfitTagId(null)
-      setConfiguredProjectsTagId(null)
+      setConfiguredProfitTagIds([])
+      setConfiguredProjectsTagIds([])
       setProfitLoading(companiesLoading)
       setActiveProjectsLoading(companiesLoading)
       return
@@ -132,7 +129,7 @@ const DashboardPage = () => {
             {activeCompanyId != null && (
               <ProfitProgressTagPopover
                 companyId={activeCompanyId}
-                selectedTagId={configuredProfitTagId}
+                selectedTagIds={configuredProfitTagIds}
                 onTagSaved={() => void loadProfit(activeCompanyId)}
               />
             )}
@@ -152,7 +149,7 @@ const DashboardPage = () => {
             {activeCompanyId != null && (
               <ActiveProjectsTagPopover
                 companyId={activeCompanyId}
-                selectedTagId={configuredProjectsTagId}
+                selectedTagIds={configuredProjectsTagIds}
                 onTagSaved={() => void loadActiveProjects(activeCompanyId)}
               />
             )}

@@ -3,18 +3,18 @@ import { saveProfitProgressTagConfig } from '../../services/config'
 
 type ProfitProgressTagPopoverProps = {
   companyId: number
-  selectedTagId: number | null
+  selectedTagIds: number[]
   onTagSaved: () => void
 }
 
 const ProfitProgressTagPopover = (props: ProfitProgressTagPopoverProps) => (
   <DashboardTagPopover
     {...props}
-    title="Profit tag"
-    hint="Sum quotation totals for statuses with this tag."
-    triggerAriaLabel="Edit profit progress tag"
-    dialogAriaLabel="Select profit progress tag"
-    saveTag={saveProfitProgressTagConfig}
+    title="Profit tags"
+    hint="Sum quotation totals for statuses with any selected tag."
+    triggerAriaLabel="Edit profit progress tags"
+    dialogAriaLabel="Select profit progress tags"
+    saveTags={saveProfitProgressTagConfig}
   />
 )
 

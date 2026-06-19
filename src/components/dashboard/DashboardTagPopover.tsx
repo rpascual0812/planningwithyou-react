@@ -14,25 +14,25 @@ const POPOVER_H = 220
 
 export type DashboardTagPopoverProps = {
   companyId: number
-  selectedTagId: number | null
+  selectedTagIds: number[]
   onTagSaved: () => void
   title: string
   hint: string
   triggerAriaLabel: string
   dialogAriaLabel: string
-  saveTag: (companyId: number, tagId: number) => Promise<unknown>
+  saveTags: (companyId: number, tagIds: number[]) => Promise<unknown>
   editButtonClassName?: string
 }
 
 const DashboardTagPopover = ({
   companyId,
-  selectedTagId,
+  selectedTagIds,
   onTagSaved,
   title,
   hint,
   triggerAriaLabel,
   dialogAriaLabel,
-  saveTag,
+  saveTags,
   editButtonClassName = 'dashboard-preview-edit',
 }: DashboardTagPopoverProps) => {
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -125,14 +125,17 @@ const DashboardTagPopover = ({
     }
   }, [open, repositionPopover])
 
-  const selectTag = async (tagId: number) => {
-    if (saving || tagId === selectedTagId) return
+  const toggleTag = async (tagId: number) => {
+    if (saving) return
+    const nextTagIds = selectedTagIds.includes(tagId)
+      ? selectedTagIds.filter((id) => id !== tagId)
+      : [...selectedTagIds, tagId]
     setSaving(true)
     try {
-      await saveTag(companyId, tagId)
+      await saveTags(companyId, nextTagIds)
       onTagSaved()
     } catch {
-      showErrorToast('Could not save tag.')
+      showErrorToast('Could not save tags.')
     } finally {
       setSaving(false)
     }
@@ -183,23 +186,27 @@ const DashboardTagPopover = ({
                     </div>
                   ) : (
                     <ul className="dashboard-profit-tag-popover__list list-unstyled mb-0">
-                      {tags.map((tag) => (
-                        <li key={tag.id}>
-                          <button
-                            type="button"
-                            className={`dashboard-profit-tag-popover__option${
-                              selectedTagId === tag.id ? ' is-selected' : ''
-                            }`}
-                            disabled={saving}
-                            onClick={() => void selectTag(tag.id)}
-                          >
-                            <span>{tag.tag}</span>
-                            {selectedTagId === tag.id && (
-                              <i className="bi bi-check-lg" aria-hidden="true" />
-                            )}
-                          </button>
-                        </li>
-                      ))}
+                      {tags.map((tag) => {
+                        const isSelected = selectedTagIds.includes(tag.id)
+                        return (
+                          <li key={tag.id}>
+                            <button
+                              type="button"
+                              className={`dashboard-profit-tag-popover__option${
+                                isSelected ? ' is-selected' : ''
+                              }`}
+                              disabled={saving}
+                              aria-pressed={isSelected}
+                              onClick={() => void toggleTag(tag.id)}
+                            >
+                              <span>{tag.tag}</span>
+                              {isSelected && (
+                                <i className="bi bi-check-lg" aria-hidden="true" />
+                              )}
+                            </button>
+                          </li>
+                        )
+                      })}
                     </ul>
                   )}
                 </div>

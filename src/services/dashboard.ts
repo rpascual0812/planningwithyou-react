@@ -56,6 +56,7 @@ export type DashboardSummary = {
 export type DashboardProfitProgress = {
   company_id: number
   tag_id: number | null
+  tag_ids?: number[]
   tag_name: string
   total_amount: string
   display_value: string
@@ -75,6 +76,7 @@ export async function fetchDashboardProfitProgress(
 export type DashboardActiveProjects = {
   company_id: number
   tag_id: number | null
+  tag_ids?: number[]
   tag_name: string
   count: number
   display_value: string

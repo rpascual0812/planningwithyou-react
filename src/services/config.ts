@@ -60,6 +60,21 @@ export type ProfitProgressTagConfigRecord = {
   value: string
 }
 
+export function parseConfiguredTagIds(raw: string): number[] {
+  const ids: number[] = []
+  for (const part of raw.split(',')) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+    const parsed = Number.parseInt(trimmed, 10)
+    if (Number.isFinite(parsed)) ids.push(parsed)
+  }
+  return ids
+}
+
+export function formatConfiguredTagIds(tagIds: number[]): string {
+  return tagIds.join(',')
+}
+
 export async function fetchProfitProgressTagConfig(
   companyId: number,
 ): Promise<ProfitProgressTagConfigRecord> {
@@ -73,14 +88,14 @@ export async function fetchProfitProgressTagConfig(
 
 export async function saveProfitProgressTagConfig(
   companyId: number,
-  tagId: number | null,
+  tagIds: number[],
 ): Promise<ProfitProgressTagConfigRecord> {
   const res = await apiFetch(buildApiUrl('/config/profit-progress-tag/'), {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({
       company_id: companyId,
-      value: tagId != null ? String(tagId) : '',
+      value: formatConfiguredTagIds(tagIds),
     }),
   })
   if (!res.ok) throw new Error('Failed to save profit progress tag setting')
@@ -102,14 +117,14 @@ export async function fetchActiveProjectsTagConfig(
 
 export async function saveActiveProjectsTagConfig(
   companyId: number,
-  tagId: number | null,
+  tagIds: number[],
 ): Promise<ActiveProjectsTagConfigRecord> {
   const res = await apiFetch(buildApiUrl('/config/active-projects-tag/'), {
     method: 'PUT',
     headers: authHeaders(),
     body: JSON.stringify({
       company_id: companyId,
-      value: tagId != null ? String(tagId) : '',
+      value: formatConfiguredTagIds(tagIds),
     }),
   })
   if (!res.ok) throw new Error('Failed to save active projects tag setting')
