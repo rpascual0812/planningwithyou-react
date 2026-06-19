@@ -229,7 +229,7 @@ const BookingEditModal = ({
     setModalTab("details");
     setManagingGroup(null);
     setContactDetailsOpen(false);
-    setFooterMoreOpen(false);
+    setMoreActionsOpen(false);
     createSeededRef.current = false;
   }, [form.id, form.mode]);
   const readOnlyFieldProps = viewOnly
@@ -282,7 +282,7 @@ const BookingEditModal = ({
   /** Group whose field definitions (schema) are being edited. */
   const [managingGroup, setManagingGroup] = useState<string | null>(null);
   const [contactDetailsOpen, setContactDetailsOpen] = useState(false);
-  const [footerMoreOpen, setFooterMoreOpen] = useState(false);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([]);
   const [supplierTypesLoading, setSupplierTypesLoading] = useState(false);
   const createSeededRef = useRef(false);
@@ -1738,12 +1738,142 @@ const BookingEditModal = ({
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="btn-close"
-                  aria-label="Close"
-                  onClick={onClose}
-                />
+                <div
+                  className={`dropdown booking-edit-modal-header__more${
+                    moreActionsOpen ? " show" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-link booking-edit-modal-header__more-btn"
+                    aria-label="More actions"
+                    aria-expanded={moreActionsOpen}
+                    onClick={() => setMoreActionsOpen((open) => !open)}
+                  >
+                    <i
+                      className="bi bi-three-dots-vertical"
+                      aria-hidden="true"
+                    />
+                  </button>
+                  <ul
+                    className={`dropdown-menu dropdown-menu-end${
+                      moreActionsOpen ? " show" : ""
+                    }`}
+                  >
+                    {form.mode === "edit" && !viewOnly && (
+                      <>
+                        {showPaymentsButton && (
+                          <li>
+                            <button
+                              type="button"
+                              className="dropdown-item"
+                              onClick={() => {
+                                setMoreActionsOpen(false);
+                                setPaymentsModalOpen(true);
+                              }}
+                            >
+                              <i
+                                className="bi bi-credit-card me-2"
+                                aria-hidden="true"
+                              />
+                              Payments
+                            </button>
+                          </li>
+                        )}
+                        <li>
+                          <button
+                            type="button"
+                            className="dropdown-item"
+                            disabled={!onSendToCalendar}
+                            onClick={() => {
+                              setMoreActionsOpen(false);
+                              onSendToCalendar?.();
+                            }}
+                          >
+                            <i
+                              className="bi bi-calendar-event me-2"
+                              aria-hidden="true"
+                            />
+                            Send to Calendar
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            className="dropdown-item"
+                            onClick={() => {
+                              setMoreActionsOpen(false);
+                              void openBookingEmailModal();
+                            }}
+                          >
+                            <i
+                              className="bi bi-envelope me-2"
+                              aria-hidden="true"
+                            />
+                            Send email to client
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            type="button"
+                            className="dropdown-item"
+                            disabled={pdfDownloading || form.id == null}
+                            onClick={() => {
+                              setMoreActionsOpen(false);
+                              void handleDownloadBookingPdf();
+                            }}
+                          >
+                            <i
+                              className="bi bi-file-earmark-arrow-down me-2"
+                              aria-hidden="true"
+                            />
+                            Download quotation PDF
+                          </button>
+                        </li>
+                        <li>
+                          <hr className="dropdown-divider" />
+                        </li>
+                      </>
+                    )}
+                    {form.mode === "edit" && viewOnly && (
+                      <>
+                        <li>
+                          <button
+                            type="button"
+                            className="dropdown-item"
+                            disabled={pdfDownloading || form.id == null}
+                            onClick={() => {
+                              setMoreActionsOpen(false);
+                              void handleDownloadBookingPdf();
+                            }}
+                          >
+                            <i
+                              className="bi bi-file-earmark-arrow-down me-2"
+                              aria-hidden="true"
+                            />
+                            Download quotation PDF
+                          </button>
+                        </li>
+                        <li>
+                          <hr className="dropdown-divider" />
+                        </li>
+                      </>
+                    )}
+                    <li>
+                      <button
+                        type="button"
+                        className="dropdown-item"
+                        onClick={() => {
+                          setMoreActionsOpen(false);
+                          onClose();
+                        }}
+                      >
+                        <i className="bi bi-x-lg me-2" aria-hidden="true" />
+                        Close
+                      </button>
+                    </li>
+                  </ul>
+                </div>
               </div>
               <div className="modal-body booking-edit-modal__body">
                 {loadingDetails && (
@@ -2594,103 +2724,6 @@ const BookingEditModal = ({
                     </>
                   ) : (
                     <>
-                      {form.mode === "edit" && (
-                        <>
-                          <div
-                            className={`dropdown booking-edit-modal-footer__more${
-                              footerMoreOpen ? " show" : ""
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              className="btn btn-outline-secondary dropdown-toggle"
-                              aria-expanded={footerMoreOpen}
-                              onClick={() => setFooterMoreOpen((open) => !open)}
-                            >
-                              More actions
-                            </button>
-                            <ul
-                              className={`dropdown-menu dropdown-menu-end${
-                                footerMoreOpen ? " show" : ""
-                              }`}
-                            >
-                              {showPaymentsButton && (
-                                <li>
-                                  <button
-                                    type="button"
-                                    className="dropdown-item"
-                                    onClick={() => {
-                                      setFooterMoreOpen(false);
-                                      setPaymentsModalOpen(true);
-                                    }}
-                                  >
-                                    <i
-                                      className="bi bi-credit-card me-2"
-                                      aria-hidden="true"
-                                    />
-                                    Payments
-                                  </button>
-                                </li>
-                              )}
-                              <li>
-                                <button
-                                  type="button"
-                                  className="dropdown-item"
-                                  disabled={!onSendToCalendar}
-                                  onClick={() => {
-                                    setFooterMoreOpen(false);
-                                    onSendToCalendar?.();
-                                  }}
-                                >
-                                  <i
-                                    className="bi bi-calendar-event me-2"
-                                    aria-hidden="true"
-                                  />
-                                  Send to Calendar
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  type="button"
-                                  className="dropdown-item"
-                                  onClick={() => {
-                                    setFooterMoreOpen(false);
-                                    void openBookingEmailModal();
-                                  }}
-                                >
-                                  <i
-                                    className="bi bi-envelope me-2"
-                                    aria-hidden="true"
-                                  />
-                                  Send email to client
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  type="button"
-                                  className="dropdown-item"
-                                  disabled={pdfDownloading || form.id == null}
-                                  onClick={() => {
-                                    setFooterMoreOpen(false);
-                                    void handleDownloadBookingPdf();
-                                  }}
-                                >
-                                  <i
-                                    className="bi bi-file-earmark-arrow-down me-2"
-                                    aria-hidden="true"
-                                  />
-                                  Download quotation PDF
-                                </button>
-                              </li>
-                            </ul>
-                          </div>
-                          <div
-                            className="booking-edit-modal-footer__divider"
-                            role="separator"
-                            aria-orientation="vertical"
-                          />
-                        </>
-                      )}
                       <div className="booking-edit-modal-footer__actions">
                         <button
                           type="button"
