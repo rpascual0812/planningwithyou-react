@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
+import { formatAppDate } from '../../../lib/formatDateTime'
 import { fetchCurrentAccount } from '../../../services/accounts'
 import {
-  downloadSubscriptionReceipt,
-  fetchSubscriptionReceipts,
-  type SubscriptionReceiptRecord,
+  downloadSubscriptionPaymentReceipt,
+  fetchSubscriptionPayments,
+  type SubscriptionPaymentRecord,
 } from '../../../services/subscriptions'
 import {
   formatCurrency,
@@ -12,19 +13,27 @@ import {
   type CurrencyFormatOptions,
 } from '../../../utils/currency'
 
-function formatReceiptDate(iso: string): string {
+function formatPaidAt(iso: string): string {
   const parsed = new Date(iso)
   if (Number.isNaN(parsed.getTime())) return iso
-  return parsed.toLocaleDateString('en-US', {
+  return parsed.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   })
+}
+
+function formatPeriod(start: string, end: string | null): string {
+  const startLabel = formatAppDate(start)
+  if (!end) return `${startLabel} – ongoing`
+  return `${startLabel} – ${formatAppDate(end)}`
 }
 
 const SubscriptionReceiptsSection = () => {
   const { canRead: accountRead } = useFeatureAccess('account_settings')
-  const [receipts, setReceipts] = useState<SubscriptionReceiptRecord[]>([])
+  const [payments, setPayments] = useState<SubscriptionPaymentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<number | null>(null)
@@ -33,22 +42,22 @@ const SubscriptionReceiptsSection = () => {
     locale: 'en-PH',
   })
 
-  const loadReceipts = useCallback(async () => {
+  const loadPayments = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const [account, rows] = await Promise.all([
         fetchCurrentAccount(),
-        fetchSubscriptionReceipts(),
+        fetchSubscriptionPayments(),
       ])
       setCurrencyFormat({
         currencyCode: account.country_currency_code || 'PHP',
         locale: localeFromIso2(account.country_iso2_code),
       })
-      setReceipts(rows)
+      setPayments(rows)
     } catch (e) {
-      setReceipts([])
-      setError(e instanceof Error ? e.message : 'Failed to load receipts')
+      setPayments([])
+      setError(e instanceof Error ? e.message : 'Failed to load subscription payments')
     } finally {
       setLoading(false)
     }
@@ -59,17 +68,18 @@ const SubscriptionReceiptsSection = () => {
       setLoading(false)
       return
     }
-    void loadReceipts()
-  }, [accountRead, loadReceipts])
+    void loadPayments()
+  }, [accountRead, loadPayments])
 
-  const handleDownload = async (receipt: SubscriptionReceiptRecord) => {
-    setDownloadingId(receipt.id)
+  const handleDownload = async (payment: SubscriptionPaymentRecord) => {
+    setDownloadingId(payment.id)
     setError(null)
     try {
-      await downloadSubscriptionReceipt(receipt.id)
+      await downloadSubscriptionPaymentReceipt(payment.id)
     } catch (e) {
-      if (receipt.receipt_url) {
-        window.open(receipt.receipt_url, '_blank', 'noopener,noreferrer')
+      const receiptUrl = payment.receipt?.receipt_url
+      if (receiptUrl) {
+        window.open(receiptUrl, '_blank', 'noopener,noreferrer')
       } else {
         setError(e instanceof Error ? e.message : 'Failed to download receipt')
       }
@@ -87,14 +97,15 @@ const SubscriptionReceiptsSection = () => {
   }
 
   if (loading) {
-    return <p className="text-muted small mb-0">Loading receipts…</p>
+    return <p className="text-muted small mb-0">Loading subscription payments…</p>
   }
 
   return (
     <div className="sub-receipts">
       <p className="sub-receipts-intro text-muted small">
-        PDF receipts for subscription payments (initial and recurring). A copy is
-        also sent to your account contact email when PayMongo confirms payment.
+        Successful subscription charges recorded from PayMongo. Download a PDF receipt
+        for any payment below; a copy is also emailed to your account contact address
+        when available.
       </p>
 
       {error && (
@@ -103,46 +114,51 @@ const SubscriptionReceiptsSection = () => {
         </p>
       )}
 
-      {receipts.length === 0 ? (
-        <p className="text-muted small mb-0">No subscription receipts yet.</p>
+      {payments.length === 0 ? (
+        <p className="text-muted small mb-0">No subscription payments yet.</p>
       ) : (
         <div className="table-responsive">
           <table className="table table-sm align-middle sub-receipts-table">
             <thead>
               <tr>
-                <th>Receipt</th>
-                <th>Plan</th>
                 <th>Paid</th>
+                <th>Plan</th>
+                <th>Billing period</th>
                 <th>Amount</th>
+                <th>Receipt</th>
                 <th className="text-end">Download</th>
               </tr>
             </thead>
             <tbody>
-              {receipts.map((receipt) => (
-                <tr key={receipt.id}>
+              {payments.map((payment) => (
+                <tr key={payment.id}>
                   <td>
-                    <span className="fw-semibold">{receipt.receipt_number}</span>
-                    <br />
-                    <span className="text-muted small">
-                      {formatReceiptDate(receipt.paid_at)}
-                    </span>
+                    <span className="fw-semibold">{formatPaidAt(payment.paid_at)}</span>
+                    {payment.description ? (
+                      <>
+                        <br />
+                        <span className="text-muted small">{payment.description}</span>
+                      </>
+                    ) : null}
                   </td>
-                  <td>{receipt.plan_name}</td>
+                  <td>{payment.plan_name || '—'}</td>
                   <td className="text-muted small">
-                    {receipt.period_start}
-                    {receipt.period_end ? ` – ${receipt.period_end}` : ''}
+                    {formatPeriod(payment.period_start, payment.period_end)}
                   </td>
                   <td>
-                    {formatCurrency(Number(receipt.amount), currencyFormat)}
+                    {formatCurrency(Number(payment.amount), currencyFormat)}
+                  </td>
+                  <td className="text-muted small">
+                    {payment.receipt?.receipt_number ?? '—'}
                   </td>
                   <td className="text-end">
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-primary"
-                      disabled={downloadingId === receipt.id}
-                      onClick={() => void handleDownload(receipt)}
+                      disabled={downloadingId === payment.id}
+                      onClick={() => void handleDownload(payment)}
                     >
-                      {downloadingId === receipt.id ? 'Downloading…' : 'PDF'}
+                      {downloadingId === payment.id ? 'Downloading…' : 'PDF'}
                     </button>
                   </td>
                 </tr>

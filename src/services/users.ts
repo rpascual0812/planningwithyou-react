@@ -13,6 +13,7 @@ export type UserRecord = {
   first_name: string
   last_name: string
   is_active: boolean
+  account_restricted?: boolean
   role?: number | null
   role_name?: string
   /** feature -> access level ('none'|'read'|'write'). */

@@ -31,6 +31,13 @@ import {
 } from '../lib/securedFileUrl'
 import { showErrorToast } from '../utils/toast'
 import {
+  fetchAiAssistantStatus,
+  type QuotationAiEmailDraft,
+} from '../services/aiAssistant'
+import { hasAiPlusSubscription } from '../lib/aiPlusPlan'
+import { useAuthSession } from '../context/AuthSessionContext'
+import QuotationAiPanel from './QuotationAiPanel'
+import {
   emailLogDisplayTimeZone,
   formatAppDateTime,
 } from '../lib/formatDateTime'
@@ -71,6 +78,8 @@ export type EmailSenderModalProps = {
   amountPaid?: string | number | null
   /** Scope booking templates to the logged-in user's company. */
   bookingTemplateCompanyId?: number | null
+  /** Numeric quotation id for AI assistant (compose mode). */
+  quotationDbId?: number | null
   /** Render above booking payments modal (z-index stack). */
   stacked?: boolean
   /** When false, modal is view-only (no send/resend). */
@@ -152,6 +161,7 @@ const EmailSenderModal = ({
   transactionId,
   amountPaid,
   bookingTemplateCompanyId,
+  quotationDbId = null,
   stacked = false,
   canWrite = true,
 }: EmailSenderModalProps) => {
@@ -182,6 +192,19 @@ const EmailSenderModal = ({
   const [downloadingAttachmentIdx, setDownloadingAttachmentIdx] = useState<number | null>(
     null,
   )
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [aiAvailable, setAiAvailable] = useState(false)
+  const { subscriptionPlan } = useAuthSession()
+  const hasAiPlusPlan = hasAiPlusSubscription(subscriptionPlan)
+
+  const quotationAiLabel = useMemo(() => {
+    const title = (quotationTitle ?? '').trim() || 'Quotation'
+    const id = quotationId != null ? String(quotationId).trim() : ''
+    return id ? `${title} (${id})` : title
+  }, [quotationId, quotationTitle])
+
+  const showAiAssistant =
+    isCompose && canWrite && quotationDbId != null && hasAiPlusPlan
 
   const activeBookingTemplates = useMemo(
     () => bookingTemplates.filter((t) => t.is_active),
@@ -240,6 +263,28 @@ const EmailSenderModal = ({
       cancelled = true
     }
   }, [bookingTemplateCompanyId])
+
+  useEffect(() => {
+    if (!isCompose || quotationDbId == null || !hasAiPlusPlan) {
+      setAiAvailable(false)
+      return
+    }
+    let cancelled = false
+    fetchAiAssistantStatus()
+      .then((status) => {
+        if (!cancelled) {
+          setAiAvailable(status.available)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAiAvailable(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isCompose, quotationDbId, hasAiPlusPlan])
 
   useEffect(() => {
     if (!isCompose || !defaultReplyTo) return
@@ -413,6 +458,34 @@ const EmailSenderModal = ({
     onSend({ ...form, body: mergedBody, subject })
   }
 
+  const applyAiEmailDraft = (draft: QuotationAiEmailDraft) => {
+    initialSubjectRef.current = draft.subject
+    initialHtmlRef.current = draft.body_html
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        subject: draft.subject,
+        body: draft.body_html,
+      }
+      saveDraft(storageKey, next)
+      return next
+    })
+    setEditorKey((k) => k + 1)
+    setAiPanelOpen(false)
+  }
+
+  const handleOpenAiAssistant = () => {
+    if (!hasAiPlusPlan) {
+      showErrorToast('AI assistant requires an AI Plus subscription.')
+      return
+    }
+    if (!aiAvailable) {
+      showErrorToast('AI assistant is not configured on the server yet.')
+      return
+    }
+    setAiPanelOpen(true)
+  }
+
   // Escape to close
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -580,6 +653,19 @@ const EmailSenderModal = ({
                     onOpenDocuments: () => setDocsMode('insert'),
                   })}
                 />
+                {showAiAssistant && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={handleOpenAiAssistant}
+                      disabled={sending}
+                    >
+                      <i className="bi bi-stars me-1" aria-hidden="true" />
+                      AI Assistant
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mt-3">
@@ -731,6 +817,17 @@ const EmailSenderModal = ({
         <DocumentsModal
           onSelect={handleDocSelect}
           onClose={() => setDocsMode(null)}
+        />
+      )}
+
+      {aiPanelOpen && quotationDbId != null && (
+        <QuotationAiPanel
+          open={aiPanelOpen}
+          quotationId={quotationDbId}
+          quotationLabel={quotationAiLabel}
+          stackedAboveEmail
+          onClose={() => setAiPanelOpen(false)}
+          onUseEmailDraft={applyAiEmailDraft}
         />
       )}
     </>

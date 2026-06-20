@@ -27,12 +27,15 @@ import {
 } from "../utils/currency";
 import BookingHistoryPanel from "./BookingHistoryPanel";
 import QuotationDocumentsPanel from "./QuotationDocumentsPanel";
+import QuotationEmailLogsPanel from "./QuotationEmailLogsPanel";
 import BookingPaymentsModal from "./BookingPaymentsModal";
 import ContactFormModal from "./ContactFormModal";
 import SupplierFieldInput from "./SupplierFieldInput";
 import SearchableSelect from "./SearchableSelect";
 import QuotationAiPanel from "./QuotationAiPanel";
 import { fetchAiAssistantStatus } from "../services/aiAssistant";
+import { hasAiPlusSubscription } from "../lib/aiPlusPlan";
+import { useAuthSession } from "../context/AuthSessionContext";
 import {
   duplicateBookingItem,
   fetchBookingItem,
@@ -232,11 +235,13 @@ const BookingEditModal = ({
     !canWrite || (form.mode === "edit" && form.canEdit === false);
   const showHistoryTab = form.mode === "edit" && form.id != null;
   const showDocumentsTab = showHistoryTab;
+  const showEmailLogsTab = showHistoryTab;
 
   useEffect(() => {
     setModalTab("details");
     setManagingGroup(null);
-    setContactDetailsOpen(false);
+    setContactDetailsOpen(true);
+    setContactPickerOpen(false);
     setMoreActionsOpen(false);
     createSeededRef.current = false;
   }, [form.id, form.mode]);
@@ -267,10 +272,11 @@ const BookingEditModal = ({
   const [emailMergeUser, setEmailMergeUser] = useState<UserRecord | null>(null);
   const [emailMergeCompany, setEmailMergeCompany] =
     useState<CompanyRecord | null>(null);
-  const [modalTab, setModalTab] = useState<"details" | "documents" | "history">(
-    "details",
-  );
+  const [modalTab, setModalTab] = useState<
+    "details" | "documents" | "email_logs" | "history"
+  >("details");
   const [localHistoryRefresh, setLocalHistoryRefresh] = useState(0);
+  const [emailLogsRefresh, setEmailLogsRefresh] = useState(0);
   const [paymentsModalOpen, setPaymentsModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailPaymentLinkMode, setEmailPaymentLinkMode] = useState(false);
@@ -289,11 +295,15 @@ const BookingEditModal = ({
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   /** Group whose field definitions (schema) are being edited. */
   const [managingGroup, setManagingGroup] = useState<string | null>(null);
-  const [contactDetailsOpen, setContactDetailsOpen] = useState(false);
+  const [contactDetailsOpen, setContactDetailsOpen] = useState(true);
+  const [contactPickerOpen, setContactPickerOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const moreActionsRef = useRef<HTMLDivElement>(null);
   const [footerMoreOpen, setFooterMoreOpen] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(false);
+  const { subscriptionPlan } = useAuthSession();
+  const hasAiPlusPlan = hasAiPlusSubscription(subscriptionPlan);
   const [emailAiComposeDefaults, setEmailAiComposeDefaults] =
     useState<Partial<EmailPayload> | null>(null);
   const [duplicating, setDuplicating] = useState(false);
@@ -356,21 +366,43 @@ const BookingEditModal = ({
 
   useEffect(() => {
     let cancelled = false;
-    if (form.mode !== "edit" || form.id == null) {
+    if (form.mode !== "edit" || form.id == null || !hasAiPlusPlan) {
       setAiAvailable(false);
       return;
     }
     fetchAiAssistantStatus()
       .then((status) => {
-        if (!cancelled) setAiAvailable(status.available);
+        if (!cancelled) {
+          setAiAvailable(status.available);
+        }
       })
       .catch(() => {
-        if (!cancelled) setAiAvailable(false);
+        if (!cancelled) {
+          setAiAvailable(false);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [form.mode, form.id]);
+  }, [form.mode, form.id, hasAiPlusPlan]);
+
+  useEffect(() => {
+    if (!moreActionsOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (moreActionsRef.current?.contains(target)) return;
+      setMoreActionsOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMoreActionsOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [moreActionsOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -446,6 +478,7 @@ const BookingEditModal = ({
       await reloadContacts();
       onChange({ ...form, contactId: created.id });
       setLinkedContact(created);
+      setContactPickerOpen(false);
       closeAddContact();
       showSuccessToast("Contact created.");
     } catch (e) {
@@ -493,6 +526,8 @@ const BookingEditModal = ({
     if (linkedContact?.id === id) return linkedContact;
     return contacts.find((c) => c.id === id) ?? null;
   }, [contacts, form.contactId, linkedContact]);
+
+  const showContactDropdown = form.contactId == null || contactPickerOpen;
 
   const defaultContactPhone = useMemo(
     () => (selectedContact ? contactDefaultPhone(selectedContact) : null),
@@ -625,6 +660,19 @@ const BookingEditModal = ({
     }
   };
 
+  const handleOpenAiAssistant = () => {
+    setMoreActionsOpen(false);
+    if (!hasAiPlusPlan) {
+      showErrorToast("AI assistant requires an AI Plus subscription.");
+      return;
+    }
+    if (!aiAvailable) {
+      showErrorToast("AI assistant is not configured on the server yet.");
+      return;
+    }
+    setAiPanelOpen(true);
+  };
+
   const handleUseAiEmailDraft = (draft: {
     subject: string;
     body_html: string;
@@ -665,10 +713,11 @@ const BookingEditModal = ({
         subject: applyEmailMergeVariables(data.subject ?? "", mergeContext),
         body: applyEmailMergeVariables(data.body ?? "", mergeContext),
       };
-      await sendEmail(payload);
+      await sendEmail(payload, userCompanyId, form.id ?? undefined);
       setEmailModalOpen(false);
       setEmailPaymentLinkMode(false);
       setPaymentLinkUrlForEmail(null);
+      setEmailLogsRefresh((n) => n + 1);
       showSuccessToast("Email queued for delivery.");
     } catch (err) {
       setEmailError(
@@ -1767,7 +1816,7 @@ const BookingEditModal = ({
         aria-modal="true"
         aria-labelledby="bookingEditTitle"
       >
-        <div className="modal-dialog modal-dialog-centered modal-xl">
+        <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable booking-edit-modal-dialog">
           <div className="modal-content">
             <form
               onSubmit={(e) => {
@@ -1809,6 +1858,7 @@ const BookingEditModal = ({
                   )}
                 </div>
                 <div
+                  ref={moreActionsRef}
                   className={`dropdown booking-edit-modal-header__more${
                     moreActionsOpen ? " show" : ""
                   }`}
@@ -1883,6 +1933,21 @@ const BookingEditModal = ({
                             Send email to client
                           </button>
                         </li>
+                        {hasAiPlusPlan && (
+                          <li>
+                            <button
+                              type="button"
+                              className="dropdown-item"
+                              onClick={handleOpenAiAssistant}
+                            >
+                              <i
+                                className="bi bi-stars me-2"
+                                aria-hidden="true"
+                              />
+                              AI Assistant
+                            </button>
+                          </li>
+                        )}
                         <li>
                           <button
                             type="button"
@@ -2000,6 +2065,19 @@ const BookingEditModal = ({
                         </button>
                       </li>
                     )}
+                    {showEmailLogsTab && (
+                      <li className="nav-item" role="presentation">
+                        <button
+                          type="button"
+                          role="tab"
+                          className={`nav-link${modalTab === "email_logs" ? " active" : ""}`}
+                          aria-selected={modalTab === "email_logs"}
+                          onClick={() => setModalTab("email_logs")}
+                        >
+                          Email Logs
+                        </button>
+                      </li>
+                    )}
                     <li className="nav-item" role="presentation">
                       <button
                         type="button"
@@ -2025,6 +2103,18 @@ const BookingEditModal = ({
                     quotationId={form.id}
                     readOnly={viewOnly}
                     onHistoryChange={() => setLocalHistoryRefresh((n) => n + 1)}
+                  />
+                ) : modalTab === "email_logs" &&
+                  showEmailLogsTab &&
+                  form.id != null ? (
+                  <QuotationEmailLogsPanel
+                    quotationId={form.id}
+                    quotationLabel={
+                      form.uniqueId?.trim()
+                        ? `${form.title.trim() || "Quotation"} (${form.uniqueId.trim()})`
+                        : form.title.trim() || undefined
+                    }
+                    refreshKey={emailLogsRefresh}
                   />
                 ) : (
                   <fieldset
@@ -2502,47 +2592,69 @@ const BookingEditModal = ({
                           >
                             Contact
                           </label>
-                          <div className="input-group">
-                            <select
-                              id="booking-contact"
-                              className="form-select"
-                              value={
-                                form.contactId != null
-                                  ? String(form.contactId)
-                                  : ""
-                              }
-                              disabled={contactsLoading || viewOnly}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                onChange({
-                                  ...form,
-                                  contactId: raw === "" ? null : Number(raw),
-                                });
-                              }}
-                            >
-                              <option value="">
-                                {contactsLoading
-                                  ? "Loading contacts…"
-                                  : "Select a contact"}
-                              </option>
-                              {contacts.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {contactDisplayName(c)}
-                                </option>
-                              ))}
-                            </select>
-                            {!viewOnly && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-primary"
-                                title="Add contact"
-                                aria-label="Add contact"
-                                onClick={openAddContact}
+                          {showContactDropdown ? (
+                            <div className="input-group">
+                              <select
+                                id="booking-contact"
+                                className="form-select"
+                                value={
+                                  form.contactId != null
+                                    ? String(form.contactId)
+                                    : ""
+                                }
+                                disabled={contactsLoading || viewOnly}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  onChange({
+                                    ...form,
+                                    contactId: raw === "" ? null : Number(raw),
+                                  });
+                                  if (raw !== "") {
+                                    setContactPickerOpen(false);
+                                  }
+                                }}
                               >
-                                <i className="bi bi-plus-lg" />
-                              </button>
-                            )}
-                          </div>
+                                <option value="">
+                                  {contactsLoading
+                                    ? "Loading contacts…"
+                                    : "Select a contact"}
+                                </option>
+                                {contacts.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {contactDisplayName(c)}
+                                  </option>
+                                ))}
+                              </select>
+                              {!viewOnly && (
+                                <button
+                                  type="button"
+                                  className="btn btn-outline-primary"
+                                  title="Add contact"
+                                  aria-label="Add contact"
+                                  onClick={openAddContact}
+                                >
+                                  <i className="bi bi-plus-lg" />
+                                </button>
+                              )}
+                            </div>
+                          ) : selectedContact ? (
+                            <div className="booking-contact-selected">
+                              <span className="booking-contact-selected__name">
+                                {contactDisplayName(selectedContact)}
+                              </span>
+                              {!viewOnly && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-secondary booking-contact-selected__edit"
+                                  title="Change contact"
+                                  aria-label="Change contact"
+                                  onClick={() => setContactPickerOpen(true)}
+                                >
+                                  <i className="bi bi-pencil-square" />
+                                </button>
+                              )}
+                            </div>
+                          ) : null}
                         </div>
                         {selectedContact && (
                           <div className="booking-contact-summary mb-3">
@@ -2554,7 +2666,9 @@ const BookingEditModal = ({
                                 setContactDetailsOpen((open) => !open)
                               }
                             >
-                              <span className="fw-semibold">Contact</span>
+                              <span className="fw-semibold">
+                                Contact Details
+                              </span>
                               <span className="booking-contact-summary__preview text-muted small">
                                 {contactDisplayName(selectedContact)}
                                 {selectedContact.email?.trim()
@@ -2751,7 +2865,9 @@ const BookingEditModal = ({
               </div>
               <div className="modal-footer booking-edit-modal-footer">
                 <div className="booking-edit-modal-footer__end">
-                  {modalTab === "history" || modalTab === "documents" ? (
+                  {modalTab === "history" ||
+                  modalTab === "documents" ||
+                  modalTab === "email_logs" ? (
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -2992,6 +3108,7 @@ const BookingEditModal = ({
           }
           paymentLinkUrl={paymentLinkUrlForEmail ?? undefined}
           quotationId={form.uniqueId?.trim() || form.id}
+          quotationDbId={form.id}
           quotationTitle={form.title}
           amountPaid={form.paidChargeAmount || form.paidAmount || "0"}
           bookingTemplateCompanyId={userCompanyId}
@@ -3006,7 +3123,7 @@ const BookingEditModal = ({
         />
       )}
 
-      {aiPanelOpen && form.id != null && (
+      {aiPanelOpen && hasAiPlusPlan && form.id != null && (
         <QuotationAiPanel
           open={aiPanelOpen}
           quotationId={form.id}

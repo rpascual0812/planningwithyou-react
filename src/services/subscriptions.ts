@@ -55,6 +55,23 @@ export type SubscriptionReceiptRecord = {
   created_at: string
 }
 
+export type SubscriptionPaymentRecord = {
+  id: number
+  amount: string
+  currency: string
+  paid_at: string
+  period_start: string
+  period_end: string | null
+  description: string
+  plan_name: string
+  receipt: {
+    id: number
+    receipt_number: string
+    receipt_url: string
+  } | null
+  created_at: string
+}
+
 export type SubscriptionCheckoutResponse = {
   checkout_kind: SubscriptionCheckoutKind
   checkout_url: string
@@ -181,6 +198,14 @@ export async function createSubscriptionCheckout(
   return res.json()
 }
 
+export async function fetchSubscriptionPayments(): Promise<SubscriptionPaymentRecord[]> {
+  const res = await apiFetch(buildApiUrl('/subscriptions/payments/'), {
+    headers: authHeaders(),
+  })
+  if (!res.ok) throw new Error('Failed to load subscription payments')
+  return res.json()
+}
+
 export async function fetchSubscriptionReceipts(): Promise<SubscriptionReceiptRecord[]> {
   const res = await apiFetch(buildApiUrl('/subscriptions/receipts/'), {
     headers: authHeaders(),
@@ -189,15 +214,15 @@ export async function fetchSubscriptionReceipts(): Promise<SubscriptionReceiptRe
   return res.json()
 }
 
-export async function downloadSubscriptionReceipt(receiptId: number): Promise<void> {
+async function downloadSubscriptionReceiptPdf(
+  url: string,
+  fallbackFilename: string,
+): Promise<void> {
   const token = getAccessToken()
   const headers: Record<string, string> = {}
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await apiFetch(
-    buildApiUrl(`/subscriptions/receipts/${receiptId}/download/`),
-    { headers },
-  )
+  const res = await apiFetch(url, { headers })
   if (!res.ok) {
     let detail = 'Failed to download receipt'
     try {
@@ -226,11 +251,27 @@ export async function downloadSubscriptionReceipt(receiptId: number): Promise<vo
   const blob = await res.blob()
   const disposition = res.headers.get('content-disposition') ?? ''
   const match = disposition.match(/filename="?([^";]+)"?/i)
-  const filename = match?.[1] ?? `subscription-receipt-${receiptId}.pdf`
-  const url = URL.createObjectURL(blob)
+  const filename = match?.[1] ?? fallbackFilename
+  const objectUrl = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
-  anchor.href = url
+  anchor.href = objectUrl
   anchor.download = filename
   anchor.click()
-  URL.revokeObjectURL(url)
+  URL.revokeObjectURL(objectUrl)
+}
+
+export async function downloadSubscriptionReceipt(receiptId: number): Promise<void> {
+  await downloadSubscriptionReceiptPdf(
+    buildApiUrl(`/subscriptions/receipts/${receiptId}/download/`),
+    `subscription-receipt-${receiptId}.pdf`,
+  )
+}
+
+export async function downloadSubscriptionPaymentReceipt(
+  paymentId: number,
+): Promise<void> {
+  await downloadSubscriptionReceiptPdf(
+    buildApiUrl(`/subscriptions/payments/${paymentId}/receipt/download/`),
+    `subscription-receipt-${paymentId}.pdf`,
+  )
 }

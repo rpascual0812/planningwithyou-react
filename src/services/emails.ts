@@ -19,6 +19,7 @@ export type EmailRecord = {
   created_by: number | null
   company_id: number | null
   company_timezone?: string
+  quotation_id?: number | null
   status: 'queued' | 'sent' | 'failed'
   error: string
   attempts: number
@@ -157,6 +158,7 @@ function apiEmailBody(data: EmailPayload): EmailPayload {
 export async function sendEmail(
   data: EmailPayload,
   companyId?: number | null,
+  quotationId?: number | null,
 ): Promise<EmailRecord> {
   const params = new URLSearchParams()
   if (companyId != null) params.set('company_id', String(companyId))
@@ -164,7 +166,10 @@ export async function sendEmail(
   const res = await apiFetch(buildApiUrl(`/emails/${qs}`), {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify(apiEmailBody(data)),
+    body: JSON.stringify({
+      ...apiEmailBody(data),
+      ...(quotationId != null ? { quotation_id: quotationId } : {}),
+    }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => null)

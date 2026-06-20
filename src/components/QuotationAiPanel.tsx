@@ -13,9 +13,9 @@ type QuotationAiPanelProps = {
   quotationLabel: string
   onClose: () => void
   onUseEmailDraft: (draft: QuotationAiEmailDraft) => void
+  /** Render above compose email modal. */
+  stackedAboveEmail?: boolean
 }
-
-type Tab = 'summary' | 'email'
 
 export default function QuotationAiPanel({
   open,
@@ -23,7 +23,10 @@ export default function QuotationAiPanel({
   quotationLabel,
   onClose,
   onUseEmailDraft,
+  stackedAboveEmail = false,
 }: QuotationAiPanelProps) {
+  type Tab = 'summary' | 'email'
+
   const [tab, setTab] = useState<Tab>('summary')
   const [prompt, setPrompt] = useState('')
   const [summary, setSummary] = useState<QuotationAiSummary | null>(null)
@@ -32,12 +35,12 @@ export default function QuotationAiPanel({
 
   useEffect(() => {
     if (!open) return
-    setTab('summary')
+    setTab(stackedAboveEmail ? 'email' : 'summary')
     setPrompt('')
     setSummary(null)
     setEmailDraft(null)
     setLoading(false)
-  }, [open, quotationId])
+  }, [open, quotationId, stackedAboveEmail])
 
   const runSummary = useCallback(async () => {
     setLoading(true)
@@ -63,15 +66,17 @@ export default function QuotationAiPanel({
 
   if (!open) return null
 
+  const stackClass = stackedAboveEmail ? ' quotation-ai-panel--over-email' : ''
+
   return (
     <>
       <div
-        className="modal-backdrop fade show quotation-ai-panel-backdrop"
+        className={`modal-backdrop fade show quotation-ai-panel-backdrop${stackClass}`}
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className="modal fade show quotation-ai-panel d-block"
+        className={`modal fade show quotation-ai-panel d-block${stackClass}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="quotation-ai-panel-title"

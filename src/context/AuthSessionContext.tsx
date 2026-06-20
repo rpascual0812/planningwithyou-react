@@ -16,6 +16,7 @@ import {
   clearStoredTokens,
 } from '../services/auth'
 import { fetchMe, type UserRecord } from '../services/users'
+import { fetchCurrentAccountSubscription } from '../services/subscriptions'
 import { setActiveAppTimeZone } from '../lib/appTimezone'
 import { resolveTimezoneInput } from '../lib/timezones'
 
@@ -58,11 +59,24 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const [userLoading, setUserLoading] = useState(hasStoredSession)
   const hasLoadedUserRef = useRef(false)
 
+  const loadAccountSubscription = useCallback(async () => {
+    if (!hasStoredSession()) {
+      setSubscriptionPlan(null)
+      return
+    }
+    try {
+      const row = await fetchCurrentAccountSubscription()
+      setSubscriptionPlan(row?.plan ?? 'free')
+    } catch (err) {
+      if (isAbortError(err)) return
+      setSubscriptionPlan('free')
+    }
+  }, [])
+
   const loadCurrentUser = useCallback(async () => {
     if (!hasStoredSession()) {
       hasLoadedUserRef.current = false
       setCurrentUser(null)
-      setSubscriptionPlan(null)
       setUserLoading(false)
       return
     }
@@ -72,7 +86,6 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     try {
       const user = await fetchMe()
       setCurrentUser(user)
-      setSubscriptionPlan(user.subscription_plan ?? 'free')
       setActiveAppTimeZone(
         user.company_timezone?.trim()
           ? resolveTimezoneInput(user.company_timezone)
@@ -83,7 +96,6 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       if (isAbortError(err)) return
       hasLoadedUserRef.current = false
       setCurrentUser(null)
-      setSubscriptionPlan(null)
       setActiveAppTimeZone(undefined)
       setIsAuthenticated(false)
       clearStoredTokens()
@@ -92,22 +104,35 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const loadSession = useCallback(async () => {
+    if (!hasStoredSession()) {
+      hasLoadedUserRef.current = false
+      setCurrentUser(null)
+      setSubscriptionPlan(null)
+      setUserLoading(false)
+      return
+    }
+    await loadCurrentUser()
+    if (hasStoredSession()) {
+      await loadAccountSubscription()
+    }
+  }, [loadAccountSubscription, loadCurrentUser])
+
   const syncAuthState = useCallback(() => {
     const authed = hasStoredSession()
     setIsAuthenticated(authed)
     if (authed) {
-      void loadCurrentUser()
+      void loadSession()
     } else {
       hasLoadedUserRef.current = false
       setCurrentUser(null)
       setSubscriptionPlan(null)
       setUserLoading(false)
     }
-  }, [loadCurrentUser])
+  }, [loadSession])
 
   const updateCurrentUser = useCallback((user: UserRecord) => {
     setCurrentUser(user)
-    setSubscriptionPlan(user.subscription_plan ?? 'free')
     setActiveAppTimeZone(
       user.company_timezone?.trim()
         ? resolveTimezoneInput(user.company_timezone)
@@ -115,15 +140,28 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     )
     hasLoadedUserRef.current = true
     setUserLoading(false)
-  }, [])
+    void loadAccountSubscription()
+  }, [loadAccountSubscription])
 
   useEffect(() => {
     return startAuthSessionKeepAlive()
   }, [])
 
   useEffect(() => {
-    void loadCurrentUser()
-  }, [loadCurrentUser])
+    void loadSession()
+  }, [loadSession])
+
+  useEffect(() => {
+    const refreshSubscriptionOnVisible = () => {
+      if (document.visibilityState === 'visible' && hasStoredSession()) {
+        void loadAccountSubscription()
+      }
+    }
+    document.addEventListener('visibilitychange', refreshSubscriptionOnVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', refreshSubscriptionOnVisible)
+    }
+  }, [loadAccountSubscription])
 
   useEffect(() => {
     const syncFromStorage = () => {

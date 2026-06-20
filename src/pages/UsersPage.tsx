@@ -56,6 +56,16 @@ function displayName(u: UserRecord): string {
   return full || u.username
 }
 
+function userStatusLabel(user: UserRecord): string {
+  if (user.account_restricted) return 'restricted'
+  return user.is_active ? 'active' : 'inactive'
+}
+
+function userStatusClass(user: UserRecord): string {
+  if (user.account_restricted) return 'users-status--restricted'
+  return user.is_active ? 'users-status--active' : 'users-status--pending'
+}
+
 const EMPTY_FORM: UserPayload = {
   username: '',
   email: '',
@@ -71,6 +81,7 @@ const UsersPage = () => {
   const [seatUsage, setSeatUsage] = useState<UserSeatUsage | null>(null)
   const [seatUsageLoading, setSeatUsageLoading] = useState(true)
   const atSeatLimit = seatUsage?.at_seat_limit === true
+  const canManageUser = (user: UserRecord): boolean => !user.account_restricted
   const canAddUser =
     usersWrite &&
     subscriptionPlan != null &&
@@ -271,6 +282,10 @@ const UsersPage = () => {
       if (!loading) clearEditParam()
       return
     }
+    if (!canManageUser(user)) {
+      clearEditParam()
+      return
+    }
     if (
       editingUser &&
       editingUser.id === user.id &&
@@ -309,6 +324,7 @@ const UsersPage = () => {
   }
 
   const openEdit = (u: UserRecord) => {
+    if (!canManageUser(u)) return
     writeEditParam(u.id)
   }
 
@@ -521,8 +537,12 @@ const UsersPage = () => {
                   {users.map((user) => (
                     <tr
                       key={user.id}
-                      className={`users-table-row${usersRead ? ' users-table-row--clickable' : ''}`}
-                      onClick={usersRead ? () => openEdit(user) : undefined}
+                      className={[
+                        'users-table-row',
+                        user.account_restricted ? 'users-table-row--restricted' : '',
+                        usersRead && canManageUser(user) ? 'users-table-row--clickable' : '',
+                      ].filter(Boolean).join(' ')}
+                      onClick={usersRead && canManageUser(user) ? () => openEdit(user) : undefined}
                     >
                       <td className="users-table-id">{user.id}</td>
                       <td>
@@ -542,10 +562,8 @@ const UsersPage = () => {
                       <td className="users-table-contact">{user.email}</td>
                       <td className="users-table-position">{user.username}</td>
                       <td>
-                        <span
-                          className={`users-status users-status--${user.is_active ? 'active' : 'pending'}`}
-                        >
-                          {user.is_active ? 'active' : 'inactive'}
+                        <span className={`users-status ${userStatusClass(user)}`}>
+                          {userStatusLabel(user)}
                         </span>
                       </td>
                       <td className="users-table-position">
@@ -558,7 +576,7 @@ const UsersPage = () => {
                         {formatAppDate(user.created_at)}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        {(usersWrite || usersRead) && (
+                        {(usersWrite || usersRead) && canManageUser(user) && (
                           <div className="users-actions">
                             {usersWrite ? (
                               <>

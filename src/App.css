@@ -596,6 +596,10 @@ body,
   background: #5d666f;
 }
 
+.users-status--restricted {
+  background: #8b95a1;
+}
+
 .users-table tbody tr:nth-child(3n) .users-status--pending {
   background: var(--brand-green);
 }
@@ -629,6 +633,25 @@ body,
 
 .users-table-row:focus-visible {
   box-shadow: inset 0 0 0 2px rgba(82, 181, 133, 0.45);
+}
+
+.users-table-row--restricted {
+  color: #8b95a1;
+  cursor: default;
+}
+
+.users-table-row--restricted:hover,
+.users-table-row--restricted:focus-visible {
+  background: transparent;
+  box-shadow: none;
+}
+
+.users-table-row--restricted .users-table-avatar {
+  opacity: 0.7;
+}
+
+.users-table-row--restricted .users-status {
+  opacity: 0.85;
 }
 
 /* ============================================================
@@ -2091,6 +2114,26 @@ body,
   overflow-y: auto;
 }
 
+.booking-edit-modal .booking-edit-modal-dialog {
+  width: calc(100% - 1rem);
+  max-width: min(1220px, calc(100vw - 1rem));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 575.98px) {
+  .booking-edit-modal .booking-edit-modal-dialog {
+    width: calc(100% - 0.75rem);
+    max-width: none;
+    margin: 0.375rem auto;
+    min-height: calc(100% - 0.75rem);
+  }
+
+  .booking-edit-modal .modal-content {
+    max-height: calc(100vh - 0.75rem);
+  }
+}
+
 .booking-edit-modal__body {
   position: relative;
 }
@@ -2128,6 +2171,31 @@ body,
   border-radius: 0.375rem;
   padding: 0.75rem 0.875rem;
   font-size: 0.8125rem;
+}
+
+.booking-contact-selected {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: calc(1.5em + 0.75rem + 2px);
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: 0.375rem;
+  background: #fff;
+}
+
+.booking-contact-selected__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.booking-contact-selected__edit {
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .booking-contact-summary__heading {
@@ -2172,6 +2240,45 @@ body,
 
 .booking-edit-modal-tabs .nav-link.active {
   color: var(--brand-navy);
+}
+
+.quotation-email-logs-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.quotation-email-logs-panel__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--brand-navy);
+}
+
+.quotation-email-logs-panel__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--brand-line);
+  border-radius: 0.5rem;
+}
+
+.quotation-email-logs-panel__table {
+  margin-bottom: 0;
+}
+
+.quotation-email-logs-panel__row {
+  cursor: pointer;
+}
+
+.quotation-email-logs-panel__row:hover {
+  background: rgba(28, 54, 90, 0.04);
+}
+
+.quotation-email-logs-panel__subject {
+  max-width: 16rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .booking-history-panel {
@@ -9857,6 +9964,14 @@ body,
 
 .quotation-ai-panel.modal {
   z-index: 1320;
+}
+
+.quotation-ai-panel-backdrop.quotation-ai-panel--over-email {
+  z-index: 1370;
+}
+
+.quotation-ai-panel.modal.quotation-ai-panel--over-email {
+  z-index: 1380;
 }
 
 .quotation-ai-panel__tabs .nav-link {

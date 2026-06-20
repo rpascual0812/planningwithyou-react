@@ -2,6 +2,7 @@ import { apiFetch, authHeaders, buildApiUrl } from './api'
 
 export type AiAssistantStatus = {
   configured: boolean
+  plan_eligible: boolean
   available: boolean
   plans: string[]
 }
