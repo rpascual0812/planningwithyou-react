@@ -10006,9 +10006,34 @@ body,
   overflow: visible;
 }
 
-/* Booking payments modal (above booking edit, below email when opened from payments) */
+/* Booking payments modal (above booking edit at 1300, below email when opened from payments) */
 .booking-payments-modal-backdrop {
+  position: fixed;
+  inset: 0;
   z-index: 1330;
+}
+
+.booking-payments-modal.modal {
+  z-index: 1340;
+  overflow-y: auto;
+}
+
+.booking-payments-modal--stacked.booking-payments-modal-backdrop {
+  z-index: 1350;
+}
+
+.booking-payments-modal--stacked.booking-payments-modal.modal {
+  z-index: 1360;
+  overflow-y: auto;
+}
+
+.modal-backdrop.company-kyb-modal--stacked {
+  z-index: 1350;
+}
+
+.modal.company-kyb-modal--stacked {
+  z-index: 1360;
+  overflow-y: auto;
 }
 
 .booking-edit-modal__fieldset {
@@ -10058,34 +10083,6 @@ body,
 .quotation-ai-panel__email-preview {
   background: #fff;
   max-height: 14rem;
-  overflow-y: auto;
-}
-  pointer-events: none;
-}
-
-.booking-payments-modal.modal {
-  z-index: 1340;
-  overflow-y: auto;
-}
-
-.booking-payments-modal--stacked.booking-payments-modal-backdrop {
-  z-index: 1350;
-}
-
-.booking-payments-modal--stacked.booking-payments-modal.modal {
-  z-index: 1360;
-}
-
-.modal-backdrop.company-kyb-modal--stacked {
-  z-index: 1350;
-}
-
-.modal.company-kyb-modal--stacked {
-  z-index: 1360;
-  overflow-y: auto;
-}
-
-.modal.booking-payments-modal--stacked.booking-payments-modal.modal {
   overflow-y: auto;
 }
 

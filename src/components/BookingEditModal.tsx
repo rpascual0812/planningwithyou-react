@@ -2160,9 +2160,7 @@ const BookingEditModal = ({
                           />
                         </div>
                         <div className="mb-3">
-                          <label className="form-label">
-                            Date of quotation
-                          </label>
+                          <label className="form-label">Date of event</label>
                           <div className="d-flex gap-2">
                             <input
                               id="booking-date"
@@ -2926,7 +2924,7 @@ const BookingEditModal = ({
                           onClick={onClose}
                           disabled={saving}
                         >
-                          Cancel
+                          Close
                         </button>
                         <button
                           type="submit"

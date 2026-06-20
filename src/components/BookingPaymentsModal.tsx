@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   cancelBookingPaymentLink,
   createBookingPaymentLink,
@@ -293,7 +294,7 @@ export default function BookingPaymentsModal({
     ? 'Amount to collect (remaining balance)'
     : 'Amount to collect (downpayment)'
 
-  return (
+  return createPortal(
     <>
       <div
         className="booking-payments-modal-backdrop modal-backdrop fade show"
@@ -711,6 +712,7 @@ export default function BookingPaymentsModal({
           }}
         />
       )}
-    </>
+    </>,
+    document.body,
   )
 }
