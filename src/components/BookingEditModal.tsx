@@ -36,11 +36,7 @@ import QuotationAiPanel from "./QuotationAiPanel";
 import { fetchAiAssistantStatus } from "../services/aiAssistant";
 import { hasAiPlusSubscription } from "../lib/aiPlusPlan";
 import { useAuthSession } from "../context/AuthSessionContext";
-import {
-  duplicateBookingItem,
-  fetchBookingItem,
-  type BookingItemRecord,
-} from "../services/bookings";
+import { fetchBookingItem, type BookingItemRecord } from "../services/bookings";
 import {
   createContact,
   fetchContact,
@@ -225,7 +221,6 @@ const BookingEditModal = ({
   onClose,
   onSubmit,
   onSendToCalendar,
-  onDuplicated,
   historyRefreshKey = 0,
   canWrite = true,
   saving = false,
@@ -299,14 +294,12 @@ const BookingEditModal = ({
   const [contactPickerOpen, setContactPickerOpen] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const moreActionsRef = useRef<HTMLDivElement>(null);
-  const [footerMoreOpen, setFooterMoreOpen] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [aiAvailable, setAiAvailable] = useState(false);
   const { subscriptionPlan } = useAuthSession();
   const hasAiPlusPlan = hasAiPlusSubscription(subscriptionPlan);
   const [emailAiComposeDefaults, setEmailAiComposeDefaults] =
     useState<Partial<EmailPayload> | null>(null);
-  const [duplicating, setDuplicating] = useState(false);
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([]);
   const [supplierTypesLoading, setSupplierTypesLoading] = useState(false);
   const createSeededRef = useRef(false);
@@ -628,33 +621,6 @@ const BookingEditModal = ({
       showErrorToast("Could not download the quotation PDF.");
     } finally {
       setPdfDownloading(false);
-    }
-  };
-
-  const handleDuplicateQuotation = async () => {
-    if (form.id == null || viewOnly) return;
-    setFooterMoreOpen(false);
-    const result = await Swal.fire({
-      title: "Duplicate quotation?",
-      text: "Creates a copy with the same groups and line items. Payments are not copied.",
-      icon: "question",
-      showCancelButton: true,
-      confirmButtonText: "Duplicate",
-      cancelButtonText: "Cancel",
-    });
-    if (!result.isConfirmed) return;
-
-    setDuplicating(true);
-    try {
-      const copy = await duplicateBookingItem(form.id);
-      showSuccessToast(`Duplicated as ${copy.unique_id || `#${copy.id}`}`);
-      await onDuplicated?.(copy);
-    } catch (err) {
-      showErrorToast(
-        err instanceof Error ? err.message : "Could not duplicate quotation.",
-      );
-    } finally {
-      setDuplicating(false);
     }
   };
 
