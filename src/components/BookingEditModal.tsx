@@ -527,8 +527,6 @@ const BookingEditModal = ({
     return contacts.find((c) => c.id === id) ?? null;
   }, [contacts, form.contactId, linkedContact]);
 
-  const showContactDropdown = form.contactId == null || contactPickerOpen;
-
   const defaultContactPhone = useMemo(
     () => (selectedContact ? contactDefaultPhone(selectedContact) : null),
     [selectedContact],
@@ -2585,14 +2583,14 @@ const BookingEditModal = ({
                             ))}
                           </select>
                         </div>
-                        <div className="mb-3">
-                          <label
-                            htmlFor="booking-contact"
-                            className="form-label"
-                          >
-                            Contact
-                          </label>
-                          {showContactDropdown ? (
+                        {(!selectedContact || contactPickerOpen) && (
+                          <div className="mb-3">
+                            <label
+                              htmlFor="booking-contact"
+                              className="form-label"
+                            >
+                              Contact
+                            </label>
                             <div className="input-group">
                               <select
                                 id="booking-contact"
@@ -2637,49 +2635,59 @@ const BookingEditModal = ({
                                 </button>
                               )}
                             </div>
-                          ) : selectedContact ? (
-                            <div className="booking-contact-selected">
-                              <span className="booking-contact-selected__name">
-                                {contactDisplayName(selectedContact)}
-                              </span>
+                          </div>
+                        )}
+                        {selectedContact && (
+                          <div className="booking-contact-summary mb-3">
+                            <div className="booking-contact-summary__header">
+                              <button
+                                type="button"
+                                className="booking-contact-summary__toggle"
+                                aria-expanded={contactDetailsOpen}
+                                onClick={() =>
+                                  setContactDetailsOpen((open) => !open)
+                                }
+                              >
+                                <span className="fw-semibold">
+                                  Contact Details
+                                </span>
+                                <span className="booking-contact-summary__preview text-muted small">
+                                  {contactDisplayName(selectedContact)}
+                                  {selectedContact.email?.trim()
+                                    ? ` · ${selectedContact.email.trim()}`
+                                    : ""}
+                                </span>
+                                <i
+                                  className={`bi bi-chevron-${contactDetailsOpen ? "up" : "down"}`}
+                                  aria-hidden="true"
+                                />
+                              </button>
                               {!viewOnly && (
                                 <button
                                   type="button"
-                                  className="btn btn-sm btn-outline-secondary booking-contact-selected__edit"
-                                  title="Change contact"
-                                  aria-label="Change contact"
-                                  onClick={() => setContactPickerOpen(true)}
+                                  className="btn btn-sm btn-outline-secondary booking-contact-summary__edit"
+                                  title={
+                                    contactPickerOpen
+                                      ? "Hide contact picker"
+                                      : "Change contact"
+                                  }
+                                  aria-label={
+                                    contactPickerOpen
+                                      ? "Hide contact picker"
+                                      : "Change contact"
+                                  }
+                                  aria-pressed={contactPickerOpen}
+                                  onClick={() =>
+                                    setContactPickerOpen((open) => !open)
+                                  }
                                 >
-                                  <i className="bi bi-pencil-square" />
+                                  <i
+                                    className={`bi ${contactPickerOpen ? "bi-eye-slash" : "bi-pencil-square"}`}
+                                    aria-hidden="true"
+                                  />
                                 </button>
                               )}
                             </div>
-                          ) : null}
-                        </div>
-                        {selectedContact && (
-                          <div className="booking-contact-summary mb-3">
-                            <button
-                              type="button"
-                              className="booking-contact-summary__toggle"
-                              aria-expanded={contactDetailsOpen}
-                              onClick={() =>
-                                setContactDetailsOpen((open) => !open)
-                              }
-                            >
-                              <span className="fw-semibold">
-                                Contact Details
-                              </span>
-                              <span className="booking-contact-summary__preview text-muted small">
-                                {contactDisplayName(selectedContact)}
-                                {selectedContact.email?.trim()
-                                  ? ` · ${selectedContact.email.trim()}`
-                                  : ""}
-                              </span>
-                              <i
-                                className={`bi bi-chevron-${contactDetailsOpen ? "up" : "down"}`}
-                                aria-hidden="true"
-                              />
-                            </button>
                             {contactDetailsOpen && (
                               <div className="booking-contact-summary__body">
                                 <div className="booking-contact-summary__row">
