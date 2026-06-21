@@ -13,6 +13,7 @@ import AdminKYBPage from './AdminKYBPage'
 import AdminPayoutPage from './AdminPayoutPage'
 import AdminSystemNotificationsPage from './AdminSystemNotificationsPage'
 import AdminSupportPage from './AdminSupportPage'
+import AdminSubscriptionsPage from './AdminSubscriptionsPage'
 import type { AdminNavItem, AdminSection } from './types'
 
 const TAB_PARAM = 'tab'
@@ -22,6 +23,7 @@ const NAV_ITEMS: AdminNavItem[] = [
   { id: 'kyb', label: 'Company Verification', icon: 'bi-buildings' },
   { id: 'emails', label: 'Emails', icon: 'bi-envelope' },
   { id: 'payouts', label: 'Payment Received', icon: 'bi-cash-stack' },
+  { id: 'subscriptions', label: 'Subscriptions', icon: 'bi-credit-card' },
   { id: 'notifications', label: 'System Notifications', icon: 'bi-megaphone' },
   { id: 'support', label: 'Support', icon: 'bi-chat-dots' },
   { id: 'error-logs', label: 'Error Logs', icon: 'bi-bug' },
@@ -139,6 +141,8 @@ const ActiveAdminPage = ({ activeNav }: ActiveAdminPageProps) => {
       return <AdminEmailPage />
     case 'payouts':
       return <AdminPayoutPage />
+    case 'subscriptions':
+      return <AdminSubscriptionsPage />
     case 'notifications':
       return <AdminSystemNotificationsPage />
     case 'support':

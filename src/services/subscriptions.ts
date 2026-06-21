@@ -33,6 +33,8 @@ export type AccountSubscriptionRecord = {
   total_per_users: string
   total_price: string
   discount_code: string
+  expired_paid_plan?: string | null
+  is_expired?: boolean
 }
 
 export type SubscriptionCheckoutKind =
@@ -41,6 +43,7 @@ export type SubscriptionCheckoutKind =
   | 'seat_upgrade_applied'
   | 'seat_reduction_only'
   | 'plan_change_only'
+  | 'plan_change_proration'
   | 'downgrade_scheduled'
 
 export type SubscriptionReceiptRecord = {
@@ -77,6 +80,7 @@ export type SubscriptionCheckoutResponse = {
   checkout_url: string
   account_subscription_uuid: string
   paymongo_subscription_id: string
+  payment_provider?: 'paymongo' | 'xendit'
   success_url: string
   cancel_url: string
   amount: string
@@ -112,6 +116,7 @@ export type SubscriptionCheckoutPayload = {
   billing_cycle: 'monthly' | 'yearly'
   team_seats?: number
   discount_code?: string
+  renew_expired?: boolean
 }
 
 export type SubscriptionCheckoutPreview = {
@@ -187,6 +192,34 @@ export async function createSubscriptionCheckout(
   })
   if (!res.ok) {
     let detail = 'Failed to start subscription checkout'
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
+  return res.json()
+}
+
+export type SubscriptionCheckoutConfirmResponse = {
+  activated: boolean
+  pending?: boolean
+  payment_failed?: boolean
+  session_status?: string
+  provider?: string
+  provider_label?: string
+  subscription: AccountSubscriptionRecord | null
+}
+
+export async function confirmSubscriptionCheckout(): Promise<SubscriptionCheckoutConfirmResponse> {
+  const res = await apiFetch(buildApiUrl('/subscriptions/checkout/confirm/'), {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    let detail = 'Failed to confirm subscription checkout'
     try {
       const body = (await res.json()) as { detail?: string }
       if (body.detail) detail = body.detail

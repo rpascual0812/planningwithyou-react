@@ -5,6 +5,7 @@ import { useAuthSession } from '../../context/AuthSessionContext'
 import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 import { fetchCurrentAccount } from '../../services/accounts'
 import {
+  confirmSubscriptionCheckout,
   createSubscriptionCheckout,
   fetchCurrentAccountSubscription,
   fetchSubscriptionPlans,
@@ -14,6 +15,12 @@ import {
   type SubscriptionCheckoutPreview,
   type SubscriptionPlanRecord,
 } from '../../services/subscriptions'
+import {
+  fetchSubscriptionPaymentProvider,
+  SUBSCRIPTION_PROVIDER_COPY,
+  subscriptionCheckoutReturnNotice,
+  type SubscriptionPaymentProvider,
+} from '../../services/subscriptionPaymentProvider'
 import {
   formatCurrency,
   localeFromIso2,
@@ -52,6 +59,57 @@ function mapSubscriptionPlan(record: SubscriptionPlanRecord): SubscriptionPlan {
 
 function firstSelectablePlanId(planList: SubscriptionPlan[]): string {
   return planList.find((p) => p.isSelectable)?.id ?? ''
+}
+
+const PAID_PLAN_IDS = new Set(['pro', 'ai'])
+
+function isPaidPlanId(planId: string): boolean {
+  return PAID_PLAN_IDS.has(planId)
+}
+
+function parseSubscriptionEndDate(iso: string | null | undefined): Date | null {
+  if (!iso) return null
+  const parsed = new Date(`${iso}T23:59:59`)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function isAccountSubscriptionExpired(sub: AccountSubscriptionRecord | null): boolean {
+  if (!sub || !isPaidPlanId(sub.plan)) return false
+  if (sub.is_expired === true) return true
+  if (sub.status !== 'active') return false
+  const end = parseSubscriptionEndDate(sub.end_date)
+  return end !== null && end.getTime() < Date.now()
+}
+
+function planShowsExpired(
+  planId: string,
+  sub: AccountSubscriptionRecord | null,
+): boolean {
+  if (!isPaidPlanId(planId)) return false
+  if (sub?.status !== 'active' || sub.plan !== planId) {
+    return sub?.expired_paid_plan === planId
+  }
+  return isAccountSubscriptionExpired(sub)
+}
+
+/** Paid plan slug the user should renew, when prepaid access has ended. */
+function subscriptionRenewalPlanId(sub: AccountSubscriptionRecord | null): string | null {
+  if (!sub) return null
+  if (sub.expired_paid_plan && isPaidPlanId(sub.expired_paid_plan)) {
+    return sub.expired_paid_plan
+  }
+  if (
+    sub.status === 'active' &&
+    isPaidPlanId(sub.plan) &&
+    isAccountSubscriptionExpired(sub)
+  ) {
+    return sub.plan
+  }
+  return null
+}
+
+function isSubscriptionRenewalDue(sub: AccountSubscriptionRecord | null): boolean {
+  return subscriptionRenewalPlanId(sub) !== null
 }
 
 function subscriptionStatusLabel(status: AccountSubscriptionRecord['status']): string {
@@ -219,6 +277,17 @@ function buildCheckoutConfirmHtml(
     )
   }
 
+  if (preview.checkout_kind === 'plan_change_proration') {
+    return (
+      '<div class="text-start">' +
+      `<p class="mb-2"><strong>Due today:</strong> ${dueNow}</p>` +
+      '<p class="mb-2">Your unused time on the current plan is applied as credit toward this change.</p>' +
+      `<p class="mb-0"><strong>Recurring charge from the next cycle:</strong> ${nextBill} per ${cycleLabel} ` +
+      `(next billing on <strong>${nextDate}</strong>).</p>` +
+      '</div>'
+    )
+  }
+
   if (preview.checkout_kind === 'plan_change_only') {
     return (
       '<div class="text-start">' +
@@ -245,7 +314,10 @@ function buildCheckoutConfirmHtml(
   )
 }
 
-function checkoutConfirmButtonText(preview: SubscriptionCheckoutPreview): string {
+function checkoutConfirmButtonText(
+  preview: SubscriptionCheckoutPreview,
+  providerLabel: string,
+): string {
   if (
     preview.checkout_kind === 'seat_reduction_only' ||
     preview.checkout_kind === 'seat_upgrade_applied' ||
@@ -256,7 +328,7 @@ function checkoutConfirmButtonText(preview: SubscriptionCheckoutPreview): string
       ? 'Schedule change'
       : 'Apply changes'
   }
-  return 'Continue to PayMongo'
+  return `Continue to ${providerLabel}`
 }
 
 const SubscriptionSettingsPage = () => {
@@ -273,6 +345,9 @@ const SubscriptionSettingsPage = () => {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null)
+  const [checkoutNoticeTone, setCheckoutNoticeTone] = useState<'success' | 'info' | 'error'>(
+    'info',
+  )
   const [currencyFormat, setCurrencyFormat] = useState<CurrencyFormatOptions>({
     currencyCode: 'USD',
     locale: 'en-US',
@@ -287,6 +362,9 @@ const SubscriptionSettingsPage = () => {
     selectedPlanId: string
     teamSeats: number
   } | null>(null)
+  const [paymentProvider, setPaymentProvider] = useState<SubscriptionPaymentProvider>('paymongo')
+  const [paymentProviderLabel, setPaymentProviderLabel] = useState('PayMongo')
+  const [paymentProviderConfigured, setPaymentProviderConfigured] = useState(true)
   const lastAppliedSubscriptionKeyRef = useRef('')
 
   const formatPrice = useCallback(
@@ -349,10 +427,27 @@ const SubscriptionSettingsPage = () => {
     teamSeats,
   ])
 
+  const subscriptionRenewalDue = useMemo(
+    () => isSubscriptionRenewalDue(currentSubscription),
+    [currentSubscription],
+  )
+
+  const renewalPlanId = useMemo(
+    () => subscriptionRenewalPlanId(currentSubscription),
+    [currentSubscription],
+  )
+
+  const payNowForExpiredRenewal =
+    !isFreePlan &&
+    selectionReady &&
+    subscriptionRenewalDue &&
+    (selectedPlanId === renewalPlanId ||
+      planShowsExpired(selectedPlanId, currentSubscription))
+
   const payNowClickable =
     subscriptionWrite &&
     selectionReady &&
-    subscriptionHasChanges &&
+    (subscriptionHasChanges || payNowForExpiredRenewal) &&
     !checkoutLoading &&
     !currentSubscriptionLoading &&
     !plansLoading
@@ -372,7 +467,7 @@ const SubscriptionSettingsPage = () => {
     !currentSubscriptionLoading &&
     !plansLoading
 
-  const executeCheckout = useCallback(async () => {
+  const executeCheckout = useCallback(async (renewExpired = false) => {
     setCheckoutError(null)
     setCheckoutLoading(true)
     try {
@@ -381,6 +476,7 @@ const SubscriptionSettingsPage = () => {
         plan: selectedPlanId,
         billing_cycle: billingCycle,
         team_seats: teamSeats,
+        ...(renewExpired ? { renew_expired: true } : {}),
         ...(trimmedDiscount ? { discount_code: trimmedDiscount } : {}),
       })
       if (result.checkout_url) {
@@ -388,12 +484,16 @@ const SubscriptionSettingsPage = () => {
         return
       }
       if (result.checkout_kind === 'seat_reduction_only') {
+        setCheckoutNoticeTone('info')
         setCheckoutNotice('Allowed users updated. Your next bill will reflect the lower seat count.')
       } else if (result.checkout_kind === 'seat_upgrade_applied') {
+        setCheckoutNoticeTone('info')
         setCheckoutNotice('Additional users applied. No prorated charge was required.')
       } else if (result.checkout_kind === 'plan_change_only') {
+        setCheckoutNoticeTone('info')
         setCheckoutNotice('Plan updated. Your recurring billing amount has been updated for the next cycle.')
       } else if (result.checkout_kind === 'downgrade_scheduled') {
+        setCheckoutNoticeTone('info')
         setCheckoutNotice(
           'Plan change scheduled. You keep your current plan until the end of your prepaid period.',
         )
@@ -446,10 +546,12 @@ const SubscriptionSettingsPage = () => {
     try {
       const row = await subscribeToFreePlan('monthly')
       if (row.scheduled_plan === 'free' && row.end_date) {
+        setCheckoutNoticeTone('info')
         setCheckoutNotice(
           `Free plan scheduled for ${formatBillingDate(row.end_date)}. Your paid features remain until then.`,
         )
       } else {
+        setCheckoutNoticeTone('info')
         setCheckoutNotice('You are now on the Free plan.')
       }
       lastAppliedSubscriptionKeyRef.current = ''
@@ -469,24 +571,26 @@ const SubscriptionSettingsPage = () => {
   const handlePayNow = async () => {
     if (isFreePlan || !payNowClickable) return
     setCheckoutError(null)
+    const renewExpired = subscriptionRenewalDue
     try {
       const preview = await previewSubscriptionCheckout({
         plan: selectedPlanId,
         billing_cycle: billingCycle,
         team_seats: teamSeats,
+        ...(renewExpired ? { renew_expired: true } : {}),
       })
       const confirmed = await Swal.fire({
         title: 'Confirm subscription payment',
         html: buildCheckoutConfirmHtml(preview, formatPrice),
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: checkoutConfirmButtonText(preview),
+        confirmButtonText: checkoutConfirmButtonText(preview, paymentProviderLabel),
         cancelButtonText: 'Cancel',
         focusCancel: true,
         reverseButtons: true,
       })
       if (!confirmed.isConfirmed) return
-      await executeCheckout()
+      await executeCheckout(renewExpired)
     } catch (e) {
       setCheckoutError(
         e instanceof Error ? e.message : 'Failed to prepare subscription checkout',
@@ -540,6 +644,8 @@ const SubscriptionSettingsPage = () => {
         currentSubscription.team_seats,
         currentSubscription.scheduled_plan ?? '',
         currentSubscription.end_date ?? '',
+        currentSubscription.expired_paid_plan ?? '',
+        String(currentSubscription.is_expired ?? false),
       ].join(':')
     : ''
 
@@ -562,6 +668,17 @@ const SubscriptionSettingsPage = () => {
       return
     }
 
+    if (currentSubscription.status !== 'active') {
+      if (lastAppliedSubscriptionKeyRef.current !== accountSubscriptionKey) {
+        lastAppliedSubscriptionKeyRef.current = accountSubscriptionKey
+      }
+      if (!selectionReady) {
+        setInitialSelection({ billingCycle, selectedPlanId, teamSeats })
+        setSelectionReady(true)
+      }
+      return
+    }
+
     if (lastAppliedSubscriptionKeyRef.current === accountSubscriptionKey && selectionReady) {
       return
     }
@@ -569,8 +686,13 @@ const SubscriptionSettingsPage = () => {
     const needsInitialSync =
       lastAppliedSubscriptionKeyRef.current !== accountSubscriptionKey
 
+    const dueRenewalPlanId = subscriptionRenewalPlanId(currentSubscription)
+    const syncedPlanId =
+      dueRenewalPlanId && currentSubscription.plan === 'free'
+        ? dueRenewalPlanId
+        : currentSubscription.plan
     const syncedCycle: BillingCycle =
-      currentSubscription.plan === 'free' ? 'monthly' : currentSubscription.billing_cycle
+      syncedPlanId === 'free' ? 'monthly' : currentSubscription.billing_cycle
     if (needsInitialSync && billingCycle !== syncedCycle) {
       setBillingCycle(syncedCycle)
       return
@@ -579,7 +701,7 @@ const SubscriptionSettingsPage = () => {
     if (
       needsInitialSync &&
       plans.length > 0 &&
-      !plans.some((p) => p.id === currentSubscription.plan)
+      !plans.some((p) => p.id === syncedPlanId)
     ) {
       setSelectionReady(false)
       return
@@ -587,18 +709,15 @@ const SubscriptionSettingsPage = () => {
 
     const syncedSeats = Math.max(1, currentSubscription.team_seats)
     setTeamSeats(syncedSeats)
-    if (
-      plans.length === 0 ||
-      plans.some((p) => p.id === currentSubscription.plan)
-    ) {
-      setSelectedPlanId(currentSubscription.plan)
+    if (plans.length === 0 || plans.some((p) => p.id === syncedPlanId)) {
+      setSelectedPlanId(syncedPlanId)
     }
     setDiscountCode('')
     setDiscountMessage(null)
     lastAppliedSubscriptionKeyRef.current = accountSubscriptionKey
     setInitialSelection({
-      billingCycle: currentSubscription.billing_cycle,
-      selectedPlanId: currentSubscription.plan,
+      billingCycle: syncedCycle,
+      selectedPlanId: syncedPlanId,
       teamSeats: syncedSeats,
     })
     setSelectionReady(true)
@@ -615,16 +734,59 @@ const SubscriptionSettingsPage = () => {
   ])
 
   useEffect(() => {
+    void fetchSubscriptionPaymentProvider()
+      .then((data) => {
+        setPaymentProvider(data.provider)
+        setPaymentProviderLabel(data.provider_label)
+        setPaymentProviderConfigured(data.configured)
+      })
+      .catch(() => {
+        setPaymentProvider('paymongo')
+        setPaymentProviderLabel('PayMongo')
+        setPaymentProviderConfigured(true)
+      })
+  }, [])
+
+  useEffect(() => {
     const result = searchParams.get('subscription')
     if (result === 'success') {
-      setCheckoutNotice(
-        'Payment submitted. Your plan will update once PayMongo confirms the subscription.',
-      )
       lastAppliedSubscriptionKeyRef.current = ''
       setSelectionReady(false)
       setInitialSelection(null)
-      void loadCurrentSubscription()
-      syncAuthState()
+      void (async () => {
+        let providerLabel = paymentProviderLabel
+        try {
+          const providerStatus = await fetchSubscriptionPaymentProvider()
+          providerLabel = providerStatus.provider_label
+          setPaymentProvider(providerStatus.provider)
+          setPaymentProviderLabel(providerStatus.provider_label)
+          setPaymentProviderConfigured(providerStatus.configured)
+        } catch {
+          /* use label already in state */
+        }
+
+        try {
+          const confirm = await confirmSubscriptionCheckout()
+          const label = confirm.provider_label ?? providerLabel
+          const notice = subscriptionCheckoutReturnNotice(label, confirm)
+          setCheckoutNoticeTone(notice.tone)
+          setCheckoutNotice(notice.message)
+          if (confirm.activated && confirm.subscription?.status === 'active') {
+            setCurrentSubscription(confirm.subscription)
+          } else if (confirm.subscription) {
+            setCurrentSubscription(confirm.subscription)
+          }
+        } catch (e) {
+          setCheckoutNoticeTone('error')
+          setCheckoutNotice(
+            e instanceof Error
+              ? e.message
+              : 'We could not confirm your subscription payment. Tap Pay Now to try again.',
+          )
+        }
+        await loadCurrentSubscription()
+        syncAuthState()
+      })()
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev)
@@ -634,6 +796,7 @@ const SubscriptionSettingsPage = () => {
         { replace: true },
       )
     } else if (result === 'cancelled') {
+      setCheckoutNoticeTone('info')
       setCheckoutNotice('Checkout was cancelled. You can try again when ready.')
       setSearchParams(
         (prev) => {
@@ -644,7 +807,13 @@ const SubscriptionSettingsPage = () => {
         { replace: true },
       )
     }
-  }, [loadCurrentSubscription, searchParams, setSearchParams, syncAuthState])
+  }, [
+    loadCurrentSubscription,
+    paymentProviderLabel,
+    searchParams,
+    setSearchParams,
+    syncAuthState,
+  ])
 
   const totals = useMemo(() => {
     const selectedPlan =
@@ -701,17 +870,59 @@ const SubscriptionSettingsPage = () => {
     return `Next payment will charge on the ${chargeDateLabel}`
   }, [billingCycle, currentSubscription?.end_date, isFreePlan])
 
+  const expiredPaidPlanId = currentSubscription?.expired_paid_plan ?? null
+  const activeSubscriptionExpired =
+    currentSubscription?.status === 'active' &&
+    isAccountSubscriptionExpired(currentSubscription)
+  const pendingPaidSubscription =
+    currentSubscription?.status === 'pending' &&
+    isPaidPlanId(currentSubscription.plan)
+
   return (
     <div className="sub-layout">
       {checkoutNotice && (
         <div className="sub-notices">
-          <p className="sub-notice sub-notice--info">{checkoutNotice}</p>
+          <p className={`sub-notice sub-notice--${checkoutNoticeTone}`}>{checkoutNotice}</p>
+        </div>
+      )}
+
+      {!checkoutNotice && pendingPaidSubscription && (
+        <div className="sub-notices">
+          <p className="sub-notice sub-notice--info">
+            Your subscription payment is pending. Complete checkout with Pay Now, or try again if
+            payment failed.
+          </p>
         </div>
       )}
 
       {!currentSubscriptionLoading && currentSubscription && (
-        <section className="sub-current-plan" data-tour="subscription-current-plan">
+        <section
+          className={`sub-current-plan${
+            expiredPaidPlanId || activeSubscriptionExpired ? ' is-expired' : ''
+          }`}
+          data-tour="subscription-current-plan"
+        >
           <h6 className="sub-col-title">Current subscription</h6>
+          {expiredPaidPlanId && (
+            <p className="sub-current-plan-expired-notice">
+              Your{' '}
+              {expiredPaidPlanId === 'ai'
+                ? 'AI Plus'
+                : expiredPaidPlanId === 'pro'
+                  ? 'Pro'
+                  : expiredPaidPlanId}{' '}
+              plan has expired. Your account is on the Free plan until you subscribe again.
+              {subscriptionRenewalDue && subscriptionWrite && (
+                <> Use Pay Now below to renew.</>
+              )}
+            </p>
+          )}
+          {activeSubscriptionExpired && !expiredPaidPlanId && (
+            <p className="sub-current-plan-expired-notice">
+              Your {currentSubscription.plan_name} subscription has expired. Renew with Pay Now
+              below to restore paid features.
+            </p>
+          )}
           <p className="sub-current-plan-detail">
             <strong>{currentSubscription.plan_name}</strong>
             {currentSubscription.plan !== 'free' && (
@@ -721,7 +932,9 @@ const SubscriptionSettingsPage = () => {
               </>
             )}
             {' · '}
-            {subscriptionStatusLabel(currentSubscription.status)}
+            {activeSubscriptionExpired
+              ? 'Expired'
+              : subscriptionStatusLabel(currentSubscription.status)}
             {' · '}
             {currentSubscription.team_seats}{' '}
             allowed {currentSubscription.team_seats === 1 ? 'user' : 'users'}
@@ -790,13 +1003,15 @@ const SubscriptionSettingsPage = () => {
               billingCycle === 'yearly' ? computeYearlySavings(monthlyPrice) : 0
 
             const isDisabled = !plan.isSelectable
+            const showExpired =
+              isSelected && planShowsExpired(plan.id, currentSubscription)
 
             return (
               <li
                 key={plan.id}
                 className={`sub-plan-card${isSelected ? ' is-selected' : ''}${
-                  isDisabled ? ' is-disabled' : ''
-                }`}
+                  showExpired ? ' is-expired' : ''
+                }${isDisabled ? ' is-disabled' : ''}`}
               >
                 <label
                   className={`sub-plan-head${isDisabled && plan.id !== 'free' ? ' is-disabled' : ''}`}
@@ -811,6 +1026,9 @@ const SubscriptionSettingsPage = () => {
                   <div className="sub-plan-name-wrap">
                     <span className="sub-plan-name">{plan.name}</span>
                     <span className="sub-plan-subtitle">{plan.subtitle}</span>
+                    {showExpired && (
+                      <span className="sub-plan-expired">Plan expired</span>
+                    )}
                     {isDisabled && (
                       <span className="sub-plan-unavailable">Coming soon</span>
                     )}
@@ -895,12 +1113,18 @@ const SubscriptionSettingsPage = () => {
 
         <div className="sub-paymongo-note">
           <p className="mb-2">
-            Subscriptions are prepaid through PayMongo. You authorize payment upfront for
-            each billing period; recurring charges run on your renewal date. Seat upgrades
+            Subscriptions are prepaid through {paymentProviderLabel}. You authorize payment upfront
+            for each billing period; recurring charges run on your renewal date. Seat upgrades
             mid-period may require a one-time prorated payment before your next bill.
           </p>
+          {!paymentProviderConfigured && (
+            <p className="text-warning small mb-2">
+              {paymentProviderLabel} is selected but not configured on the server yet. Contact
+              support if checkout fails.
+            </p>
+          )}
           <p className="text-muted small mb-0">
-            Supported methods include Visa, Mastercard, and Maya.
+            Supported methods include {SUBSCRIPTION_PROVIDER_COPY[paymentProvider].methods}.
           </p>
         </div>
 
@@ -1007,9 +1231,11 @@ const SubscriptionSettingsPage = () => {
               title={
                 !selectionReady
                   ? 'Loading subscription details…'
-                  : !subscriptionHasChanges
-                    ? 'Change billing cycle, plan, or allowed users to pay'
-                    : undefined
+                  : payNowForExpiredRenewal
+                    ? 'Renew your expired subscription'
+                    : !subscriptionHasChanges
+                      ? 'Change billing cycle, plan, or allowed users to pay'
+                      : undefined
               }
               onClick={() => {
                 if (!payNowClickable) return

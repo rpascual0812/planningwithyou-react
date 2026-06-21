@@ -110,7 +110,7 @@ export function authHeaders(): Record<string, string> {
 
 let sessionExpiredShown = false
 
-async function handleSessionExpired() {
+async function handleSessionExpired(reason?: 'account_restricted') {
   if (sessionExpiredShown) return
   sessionExpiredShown = true
 
@@ -118,8 +118,11 @@ async function handleSessionExpired() {
 
   await Swal.fire({
     icon: 'warning',
-    title: 'Session Expired',
-    text: 'Your session is no longer valid. Please log in again.',
+    title: reason === 'account_restricted' ? 'Account restricted' : 'Session Expired',
+    text:
+      reason === 'account_restricted'
+        ? 'Your account access has been restricted. Please contact your administrator.'
+        : 'Your session is no longer valid. Please log in again.',
     confirmButtonText: 'Go to Login',
     allowOutsideClick: false,
     allowEscapeKey: false,
@@ -127,6 +130,16 @@ async function handleSessionExpired() {
 
   sessionExpiredShown = false
   window.location.href = '/login'
+}
+
+async function readAuthErrorCode(res: Response): Promise<string | undefined> {
+  const cloned = res.clone()
+  try {
+    const body = await cloned.json()
+    return typeof body?.code === 'string' ? body.code : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function mergeAuthHeader(init?: RequestInit): RequestInit | undefined {
@@ -140,17 +153,13 @@ function mergeAuthHeader(init?: RequestInit): RequestInit | undefined {
 
 async function isTokenInvalidResponse(res: Response): Promise<boolean> {
   if (res.status !== 401) return false
-  const cloned = res.clone()
-  try {
-    const body = await cloned.json()
-    return (
-      body?.code === 'token_not_valid' ||
-      body?.code === 'user_not_found' ||
-      body?.code === 'session_replaced'
-    )
-  } catch {
-    return false
-  }
+  const code = await readAuthErrorCode(res)
+  return (
+    code === 'token_not_valid' ||
+    code === 'user_not_found' ||
+    code === 'session_replaced' ||
+    code === 'account_restricted'
+  )
 }
 
 /**
@@ -169,8 +178,9 @@ export async function apiFetch(
       res = await fetch(input, mergeAuthHeader(init))
     }
     if (await isTokenInvalidResponse(res)) {
-      await handleSessionExpired()
-      throw new Error('Session expired')
+      const code = await readAuthErrorCode(res)
+      await handleSessionExpired(code === 'account_restricted' ? 'account_restricted' : undefined)
+      throw new Error(code === 'account_restricted' ? 'Account restricted' : 'Session expired')
     }
   }
 

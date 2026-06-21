@@ -103,7 +103,7 @@ const SubscriptionReceiptsSection = () => {
   return (
     <div className="sub-receipts">
       <p className="sub-receipts-intro text-muted small">
-        Successful subscription charges recorded from PayMongo. Download a PDF receipt
+        Successful subscription charges recorded from your payment provider. Download a PDF receipt
         for any payment below; a copy is also emailed to your account contact address
         when available.
       </p>
