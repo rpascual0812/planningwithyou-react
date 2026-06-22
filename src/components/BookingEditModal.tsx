@@ -8,6 +8,10 @@ import {
   mergeBookingFieldGroups,
   normalizeBookingGroupName,
 } from "../lib/bookingFieldGroups";
+import {
+  applyBookingFieldMove,
+  applyBookingFieldMoveToGroupEnd,
+} from "../lib/bookingFieldReorder";
 import type { BookingField } from "../lib/bookingFieldTypes";
 import { finalizeBookingFieldDefinitions } from "../lib/bookingFieldSave";
 import {
@@ -243,7 +247,12 @@ const BookingEditModal = ({
   const readOnlyFieldProps = viewOnly
     ? ({ readOnly: true, disabled: true } as const)
     : {};
-  const [fieldDragOver, setFieldDragOver] = useState<number | null>(null);
+  type FieldDragOver =
+    | { kind: "field"; idx: number }
+    | { kind: "group-end"; groupName: string }
+    | null;
+  const fieldDragIdxRef = useRef<number | null>(null);
+  const [fieldDragOver, setFieldDragOver] = useState<FieldDragOver>(null);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [currencyOptions, setCurrencyOptions] = useState<CurrencyFormatOptions>(
@@ -1277,7 +1286,27 @@ const BookingEditModal = ({
     });
   };
 
+  const clearFieldDrag = () => {
+    fieldDragIdxRef.current = null;
+    setDragIdx(null);
+    setFieldDragOver(null);
+  };
+
+  const resolveFieldDragSourceIdx = (e: DragEvent<HTMLElement>): number | null => {
+    const fromRef = fieldDragIdxRef.current;
+    if (fromRef !== null) return fromRef;
+    try {
+      const raw = e.dataTransfer.getData("text/plain");
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleFieldDragStart = (e: DragEvent<HTMLElement>, idx: number) => {
+    fieldDragIdxRef.current = idx;
     setDragIdx(idx);
     e.dataTransfer.effectAllowed = "move";
     try {
@@ -1287,31 +1316,165 @@ const BookingEditModal = ({
     }
   };
 
-  const handleFieldDragOver = (e: DragEvent<HTMLElement>, idx: number) => {
-    if (dragIdx === null) return;
+  const handleSavedFieldDragOver = (e: DragEvent<HTMLElement>, idx: number) => {
+    if (fieldDragIdxRef.current === null) return;
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
-    if (fieldDragOver !== idx) setFieldDragOver(idx);
+    if (fieldDragOver?.kind !== "field" || fieldDragOver.idx !== idx) {
+      setFieldDragOver({ kind: "field", idx });
+    }
   };
 
-  const handleFieldDrop = (e: DragEvent<HTMLElement>, targetIdx: number) => {
+  const handleGroupEndDragOver = (
+    e: DragEvent<HTMLElement>,
+    groupName: string,
+  ) => {
+    if (fieldDragIdxRef.current === null) return;
     e.preventDefault();
-    if (dragIdx === null || dragIdx === targetIdx) {
-      setDragIdx(null);
-      setFieldDragOver(null);
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    const norm = normalizeBookingGroupName(groupName);
+    if (
+      fieldDragOver?.kind !== "group-end" ||
+      fieldDragOver.groupName !== norm
+    ) {
+      setFieldDragOver({ kind: "group-end", groupName: norm });
+    }
+  };
+
+  const handleFieldDrop = (
+    e: DragEvent<HTMLElement>,
+    targetIdx: number,
+    targetGroupName: string,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceIdx = resolveFieldDragSourceIdx(e);
+    if (sourceIdx === null) {
+      clearFieldDrag();
       return;
     }
-    const next = [...form.fields];
-    const [moved] = next.splice(dragIdx, 1);
-    next.splice(targetIdx, 0, moved);
-    onChange({ ...form, fields: next });
-    setDragIdx(null);
-    setFieldDragOver(null);
+    const nextFields = applyBookingFieldMove(
+      form.fields,
+      sourceIdx,
+      targetIdx,
+      targetGroupName,
+      groupIdByName,
+    );
+    onChange({ ...form, fields: nextFields });
+    clearFieldDrag();
+  };
+
+  const handleGroupEndDrop = (
+    e: DragEvent<HTMLElement>,
+    targetGroupName: string,
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceIdx = resolveFieldDragSourceIdx(e);
+    if (sourceIdx === null) {
+      clearFieldDrag();
+      return;
+    }
+    const nextFields = applyBookingFieldMoveToGroupEnd(
+      form.fields,
+      sourceIdx,
+      targetGroupName,
+      groupIdByName,
+    );
+    onChange({ ...form, fields: nextFields });
+    clearFieldDrag();
   };
 
   const handleFieldDragEnd = () => {
-    setDragIdx(null);
-    setFieldDragOver(null);
+    // Drop may fire after dragend in some browsers; defer clearing state.
+    window.setTimeout(() => clearFieldDrag(), 0);
+  };
+
+  const handleFieldBuilderDragOver = (e: DragEvent<HTMLElement>, idx: number) => {
+    if (fieldDragIdxRef.current === null) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    if (fieldDragOver?.kind !== "field" || fieldDragOver.idx !== idx) {
+      setFieldDragOver({ kind: "field", idx });
+    }
+  };
+
+  const renderGroupDropZone = (groupName: string) => {
+    if (viewOnly) return null;
+    const norm = normalizeBookingGroupName(groupName);
+    const isActive = dragIdx !== null;
+    const isOver =
+      fieldDragOver?.kind === "group-end" && fieldDragOver.groupName === norm;
+    return (
+      <div
+        className={`booking-fields-group-drop-zone${isActive ? " is-active" : ""}${isOver ? " is-drag-over" : ""}`}
+        onDragOver={(e) => handleGroupEndDragOver(e, norm)}
+        onDrop={(e) => handleGroupEndDrop(e, norm)}
+        aria-hidden={!isActive}
+      >
+        <span className="booking-fields-group-drop-zone__label">
+          <i className="bi bi-arrows-move me-1" aria-hidden="true" />
+          Drop here to move to end of {norm}
+        </span>
+      </div>
+    );
+  };
+
+  const renderDraggableSavedField = (
+    field: BookingField,
+    idx: number,
+    showSchemaActions: boolean,
+    groupName: string,
+  ) => {
+    const isDragging = dragIdx === idx;
+    const isDragOver =
+      fieldDragOver?.kind === "field" && fieldDragOver.idx === idx;
+    return (
+      <div
+        key={idx}
+        className={`booking-saved-field-row${isDragOver ? " is-drag-over" : ""}${isDragging ? " is-dragging" : ""}`}
+        onDragOver={
+          viewOnly ? undefined : (e) => handleSavedFieldDragOver(e, idx)
+        }
+        onDrop={
+          viewOnly
+            ? undefined
+            : (e) => handleFieldDrop(e, idx, groupName)
+        }
+      >
+        {!viewOnly && (
+          <span
+            className="booking-field-drag-handle"
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              handleFieldDragStart(e, idx);
+            }}
+            onDragEnd={handleFieldDragEnd}
+            title="Drag to reorder or move to another group"
+            aria-label="Drag to reorder or move to another group"
+          >
+            <i className="bi bi-grip-vertical" aria-hidden="true" />
+          </span>
+        )}
+        <div
+          className="booking-saved-field flex-grow-1"
+          onDragOver={
+            viewOnly ? undefined : (e) => handleSavedFieldDragOver(e, idx)
+          }
+          onDrop={
+            viewOnly
+              ? undefined
+              : (e) => handleFieldDrop(e, idx, groupName)
+          }
+        >
+          {renderSavedField(field, idx, showSchemaActions)}
+        </div>
+      </div>
+    );
   };
 
   const editField = (idx: number) => {
@@ -1320,7 +1483,7 @@ const BookingEditModal = ({
     updateField(idx, { saved: false });
   };
 
-  const renderUnsavedFieldCard = (idx: number) => {
+  const renderUnsavedFieldCard = (idx: number, groupName: string) => {
     const field = form.fields[idx];
     const showPricing =
       field.field_type !== "select" && field.field_type !== "supplier";
@@ -1332,19 +1495,24 @@ const BookingEditModal = ({
     return (
       <div
         key={idx}
-        className={`booking-field-builder${fieldDragOver === idx ? " is-drag-over" : ""}`}
-        draggable={!viewOnly}
-        onDragStart={(e) => handleFieldDragStart(e, idx)}
-        onDragOver={(e) => handleFieldDragOver(e, idx)}
-        onDrop={(e) => handleFieldDrop(e, idx)}
-        onDragEnd={handleFieldDragEnd}
+        className={`booking-field-builder${fieldDragOver?.kind === "field" && fieldDragOver.idx === idx ? " is-drag-over" : ""}${dragIdx === idx ? " is-dragging" : ""}`}
+        onDragOver={(e) => handleFieldBuilderDragOver(e, idx)}
+        onDrop={(e) => handleFieldDrop(e, idx, groupName)}
       >
         <div className="booking-field-builder__head">
-          <i
-            className="bi bi-grip-vertical booking-field-builder__grip"
-            title="Drag to reorder"
-            aria-hidden="true"
-          />
+          <span
+            className="booking-field-drag-handle booking-field-builder__grip"
+            draggable={!viewOnly}
+            onDragStart={(e) => {
+              e.stopPropagation();
+              handleFieldDragStart(e, idx);
+            }}
+            onDragEnd={handleFieldDragEnd}
+            title="Drag to reorder or move to another group"
+            aria-label="Drag to reorder or move to another group"
+          >
+            <i className="bi bi-grip-vertical" aria-hidden="true" />
+          </span>
           <span className="booking-field-builder__title">
             {field.label.trim() || "New field"}
           </span>
@@ -1594,7 +1762,7 @@ const BookingEditModal = ({
     const displayDownpayment = getSavedFieldDisplayDownpayment(field);
 
     return (
-      <div key={idx} className="mb-3 booking-saved-field">
+      <div className="booking-saved-field">
         <div className="booking-field-header">
           <label className="form-label mb-0 booking-field-header__label">
             {fieldLabel}
@@ -2156,9 +2324,25 @@ const BookingEditModal = ({
                             />
                           </div>
                         </div>
-                        <div className="mb-3 booking-fields-groups">
+                        <div
+                          className={`mb-3 booking-fields-groups${dragIdx !== null ? " is-field-dragging" : ""}`}
+                          onDragOver={
+                            viewOnly
+                              ? undefined
+                              : (e) => {
+                                  if (fieldDragIdxRef.current === null) return;
+                                  e.preventDefault();
+                                }
+                          }
+                        >
                           <p className="text-muted small mb-2">
-                            Fill in line items below. Use{" "}
+                            Fill in line items below. Drag the{" "}
+                            <i
+                              className="bi bi-grip-vertical"
+                              aria-hidden="true"
+                            />{" "}
+                            handle to reorder fields or move them between{" "}
+                            {groupLabel.toLowerCase()}s. Use{" "}
                             <span className="fw-semibold">
                               Customize fields
                             </span>{" "}
@@ -2188,14 +2372,38 @@ const BookingEditModal = ({
                               const savedItems = group.items.filter(
                                 ({ field }) => field.saved,
                               );
+                              const isGroupDragTarget =
+                                dragIdx !== null &&
+                                fieldDragOver?.kind === "group-end" &&
+                                fieldDragOver.groupName === group.groupName;
                               return (
                                 <li
                                   key={group.groupName}
                                   className={`faq-item${isOpen ? " is-open" : ""}${
                                     managing ? " is-managing-fields" : ""
-                                  }`}
+                                  }${isGroupDragTarget ? " is-field-drop-target" : ""}`}
                                 >
-                                  <div className="booking-fields-group-head">
+                                  <div
+                                    className={`booking-fields-group-head${isGroupDragTarget ? " is-drag-over" : ""}`}
+                                    onDragOver={
+                                      viewOnly
+                                        ? undefined
+                                        : (e) =>
+                                            handleGroupEndDragOver(
+                                              e,
+                                              group.groupName,
+                                            )
+                                    }
+                                    onDrop={
+                                      viewOnly
+                                        ? undefined
+                                        : (e) =>
+                                            handleGroupEndDrop(
+                                              e,
+                                              group.groupName,
+                                            )
+                                    }
+                                  >
                                     <button
                                       type="button"
                                       className="faq-toggle booking-fields-group-toggle"
@@ -2256,7 +2464,35 @@ const BookingEditModal = ({
                                     )}
                                   </div>
                                   {isOpen && (
-                                    <div className="faq-answer faq-answer--form">
+                                    <div
+                                      className="faq-answer faq-answer--form"
+                                      onDragOver={
+                                        viewOnly
+                                          ? undefined
+                                          : (e) =>
+                                              handleGroupEndDragOver(
+                                                e,
+                                                group.groupName,
+                                              )
+                                      }
+                                      onDrop={
+                                        viewOnly
+                                          ? undefined
+                                          : (e) => {
+                                              if (
+                                                (e.target as HTMLElement).closest(
+                                                  ".booking-saved-field-row, .booking-field-builder",
+                                                )
+                                              ) {
+                                                return;
+                                              }
+                                              handleGroupEndDrop(
+                                                e,
+                                                group.groupName,
+                                              );
+                                            }
+                                      }
+                                    >
                                       {managing ? (
                                         <div className="booking-fields-manage-panel">
                                           <div className="booking-fields-manage-panel__top">
@@ -2286,20 +2522,20 @@ const BookingEditModal = ({
                                             {group.items.map(
                                               ({ field, idx }) =>
                                                 field.saved ? (
-                                                  <div
-                                                    key={idx}
-                                                    className="mb-2"
-                                                  >
-                                                    {renderSavedField(
-                                                      field,
-                                                      idx,
-                                                      true,
-                                                    )}
-                                                  </div>
+                                                  renderDraggableSavedField(
+                                                    field,
+                                                    idx,
+                                                    true,
+                                                    group.groupName,
+                                                  )
                                                 ) : (
-                                                  renderUnsavedFieldCard(idx)
+                                                  renderUnsavedFieldCard(
+                                                    idx,
+                                                    group.groupName,
+                                                  )
                                                 ),
                                             )}
+                                            {renderGroupDropZone(group.groupName)}
                                             <button
                                               type="button"
                                               className="btn btn-sm btn-outline-primary booking-fields-manage-panel__add-field"
@@ -2361,8 +2597,14 @@ const BookingEditModal = ({
                                             </div>
                                           )}
                                           {savedItems.map(({ field, idx }) =>
-                                            renderSavedField(field, idx, false),
+                                            renderDraggableSavedField(
+                                              field,
+                                              idx,
+                                              false,
+                                              group.groupName,
+                                            ),
                                           )}
+                                          {renderGroupDropZone(group.groupName)}
                                           {savedItems.length === 0 && (
                                             <div className="booking-fields-group-empty">
                                               <p className="text-muted small mb-2">
