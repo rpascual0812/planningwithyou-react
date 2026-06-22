@@ -139,7 +139,7 @@ const AdminKybReviewModal = ({
                     <div className="col-sm-6">
                       <KybReadOnlyText
                         label="Status"
-                        value={STATUS_LABELS[record.status] ?? record.status}
+                        value={STATUS_LABELS[record.paymongo_status] ?? record.paymongo_status}
                       />
                     </div>
                     <div className="col-sm-6">
@@ -229,7 +229,7 @@ const AdminKybReviewModal = ({
                   className="btn btn-primary"
                   onClick={() => void handleApprove()}
                   disabled={
-                    approving || loading || record?.status === 'approved'
+                    approving || loading || record?.paymongo_status === 'approved'
                   }
                 >
                   {approving ? 'Approving…' : 'Manual approve'}

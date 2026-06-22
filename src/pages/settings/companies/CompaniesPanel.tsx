@@ -15,6 +15,7 @@ import {
   type CompanyPayload,
   type CompanyRecord,
 } from "../../../services/companies";
+import type { ProviderVerifications } from "../../../services/companyKyb";
 import {
   fetchActiveSupplierTypes,
   type SupplierTypeRecord,
@@ -51,6 +52,16 @@ function formatWebsite(url: string): string {
   } catch {
     return trimmed.length > 40 ? `${trimmed.slice(0, 40)}…` : trimmed;
   }
+}
+
+function providerVerificationBadge(verified: boolean): string {
+  return verified ? "text-bg-success" : "text-bg-secondary";
+}
+
+function companyProviderVerifications(
+  row: CompanyRecord,
+): ProviderVerifications | null {
+  return row.provider_verifications ?? null;
 }
 
 const CompaniesPanel = () => {
@@ -367,7 +378,8 @@ const CompaniesPanel = () => {
               <tr>
                 <th>Name</th>
                 <th>Website</th>
-                <th className="bookings-tiers-table__active">Verified</th>
+                <th className="bookings-tiers-table__active">PayMongo</th>
+                <th className="bookings-tiers-table__active">Xendit</th>
                 <th className="bookings-tiers-table__active">Main</th>
                 <th className="bookings-tiers-table__active">Active</th>
                 <th className="text-end">Order</th>
@@ -375,7 +387,11 @@ const CompaniesPanel = () => {
               </tr>
             </thead>
             <tbody>
-              {companies.map((row) => (
+              {companies.map((row) => {
+                const providers = companyProviderVerifications(row);
+                const paymongoVerified = providers?.paymongo.verified === true;
+                const xenditVerified = providers?.xendit.verified === true;
+                return (
                 <tr key={row.id}>
                   <td className="fw-semibold">{row.name}</td>
                   <td className="text-muted small">
@@ -392,18 +408,26 @@ const CompaniesPanel = () => {
                     )}
                   </td>
                   <td className="bookings-tiers-table__active">
-                    {row.kyb_verified ? (
-                      <span className="badge text-bg-success">Verified</span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-link p-0 border-0 text-decoration-none"
-                        title="Complete KYB verification"
-                        onClick={() => setKybCompany(row)}
-                      >
-                        <span className="badge text-bg-danger">Unverified</span>
-                      </button>
-                    )}
+                    <span
+                      className={`badge ${providerVerificationBadge(paymongoVerified)}`}
+                      title={
+                        providers?.paymongo.status_label
+                        ?? (paymongoVerified ? "Verified" : "Not verified")
+                      }
+                    >
+                      {paymongoVerified ? "Verified" : "Unverified"}
+                    </span>
+                  </td>
+                  <td className="bookings-tiers-table__active">
+                    <span
+                      className={`badge ${providerVerificationBadge(xenditVerified)}`}
+                      title={
+                        providers?.xendit.status_label
+                        ?? (xenditVerified ? "Verified" : "Not verified")
+                      }
+                    >
+                      {xenditVerified ? "Verified" : "Unverified"}
+                    </span>
                   </td>
                   <td className="bookings-tiers-table__active">
                     {row.is_main ? (
@@ -427,6 +451,15 @@ const CompaniesPanel = () => {
                       <div className="d-inline-flex gap-1">
                         <button
                           type="button"
+                          className="btn btn-sm btn-outline-success"
+                          title="Business verification"
+                          aria-label={`Business verification for ${row.name}`}
+                          onClick={() => setKybCompany(row)}
+                        >
+                          <i className="bi bi-shield-check" />
+                        </button>
+                        <button
+                          type="button"
                           className="btn btn-sm btn-outline-primary"
                           title="Edit company"
                           onClick={() => openEdit(row)}
@@ -447,7 +480,8 @@ const CompaniesPanel = () => {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -809,7 +843,7 @@ const CompaniesPanel = () => {
                   )}
                 </div>
                 <div className="modal-footer">
-                  {editing && !editing.kyb_verified && (
+                  {editing && (
                     <button
                       type="button"
                       className="btn btn-outline-success me-auto"
@@ -817,7 +851,7 @@ const CompaniesPanel = () => {
                       disabled={saving}
                     >
                       <i className="bi bi-shield-check me-1" />
-                      Verify Your Business
+                      Business verification
                     </button>
                   )}
                   <button
@@ -854,9 +888,14 @@ const CompaniesPanel = () => {
           onSaved={async () => {
             const list = await load();
             if (!list) return;
+            const refreshed = list.find((c) => c.id === kybCompany.id);
             setEditing((prev) => {
               if (!prev || prev.id !== kybCompany.id) return prev;
-              return list.find((c) => c.id === prev.id) ?? prev;
+              return refreshed ?? prev;
+            });
+            setKybCompany((current) => {
+              if (!current || current.id !== kybCompany.id) return current;
+              return refreshed ?? current;
             });
           }}
         />

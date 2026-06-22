@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import EmailSenderModal from './EmailSenderModal'
+import ListShowMoreFooter from './ListShowMoreFooter'
 import { useFeatureAccess } from '../hooks/useFeatureAccess'
+import { useVisibleListSlice } from '../hooks/useVisibleListSlice'
 import {
   emailLogDisplayTimeZone,
   formatAppDateTime,
@@ -63,6 +65,9 @@ const QuotationEmailLogsPanel = ({
     void load()
   }, [load, refreshKey])
 
+  const { visible: visibleEmails, hiddenCount, showMore } =
+    useVisibleListSlice(emails, [refreshKey, quotationId])
+
   const handleResend = async (data: EmailPayload) => {
     if (!selected || !emailsWrite) return
     setResending(true)
@@ -97,19 +102,20 @@ const QuotationEmailLogsPanel = ({
           No emails have been sent for this quotation yet.
         </div>
       ) : (
-        <div className="quotation-email-logs-panel__table-wrap">
-          <table className="emails-table quotation-email-logs-panel__table">
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>To</th>
-                <th>Status</th>
-                <th>Sent</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {emails.map((email) => (
+        <>
+          <div className="quotation-email-logs-panel__table-wrap">
+            <table className="emails-table quotation-email-logs-panel__table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>To</th>
+                  <th>Status</th>
+                  <th>Sent</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleEmails.map((email) => (
                 <tr
                   key={email.id}
                   className="quotation-email-logs-panel__row"
@@ -151,6 +157,8 @@ const QuotationEmailLogsPanel = ({
             </tbody>
           </table>
         </div>
+        <ListShowMoreFooter hiddenCount={hiddenCount} onShowMore={showMore} />
+      </>
       )}
 
       {selected && (

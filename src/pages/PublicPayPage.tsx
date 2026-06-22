@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import {
+  confirmPublicPaymentLink,
   fetchPublicPaymentLink,
+  hasPaySuccessSession,
+  markPaySuccessSession,
   type PublicPaymentLinkRecord,
 } from '../services/bookingPaymentLinks'
 import { formatCurrency, type CurrencyFormatOptions } from '../utils/currency'
@@ -13,6 +16,11 @@ export default function PublicPayPage() {
   const [data, setData] = useState<PublicPaymentLinkRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [confirming, setConfirming] = useState(false)
+  const [alreadyRecorded, setAlreadyRecorded] = useState(false)
+  const [confirmPending, setConfirmPending] = useState(false)
+  const confirmAttempted = useRef(false)
+
   useEffect(() => {
     if (!token) {
       setError('Invalid payment link.')
@@ -26,6 +34,12 @@ export default function PublicPayPage() {
         if (!cancelled) {
           setData(record)
           setError(null)
+          if (
+            statusParam === 'success' &&
+            (record.status === 'paid' || hasPaySuccessSession(token))
+          ) {
+            setAlreadyRecorded(true)
+          }
         }
       })
       .catch((e) => {
@@ -40,7 +54,58 @@ export default function PublicPayPage() {
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, statusParam])
+
+  useEffect(() => {
+    if (!token || statusParam !== 'success' || confirmAttempted.current) {
+      return
+    }
+    if (loading || error || !data) {
+      return
+    }
+
+    if (data.status === 'paid' || hasPaySuccessSession(token)) {
+      confirmAttempted.current = true
+      setAlreadyRecorded(true)
+      return
+    }
+
+    if (data.status !== 'pending') {
+      return
+    }
+
+    confirmAttempted.current = true
+    let cancelled = false
+    setConfirming(true)
+    setConfirmPending(false)
+
+    confirmPublicPaymentLink(token)
+      .then((result) => {
+        if (cancelled) return
+        setData(result.payment_link)
+        if (result.already_recorded) {
+          setAlreadyRecorded(true)
+          return
+        }
+        if (result.confirmed) {
+          markPaySuccessSession(token)
+          setAlreadyRecorded(false)
+          return
+        }
+        setConfirmPending(true)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setConfirmPending(true)
+      })
+      .finally(() => {
+        if (!cancelled) setConfirming(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, statusParam, loading, error, data])
 
   const currencyOptions: CurrencyFormatOptions = useMemo(
     () => ({
@@ -77,6 +142,7 @@ export default function PublicPayPage() {
   const isPaid = data.status === 'paid'
   const isExpired = data.status === 'expired'
   const canPay = data.status === 'pending' && Boolean(data.checkout_url)
+  const isSuccessReturn = statusParam === 'success'
 
   return (
     <div className="public-pay-page">
@@ -87,9 +153,15 @@ export default function PublicPayPage() {
           <p className="text-muted small mb-3">Quotation ID: {data.quotation_unique_id}</p>
         )}
 
-        {statusParam === 'success' && !isPaid && (
+        {isSuccessReturn && confirming && !isPaid && (
           <div className="alert alert-info py-2 small" role="status">
-            Payment submitted. It may take a moment to confirm.
+            Confirming your payment…
+          </div>
+        )}
+        {isSuccessReturn && confirmPending && !isPaid && !confirming && (
+          <div className="alert alert-info py-2 small" role="status">
+            Payment submitted. We could not confirm it yet — refresh in a moment or contact
+            the business if this persists.
           </div>
         )}
         {statusParam === 'cancelled' && (
@@ -98,9 +170,21 @@ export default function PublicPayPage() {
           </div>
         )}
 
-        {isPaid ? (
+        {isPaid || (isSuccessReturn && alreadyRecorded) ? (
           <div className="alert alert-success" role="status">
-            <strong>Thank you.</strong> This quotation has been paid.
+            {isSuccessReturn && alreadyRecorded ? (
+              <>
+                <strong>Payment already recorded.</strong> This payment was confirmed on a
+                previous visit. No further action is needed.
+              </>
+            ) : (
+              <>
+                <strong>Thank you.</strong>{' '}
+                {isSuccessReturn
+                  ? 'Your payment has been recorded.'
+                  : 'This quotation has been paid.'}
+              </>
+            )}
           </div>
         ) : isExpired ? (
           <div className="alert alert-secondary" role="status">

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchCompanyKyb,
   startPaymongoKybOnboarding,
+  startXenditKybOnboarding,
   updateCompanyKyb,
   KYB_BUSINESS_TYPE_OPTIONS,
   type CompanyKybRecord,
   type KybBusinessType,
+  type ProviderVerificationState,
 } from '../../../services/companyKyb'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
@@ -57,11 +59,111 @@ function formToPayload(form: KybFormState) {
   }
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Draft',
-  pending_paymongo: 'Pending PayMongo verification',
-  approved: 'Verified',
-  rejected: 'Rejected',
+function providerBadgeClass(verified: boolean, status: string): string {
+  if (verified) return 'text-bg-success'
+  if (status.includes('rejected')) return 'text-bg-danger'
+  if (status.includes('pending')) return 'text-bg-warning'
+  return 'text-bg-secondary'
+}
+
+function sanitizeXenditOnboardingUrl(url: string): string {
+  const trimmed = url.trim()
+  if (trimmed.toLowerCase().includes('onboarding.xendit.com')) return ''
+  return trimmed
+}
+
+function ProviderVerificationCard({
+  provider,
+  onboardingUrl,
+  redirecting,
+  onContinue,
+  onOpenOnboarding,
+}: {
+  provider: ProviderVerificationState
+  onboardingUrl: string
+  redirecting: boolean
+  onContinue: () => void
+  onOpenOnboarding: () => void
+}) {
+  const pending = provider.status.includes('pending')
+  const verified = provider.verified
+  const rejected = provider.status.includes('rejected')
+  const emailInvitation = provider.verification_flow === 'email_invitation'
+  const hostedOnboardingUrl = emailInvitation ? '' : onboardingUrl.trim()
+  const continueDisabled =
+    redirecting || (Boolean(hostedOnboardingUrl) && pending && !rejected)
+
+  return (
+    <section className="company-kyb-provider-card">
+      <div className="company-kyb-provider-card__head">
+        <h3 className="company-kyb-provider-card__title">{provider.provider_label}</h3>
+        <span className={`badge ${providerBadgeClass(verified, provider.status)}`}>
+          {provider.status_label}
+        </span>
+      </div>
+
+      {verified ? (
+        <p className="company-kyb-provider-card__detail text-success small mb-0">
+          Business verification is complete for {provider.provider_label}.
+        </p>
+      ) : emailInvitation ? (
+        <p className="company-kyb-provider-card__detail text-muted small">
+          Xendit verifies merchants by email invitation — there is no hosted
+          verification page in this app.
+        </p>
+      ) : (
+        <p className="company-kyb-provider-card__detail text-muted small">
+          Complete verification with {provider.provider_label} to accept payments through
+          this provider.
+        </p>
+      )}
+
+      {provider.rejection_notes ? (
+        <p className="small text-danger mb-2">{provider.rejection_notes}</p>
+      ) : null}
+
+      {(provider.merchant_id || provider.account_id) && (
+        <p className="small text-muted mb-2">
+          {provider.provider === 'paymongo' ? 'Merchant ID' : 'Account ID'}:{' '}
+          <code>{provider.merchant_id || provider.account_id}</code>
+        </p>
+      )}
+
+      {pending && emailInvitation && provider.invitation_email ? (
+        <div className="alert alert-info py-2 small mb-2">
+          Check <strong>{provider.invitation_email}</strong> for Xendit&apos;s invitation
+          email and follow the link to register and submit verification documents.
+        </div>
+      ) : null}
+
+      {pending && hostedOnboardingUrl ? (
+        <div className="alert alert-info py-2 small mb-2">
+          Verification is in progress.{' '}
+          <button
+            type="button"
+            className="btn btn-link btn-sm p-0 align-baseline"
+            onClick={onOpenOnboarding}
+            disabled={redirecting}
+          >
+            Open verification again
+          </button>
+        </div>
+      ) : null}
+
+      {!verified && (
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={onContinue}
+          disabled={continueDisabled}
+        >
+          {redirecting
+            ? 'Redirecting…'
+            : `Continue to ${provider.provider_label}`}
+        </button>
+      )}
+    </section>
+  )
 }
 
 const CompanyKybModal = ({
@@ -74,7 +176,9 @@ const CompanyKybModal = ({
 }: Props) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [redirecting, setRedirecting] = useState(false)
+  const [redirectingProvider, setRedirectingProvider] = useState<
+    'paymongo' | 'xendit' | null
+  >(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [record, setRecord] = useState<CompanyKybRecord | null>(null)
   const [form, setForm] = useState<KybFormState>(() =>
@@ -90,13 +194,15 @@ const CompanyKybModal = ({
     ),
   )
   const [missingFields, setMissingFields] = useState<string[]>([])
-  const [activeOnboardingUrl, setActiveOnboardingUrl] = useState('')
+  const [paymongoOnboardingUrl, setPaymongoOnboardingUrl] = useState('')
+  const [xenditOnboardingUrl, setXenditOnboardingUrl] = useState('')
 
-  const openOnboardingUrl = (url: string) => {
+  const providers = record?.provider_verifications
+
+  const openOnboardingUrl = (url: string, providerLabel: string) => {
     const trimmed = url.trim()
     if (!trimmed) {
-      const message =
-        'PayMongo did not return an onboarding link. Please try again or contact support.'
+      const message = `${providerLabel} did not return a verification link. Please try again or contact support.`
       setFormError(message)
       showErrorToast(message)
       return
@@ -110,7 +216,14 @@ const CompanyKybModal = ({
     try {
       const data = await fetchCompanyKyb(companyId)
       setRecord(data)
-      setActiveOnboardingUrl((data.onboarding_url ?? '').trim())
+      setPaymongoOnboardingUrl(
+        (data.provider_verifications?.paymongo?.onboarding_url || data.onboarding_url || '').trim(),
+      )
+      setXenditOnboardingUrl(
+        sanitizeXenditOnboardingUrl(
+          data.provider_verifications?.xendit?.onboarding_url || data.xendit_onboarding_url || '',
+        ),
+      )
       setForm(recordToForm(data, companyBusinessLegalName, companyName))
       setMissingFields(data.missing_fields ?? [])
     } catch (e) {
@@ -124,15 +237,21 @@ const CompanyKybModal = ({
     void load()
   }, [load])
 
-  const readOnly = record?.status === 'approved'
-  const continueToPayMongoDisabled =
-    saving ||
-    redirecting ||
-    loading ||
-    (Boolean(activeOnboardingUrl) && record?.status === 'pending_paymongo')
+  const bothProvidersVerified = useMemo(() => {
+    if (!providers) return false
+    return providers.paymongo.verified && providers.xendit.verified
+  }, [providers])
+
+  const anyProviderVerified = providers?.any_provider_verified === true
+
+  const readOnly = bothProvidersVerified
+
   const showSaveDraft =
-    !readOnly &&
-    (!activeOnboardingUrl || record?.status === 'rejected')
+    !readOnly
+    && ((!paymongoOnboardingUrl && !providers?.paymongo.verified)
+      || record?.paymongo_status === 'rejected'
+      || (!xenditOnboardingUrl && !providers?.xendit.verified)
+      || record?.xendit_status === 'rejected')
 
   const patchForm = (patch: Partial<KybFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }))
@@ -156,7 +275,7 @@ const CompanyKybModal = ({
     try {
       const data = await updateCompanyKyb(companyId, {
         ...formToPayload(form),
-        ...(record?.status === 'rejected' ? { status: 'draft' } : {}),
+        ...(record?.paymongo_status === 'rejected' ? { paymongo_status: 'draft' } : {}),
       })
       setRecord(data)
       setMissingFields(data.missing_fields ?? [])
@@ -171,29 +290,64 @@ const CompanyKybModal = ({
     }
   }
 
-  const handleContinueToPayMongo = async () => {
+  const handleContinuePaymongo = async () => {
     if (!form.business_type) {
       setFormError('Select a business type.')
       return
     }
-    setRedirecting(true)
+    setRedirectingProvider('paymongo')
     setFormError(null)
     try {
-      const data = await startPaymongoKybOnboarding(companyId, {
-        ...formToPayload(form),
-      })
+      const data = await startPaymongoKybOnboarding(companyId, formToPayload(form))
       setRecord(data)
-      const url = (data.onboarding_url ?? '').trim()
-      setActiveOnboardingUrl(url)
+      const url = (
+        data.provider_verifications?.paymongo?.onboarding_url || data.onboarding_url || ''
+      ).trim()
+      setPaymongoOnboardingUrl(url)
       onSaved()
-      openOnboardingUrl(url)
+      openOnboardingUrl(url, 'PayMongo')
     } catch (e) {
       const message =
         e instanceof Error ? e.message : 'Failed to start PayMongo verification'
       setFormError(message)
       showErrorToast(message)
     } finally {
-      setRedirecting(false)
+      setRedirectingProvider(null)
+    }
+  }
+
+  const handleContinueXendit = async () => {
+    if (!form.business_type) {
+      setFormError('Select a business type.')
+      return
+    }
+    setRedirectingProvider('xendit')
+    setFormError(null)
+    try {
+      const data = await startXenditKybOnboarding(companyId, formToPayload(form))
+      setRecord(data)
+      setXenditOnboardingUrl('')
+      onSaved()
+      const invitationEmail = (
+        data.provider_verifications?.xendit?.invitation_email
+        || form.merchant_email
+      ).trim()
+      if (data.provider_verifications?.xendit?.verified) {
+        showSuccessToast('Xendit business verification is complete.')
+      } else if (invitationEmail) {
+        showSuccessToast(
+          `Xendit invitation sent to ${invitationEmail}. Check your inbox (and spam) to complete verification.`,
+        )
+      } else {
+        showSuccessToast('Xendit verification started.')
+      }
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Failed to start Xendit verification'
+      setFormError(message)
+      showErrorToast(message)
+    } finally {
+      setRedirectingProvider(null)
     }
   }
 
@@ -230,46 +384,53 @@ const CompanyKybModal = ({
               ) : (
                 <>
                   <p className="text-muted small">
-                    Collect your business details here, then continue to PayMongo to
-                    upload documents and complete verification on their secure site.
-                    We do not collect your documents inside Planning With You.
+                    Enter your business details once, then complete verification with
+                    PayMongo and/or Xendit. Each company can be verified on both
+                    providers. Payment features unlock when at least one provider
+                    approves your business.
                   </p>
 
-                  {record && (
-                    <div className="mb-3 d-flex flex-wrap align-items-center gap-2">
-                      <span className="text-muted small">Status:</span>
+                  {providers && (
+                    <div className="company-kyb-provider-summary mb-3">
+                      <span className="text-muted small me-2">Verification status:</span>
                       <span
-                        className={`badge ${
-                          record.status === 'approved'
-                            ? 'text-bg-success'
-                            : record.status === 'rejected'
-                              ? 'text-bg-danger'
-                              : record.status === 'pending_paymongo'
-                                ? 'text-bg-warning'
-                                : 'text-bg-secondary'
-                        }`}
+                        className={`badge me-2 ${providerBadgeClass(
+                          providers.paymongo.verified,
+                          providers.paymongo.status,
+                        )}`}
                       >
-                        {STATUS_LABEL[record.status] ?? record.status}
+                        PayMongo: {providers.paymongo.status_label}
                       </span>
-                      {rejectionNote ? (
-                        <span className="small text-danger">{rejectionNote}</span>
-                      ) : null}
+                      <span
+                        className={`badge ${providerBadgeClass(
+                          providers.xendit.verified,
+                          providers.xendit.status,
+                        )}`}
+                      >
+                        Xendit: {providers.xendit.status_label}
+                      </span>
+                      {anyProviderVerified && (
+                        <p className="small text-success mb-0 mt-2">
+                          Verified on:{' '}
+                          {providers.verified_providers
+                            .map((p) => (p === 'paymongo' ? 'PayMongo' : 'Xendit'))
+                            .join(', ')}
+                        </p>
+                      )}
                     </div>
                   )}
 
-                  {activeOnboardingUrl && record?.status === 'pending_paymongo' && (
-                    <div className="alert alert-info py-2 small">
-                      Verification is in progress on PayMongo.{' '}
-                      <button
-                        type="button"
-                        className="btn btn-link btn-sm p-0 align-baseline"
-                        onClick={() => openOnboardingUrl(activeOnboardingUrl)}
-                        disabled={redirecting}
-                      >
-                        Open onboarding again
-                      </button>
+                  {rejectionNote && record?.paymongo_status === 'rejected' ? (
+                    <div className="alert alert-danger py-2 small">
+                      PayMongo: {rejectionNote}
                     </div>
-                  )}
+                  ) : null}
+
+                  {record?.xendit_rejection_notes ? (
+                    <div className="alert alert-danger py-2 small">
+                      Xendit: {record.xendit_rejection_notes}
+                    </div>
+                  ) : null}
 
                   <div className="mb-3">
                     <span className="form-label d-block">Business type</span>
@@ -300,7 +461,7 @@ const CompanyKybModal = ({
                     </ul>
                   </div>
 
-                  <div className="row g-3">
+                  <div className="row g-3 mb-4">
                     <div className="col-md-6">
                       <label className="form-label" htmlFor="kyb-business-name">
                         Business legal name (as per BIR) *
@@ -349,6 +510,29 @@ const CompanyKybModal = ({
                     </div>
                   </div>
 
+                  {providers && (
+                    <div className="company-kyb-provider-grid">
+                      <ProviderVerificationCard
+                        provider={providers.paymongo}
+                        onboardingUrl={paymongoOnboardingUrl}
+                        redirecting={redirectingProvider === 'paymongo'}
+                        onContinue={() => void handleContinuePaymongo()}
+                        onOpenOnboarding={() =>
+                          openOnboardingUrl(paymongoOnboardingUrl, 'PayMongo')
+                        }
+                      />
+                      <ProviderVerificationCard
+                        provider={providers.xendit}
+                        onboardingUrl={xenditOnboardingUrl}
+                        redirecting={redirectingProvider === 'xendit'}
+                        onContinue={() => void handleContinueXendit()}
+                        onOpenOnboarding={() =>
+                          openOnboardingUrl(xenditOnboardingUrl, 'Xendit')
+                        }
+                      />
+                    </div>
+                  )}
+
                   {visibleMissingFields.length > 0 && (
                     <div className="alert alert-warning py-2 mt-3 mb-0 small">
                       Missing: {visibleMissingFields.join(', ')}
@@ -368,31 +552,19 @@ const CompanyKybModal = ({
                 type="button"
                 className="btn btn-secondary"
                 onClick={onClose}
-                disabled={saving || redirecting}
+                disabled={saving || redirectingProvider !== null}
               >
                 Close
               </button>
-              {!readOnly && (
-                <>
-                  {showSaveDraft && (
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => void handleSaveDraft()}
-                      disabled={saving || redirecting || loading}
-                    >
-                      {saving ? 'Saving…' : 'Save draft'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => void handleContinueToPayMongo()}
-                    disabled={continueToPayMongoDisabled}
-                  >
-                    {redirecting ? 'Redirecting…' : 'Continue to PayMongo'}
-                  </button>
-                </>
+              {!readOnly && showSaveDraft && (
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  onClick={() => void handleSaveDraft()}
+                  disabled={saving || redirectingProvider !== null || loading}
+                >
+                  {saving ? 'Saving…' : 'Save draft'}
+                </button>
               )}
             </div>
           </div>

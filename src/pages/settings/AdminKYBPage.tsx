@@ -235,10 +235,10 @@ const AdminKYBPage = () => {
                       <td>
                         <span
                           className={`badge ${
-                            STATUS_BADGE[row.status] ?? 'text-bg-secondary'
+                            STATUS_BADGE[row.paymongo_status] ?? 'text-bg-secondary'
                           }`}
                         >
-                          {STATUS_LABEL[row.status] ?? row.status}
+                          {STATUS_LABEL[row.paymongo_status] ?? row.paymongo_status}
                         </span>
                       </td>
                       <td>{formatAppDateTime(row.submitted_at)}</td>

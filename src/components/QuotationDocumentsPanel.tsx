@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Swal from 'sweetalert2'
 
 import DocumentsModal from './DocumentsModal'
+import ListShowMoreFooter from './ListShowMoreFooter'
+import { useVisibleListSlice } from '../hooks/useVisibleListSlice'
 import { downloadSecuredFile } from '../lib/securedFileUrl'
 import type { DocumentRecord } from '../services/documents'
 import {
@@ -86,6 +88,9 @@ const QuotationDocumentsPanel = ({
     if (!q) return true
     return doc.original_name.toLowerCase().includes(q)
   })
+
+  const { visible: visibleDocuments, hiddenCount, showMore } =
+    useVisibleListSlice(filtered, [search, quotationId])
 
   const handleUpload = async (files: FileList | null) => {
     if (!files?.length || readOnly) return
@@ -250,20 +255,21 @@ const QuotationDocumentsPanel = ({
               : 'No documents yet. Upload files or add them from File Manager.'}
           </div>
         ) : (
-          <div className="fm-recent-scroll">
-            <table className="fm-recent-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Size</th>
-                  <th>Uploaded</th>
-                  {!readOnly && (
-                    <th className="fm-recent-actions-th">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((doc) => (
+          <>
+            <div className="fm-recent-scroll">
+              <table className="fm-recent-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Size</th>
+                    <th>Uploaded</th>
+                    {!readOnly && (
+                      <th className="fm-recent-actions-th">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleDocuments.map((doc) => (
                   <tr key={doc.id}>
                     <td>
                       <div className="fm-recent-name">
@@ -303,6 +309,8 @@ const QuotationDocumentsPanel = ({
               </tbody>
             </table>
           </div>
+          <ListShowMoreFooter hiddenCount={hiddenCount} onShowMore={showMore} />
+        </>
         )}
       </section>
 

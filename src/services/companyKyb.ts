@@ -17,20 +17,56 @@ export const KYB_BUSINESS_TYPE_OPTIONS: {
   { value: 'corporation', label: 'Corporation' },
 ]
 
-export type KybStatus =
+export type PaymongoKybStatus =
   | 'draft'
   | 'pending_paymongo'
   | 'approved'
   | 'rejected'
+
+/** @deprecated Use PaymongoKybStatus */
+export type KybStatus = PaymongoKybStatus
+
+export type XenditKybStatus =
+  | 'draft'
+  | 'pending_xendit'
+  | 'approved'
+  | 'rejected'
+
+export type PaymentProviderSlug = 'paymongo' | 'xendit'
+
+export type ProviderVerificationState = {
+  provider: PaymentProviderSlug
+  provider_label: string
+  status: string
+  status_label: string
+  verified: boolean
+  merchant_id?: string
+  account_id?: string
+  onboarding_url: string
+  verification_flow?: 'hosted' | 'email_invitation'
+  invitation_email?: string
+  rejection_notes: string
+}
+
+export type ProviderVerifications = {
+  paymongo: ProviderVerificationState
+  xendit: ProviderVerificationState
+  verified_providers: PaymentProviderSlug[]
+  any_provider_verified: boolean
+}
 
 export type CompanyKybRecord = {
   id: number
   company: number
   company_name?: string
   business_type: KybBusinessType
-  status: KybStatus
+  paymongo_status: PaymongoKybStatus
   paymongo_merchant_id: string
   onboarding_url: string
+  xendit_status: XenditKybStatus
+  xendit_account_id: string
+  xendit_onboarding_url: string
+  xendit_rejection_notes: string
   merchant_business_name: string
   merchant_email: string
   merchant_mobile_number: string
@@ -41,6 +77,7 @@ export type CompanyKybRecord = {
   rejection_reason?: string
   live_payments_allowed: boolean
   missing_fields: string[]
+  provider_verifications: ProviderVerifications
   created_at: string
   updated_at: string
 }
@@ -52,7 +89,7 @@ export type CompanyKybPayload = Partial<
     | 'merchant_business_name'
     | 'merchant_email'
     | 'merchant_mobile_number'
-    | 'status'
+    | 'paymongo_status'
     | 'rejection_notes'
   >
 >
@@ -111,5 +148,21 @@ export async function startPaymongoKybOnboarding(
     },
   )
   if (!res.ok) throw await kybApiError(res, 'Failed to start PayMongo verification')
+  return res.json()
+}
+
+export async function startXenditKybOnboarding(
+  companyId: number,
+  data: CompanyKybPayload & { regenerate_link?: boolean },
+): Promise<CompanyKybRecord> {
+  const res = await apiFetch(
+    buildApiUrl(`/companies/${companyId}/kyb/start-xendit/`),
+    {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    },
+  )
+  if (!res.ok) throw await kybApiError(res, 'Failed to start Xendit verification')
   return res.json()
 }

@@ -420,10 +420,10 @@ const BookingsSettingsPage = () => {
           {emailTemplatesOpen && (
             <div className="faq-answer faq-answer--form">
               <p className="text-muted small mb-3">
-                Customize emails sent when a quotation status changes. Default templates
+                Customize emails sent for quotations and payments. Default templates
                 include <code>new_quotation</code>, <code>updated_quotation</code>,{' '}
-                <code>quotation_status_company</code>, and <code>payment_link</code>.
-                Default templates cannot be deleted.
+                <code>quotation_status_company</code>, <code>payment_link</code>, and{' '}
+                <code>payment_received</code>. Default templates cannot be deleted.
               </p>
               <QuotationEmailTemplatesPanel />
             </div>

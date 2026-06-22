@@ -10,6 +10,16 @@ function formatPaymentMethod(value: string | null | undefined): string {
   return value?.trim() || '—'
 }
 
+function formatPaymentAmountAndMethod(
+  amount: string | number | null | undefined,
+  paymentMethod: string | null | undefined,
+): { amountLabel: string; methodLabel: string } {
+  return {
+    amountLabel: formatMoney(amount),
+    methodLabel: formatPaymentMethod(paymentMethod),
+  }
+}
+
 function formatNotes(value: string | null | undefined): string {
   return value?.trim() || '—'
 }
@@ -62,23 +72,27 @@ function buildPayoutsCsv(rows: BookingPayoutRecord[]): string {
   const headers = [
     'Quotation ID',
     'Quotation title',
-    'Amount',
-    'Payment method',
+    'Amount / payment method',
     'Notes',
     'Type',
     'Transaction ID',
     'Date',
   ]
-  const lines = rows.map((row) => [
-    row.quotation_unique_id || row.booking_unique_id || '',
-    row.quotation_title || row.booking_title || '',
-    formatMoney(row.quotation_credit ?? row.booking_credit),
-    formatPaymentMethod(row.payment_method),
-    formatNotes(row.notes),
-    formatTransactionType(row.transaction_status),
-    row.transaction_id || '',
-    formatAppDateTime(row.transaction_date),
-  ])
+  const lines = rows.map((row) => {
+    const { amountLabel, methodLabel } = formatPaymentAmountAndMethod(
+      row.quotation_credit ?? row.booking_credit,
+      row.payment_method,
+    )
+    return [
+      row.quotation_unique_id || row.booking_unique_id || '',
+      row.quotation_title || row.booking_title || '',
+      methodLabel === '—' ? amountLabel : `${amountLabel} (${methodLabel})`,
+      formatNotes(row.notes),
+      formatTransactionType(row.transaction_status),
+      row.transaction_id || '',
+      formatAppDateTime(row.transaction_date),
+    ]
+  })
   return [
     headers.map(csvEscape).join(','),
     ...lines.map((line) => line.map(csvEscape).join(',')),
@@ -243,8 +257,7 @@ const ReportsPayoutPage = () => {
             <thead>
               <tr>
                 <th>Quotation</th>
-                <th>Amount</th>
-                <th>Payment method</th>
+                <th>Payment</th>
                 <th>Notes</th>
                 <th>Type</th>
                 <th>Transaction</th>
@@ -252,7 +265,12 @@ const ReportsPayoutPage = () => {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {rows.map((row) => {
+                const { amountLabel, methodLabel } = formatPaymentAmountAndMethod(
+                  row.quotation_credit ?? row.booking_credit,
+                  row.payment_method,
+                )
+                return (
                 <tr key={row.id}>
                   <td>
                     <div className="small fw-semibold">
@@ -262,11 +280,9 @@ const ReportsPayoutPage = () => {
                       {row.quotation_title || row.booking_title || '—'}
                     </div>
                   </td>
-                  <td className="small fw-semibold font-monospace">
-                    {formatMoney(row.quotation_credit ?? row.booking_credit)}
-                  </td>
-                  <td className="small text-muted">
-                    {formatPaymentMethod(row.payment_method)}
+                  <td>
+                    <div className="small fw-semibold font-monospace">{amountLabel}</div>
+                    <div className="text-muted small">{methodLabel}</div>
                   </td>
                   <td className="small text-muted">
                     {formatNotes(row.notes)}
@@ -281,22 +297,23 @@ const ReportsPayoutPage = () => {
                     {formatAppDateTime(row.transaction_date)}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
               {rowsHasMore && rows.length > 0 && (
                 <tr ref={rowsSentinelRef} className="emails-list-sentinel" aria-hidden="true">
-                  <td colSpan={7} />
+                  <td colSpan={6} />
                 </tr>
               )}
               {rowsLoadingMore && (
                 <tr className="emails-list-end">
-                  <td colSpan={7} className="emails-table-empty">
+                  <td colSpan={6} className="emails-table-empty">
                     Loading more payments received…
                   </td>
                 </tr>
               )}
               {!rowsHasMore && rows.length > 0 && !loading && (
                 <tr className="emails-list-end">
-                  <td colSpan={7} className="emails-table-empty">
+                  <td colSpan={6} className="emails-table-empty">
                     All {rowsTotal} payments loaded
                   </td>
                 </tr>

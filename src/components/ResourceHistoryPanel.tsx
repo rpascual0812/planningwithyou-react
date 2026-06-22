@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
+import ListShowMoreFooter from './ListShowMoreFooter'
+import { useVisibleListSlice } from '../hooks/useVisibleListSlice'
 import { describeHistoryEntry } from '../lib/bookingHistoryDisplay'
 import { describeResourceHistoryEntry } from '../lib/resourceHistoryDisplay'
 import { fetchHistory, type HistoryRecord } from '../services/history'
@@ -50,6 +52,11 @@ const ResourceHistoryPanel = ({
     void load()
   }, [load, refreshKey])
 
+  const { visible: visibleRows, hiddenCount, showMore } = useVisibleListSlice(
+    rows,
+    [refreshKey, historyPath],
+  )
+
   if (loading) {
     return (
       <div className="booking-history-panel text-muted small py-4 text-center">
@@ -82,7 +89,7 @@ const ResourceHistoryPanel = ({
   return (
     <div className="booking-history-panel">
       <ul className="booking-history-list list-unstyled mb-0">
-        {rows.map((entry) => {
+        {visibleRows.map((entry) => {
           const { title, details, timestamp } = describeEntry(entry, bookingMode)
           return (
             <li key={entry.id} className="booking-history-item">
@@ -103,6 +110,7 @@ const ResourceHistoryPanel = ({
           )
         })}
       </ul>
+      <ListShowMoreFooter hiddenCount={hiddenCount} onShowMore={showMore} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { apiFetch, authHeaders, buildApiUrl, apiPathWithQuery } from './api'
 import { getAccessToken } from './auth'
 import { parseApiList } from './parseApiList'
+import type { ProviderVerifications } from './companyKyb'
 
 export type TierAdjustmentType = 'percent' | 'fixed'
 
@@ -34,6 +35,7 @@ export type CompanyRecord = {
   is_active: boolean
   is_main: boolean
   kyb_verified: boolean
+  provider_verifications?: ProviderVerifications
   max_bookings_per_day: number
   logo: string
   logo_url: string

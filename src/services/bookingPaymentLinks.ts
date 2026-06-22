@@ -13,10 +13,51 @@ function extractError(body: unknown): string {
   return ''
 }
 
+async function readJsonResponse<T>(res: Response, fallbackError: string): Promise<T> {
+  const text = await res.text()
+  if (!text.trim()) {
+    if (!res.ok) throw new Error(fallbackError)
+    return {} as T
+  }
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    if (!res.ok) {
+      throw new Error(fallbackError)
+    }
+    throw new Error('Unexpected response from the server.')
+  }
+}
+
+const PAY_SUCCESS_SESSION_KEY = (token: string) => `pwu:pay-success:${token}`
+
+export function hasPaySuccessSession(token: string): boolean {
+  try {
+    return sessionStorage.getItem(PAY_SUCCESS_SESSION_KEY(token)) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function markPaySuccessSession(token: string): void {
+  try {
+    sessionStorage.setItem(PAY_SUCCESS_SESSION_KEY(token), '1')
+  } catch {
+    /* ignore private browsing / storage limits */
+  }
+}
+
+export type VerifiedPaymentProvider = {
+  provider: 'paymongo' | 'xendit'
+  label: string
+}
+
 export type BookingPaymentLinkRecord = {
   id: number
   public_token: string
   status: string
+  payment_provider?: 'paymongo' | 'xendit'
+  payment_provider_label?: string
   base_amount: string
   platform_fee: string
   processing_fee_estimate: string
@@ -64,6 +105,7 @@ export type BookingPaymentLinksResponse = {
   links: BookingPaymentLinkRecord[]
   payments: BookingPaymentRecord[]
   summary: BookingPaymentSummary
+  verified_payment_providers: VerifiedPaymentProvider[]
 }
 
 export type PublicPaymentLinkRecord = {
@@ -189,13 +231,17 @@ export async function createManualBookingRefund(
 export async function createBookingPaymentLink(
   bookingId: number,
   amount: number,
+  paymentProvider?: 'paymongo' | 'xendit',
 ): Promise<BookingPaymentLinkRecord> {
   const res = await apiFetch(
     buildApiUrl(`/quotation-items/${bookingId}/payment-links/`),
     {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ amount: amount.toFixed(2) }),
+      body: JSON.stringify({
+        amount: amount.toFixed(2),
+        ...(paymentProvider ? { payment_provider: paymentProvider } : {}),
+      }),
     },
   )
   if (!res.ok) {
@@ -216,14 +262,39 @@ export async function fetchPublicPaymentLink(
   const res = await fetch(buildApiUrl(`/public/payment-links/${token}/`), {
     headers: { Accept: 'application/json' },
   })
+  const body = await readJsonResponse<PublicPaymentLinkRecord | Record<string, unknown>>(
+    res,
+    'Payment link not found',
+  )
   if (!res.ok) {
-    try {
-      const body = await res.json()
-      throw new Error(extractError(body) || 'Payment link not found')
-    } catch (e) {
-      if (e instanceof Error) throw e
-      throw new Error('Payment link not found')
-    }
+    throw new Error(extractError(body) || 'Payment link not found')
   }
-  return res.json()
+  return body as PublicPaymentLinkRecord
+}
+
+export type PublicPaymentLinkConfirmResult = {
+  confirmed: boolean
+  pending: boolean
+  already_recorded: boolean
+  payment_link: PublicPaymentLinkRecord
+}
+
+export async function confirmPublicPaymentLink(
+  token: string,
+): Promise<PublicPaymentLinkConfirmResult> {
+  const res = await fetch(
+    buildApiUrl(`/public/payment-links/${token}/confirm/?status=success`),
+    {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    },
+  )
+  const body = await readJsonResponse<PublicPaymentLinkConfirmResult | Record<string, unknown>>(
+    res,
+    'Could not confirm payment',
+  )
+  if (!res.ok) {
+    throw new Error(extractError(body) || 'Could not confirm payment')
+  }
+  return body as PublicPaymentLinkConfirmResult
 }

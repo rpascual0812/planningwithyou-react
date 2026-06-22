@@ -6,14 +6,14 @@ import {
   buildApiUrl,
   readJsonResponse,
 } from './api'
-import type { CompanyKybRecord, KybStatus } from './companyKyb'
+import type { CompanyKybRecord, PaymongoKybStatus } from './companyKyb'
 
 export type CompanyKybListRecord = {
   id: number
   company: number
   company_name: string
   business_type: string
-  status: KybStatus
+  paymongo_status: PaymongoKybStatus
   paymongo_merchant_id?: string
   merchant_business_name?: string
   merchant_email?: string
@@ -49,7 +49,7 @@ export async function fetchAdminKybVerificationsPage(
   status: AdminKybStatusFilter,
   search = '',
 ): Promise<AdminKybVerificationsPage> {
-  const params = new URLSearchParams({ status })
+  const params = new URLSearchParams({ paymongo_status: status })
   params.set('page', String(page))
   if (search.trim()) {
     params.set('search', search.trim())
@@ -85,7 +85,7 @@ export async function approveAdminKybVerification(
     {
       method: 'PATCH',
       headers: authHeaders(),
-      body: JSON.stringify({ status: 'approved' }),
+      body: JSON.stringify({ paymongo_status: 'approved' }),
     },
   )
   if (!res.ok) {
