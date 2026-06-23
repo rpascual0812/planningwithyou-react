@@ -472,6 +472,69 @@ const SubscriptionSettingsPage = () => {
     !currentSubscriptionLoading &&
     !plansLoading
 
+  const canCancelCurrentPlan = useMemo(() => {
+    if (
+      !subscriptionWrite ||
+      !selectionReady ||
+      checkoutLoading ||
+      currentSubscriptionLoading ||
+      plansLoading ||
+      !currentSubscription ||
+      currentPlanIsFree ||
+      isFreePlan ||
+      currentSubscription.status !== 'active' ||
+      currentSubscription.scheduled_plan === 'free' ||
+      isAccountSubscriptionExpired(currentSubscription)
+    ) {
+      return false
+    }
+    if (!isPaidPlanId(currentSubscription.plan)) return false
+    if (subscriptionHasChanges) return false
+    if (selectedPlanId !== currentSubscription.plan) return false
+    if (billingCycle !== currentSubscription.billing_cycle) return false
+    if (teamSeats !== Math.max(1, currentSubscription.team_seats)) return false
+    return true
+  }, [
+    billingCycle,
+    checkoutLoading,
+    currentPlanIsFree,
+    currentSubscription,
+    currentSubscriptionLoading,
+    isFreePlan,
+    plansLoading,
+    selectedPlanId,
+    selectionReady,
+    subscriptionHasChanges,
+    subscriptionWrite,
+    teamSeats,
+  ])
+
+  const applyFreePlanSwitchResult = useCallback(
+    async (row: AccountSubscriptionRecord, cancelled = false) => {
+      if (row.scheduled_plan === 'free' && row.end_date) {
+        setCheckoutNoticeTone('info')
+        setCheckoutNotice(
+          cancelled
+            ? `Subscription cancelled. You keep ${row.plan_name} until ${formatBillingDate(row.end_date)}, then your account moves to the Free plan.`
+            : `Free plan scheduled for ${formatBillingDate(row.end_date)}. Your paid features remain until then.`,
+        )
+      } else {
+        setCheckoutNoticeTone('info')
+        setCheckoutNotice(
+          cancelled
+            ? 'Your subscription has been cancelled. You are now on the Free plan.'
+            : 'You are now on the Free plan.',
+        )
+      }
+      lastAppliedSubscriptionKeyRef.current = ''
+      setSelectionReady(false)
+      setInitialSelection(null)
+      await loadCurrentSubscription()
+      syncAuthState()
+    },
+    [loadCurrentSubscription, syncAuthState],
+  )
+
   const executeCheckout = useCallback(async (renewExpired = false) => {
     setCheckoutError(null)
     setCheckoutLoading(true)
@@ -550,23 +613,48 @@ const SubscriptionSettingsPage = () => {
     setCheckoutLoading(true)
     try {
       const row = await subscribeToFreePlan('monthly')
-      if (row.scheduled_plan === 'free' && row.end_date) {
-        setCheckoutNoticeTone('info')
-        setCheckoutNotice(
-          `Free plan scheduled for ${formatBillingDate(row.end_date)}. Your paid features remain until then.`,
-        )
-      } else {
-        setCheckoutNoticeTone('info')
-        setCheckoutNotice('You are now on the Free plan.')
-      }
-      lastAppliedSubscriptionKeyRef.current = ''
-      setSelectionReady(false)
-      setInitialSelection(null)
-      await loadCurrentSubscription()
-      syncAuthState()
+      await applyFreePlanSwitchResult(row, false)
     } catch (e) {
       setCheckoutError(
         e instanceof Error ? e.message : 'Failed to switch to the Free plan',
+      )
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
+  const handleCancelCurrentPlan = async () => {
+    if (!canCancelCurrentPlan) return
+    setCheckoutError(null)
+
+    const prepaidEnd = currentSubscription?.end_date
+      ? formatAccountSubscriptionEndDate(currentSubscription.end_date)
+      : 'the end of your billing period'
+    const confirmed = await Swal.fire({
+      title: 'Cancel subscription?',
+      html:
+        '<div class="text-start">' +
+        `<p class="mb-2">Your <strong>${currentSubscription?.plan_name ?? 'current plan'}</strong> will stay active until <strong>${prepaidEnd}</strong>.</p>` +
+        '<p class="mb-0">After that, your account reverts to the Free plan (1 user, no charge). You can subscribe again anytime.</p>' +
+        '</div>',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, cancel subscription',
+      cancelButtonText: 'Keep subscription',
+      focusCancel: true,
+      reverseButtons: true,
+    })
+    if (!confirmed.isConfirmed) return
+
+    setCheckoutLoading(true)
+    try {
+      const row = await subscribeToFreePlan(
+        currentSubscription?.billing_cycle === 'yearly' ? 'yearly' : 'monthly',
+      )
+      await applyFreePlanSwitchResult(row, true)
+    } catch (e) {
+      setCheckoutError(
+        e instanceof Error ? e.message : 'Failed to cancel subscription',
       )
     } finally {
       setCheckoutLoading(false)
@@ -1230,27 +1318,42 @@ const SubscriptionSettingsPage = () => {
           )}
 
           {!isNoChargePlan && (
-            <button
-              type="button"
-              className={`sub-pay-btn${payNowDisabled ? ' is-disabled' : ''}`}
-              disabled={payNowDisabled}
-              aria-disabled={payNowDisabled}
-              title={
-                !selectionReady
-                  ? 'Loading subscription details…'
-                  : payNowForExpiredRenewal
-                    ? 'Renew your expired subscription'
-                    : !subscriptionHasChanges
-                      ? 'Change billing cycle, plan, or allowed users to pay'
-                      : undefined
-              }
-              onClick={() => {
-                if (!payNowClickable) return
-                void handlePayNow()
-              }}
-            >
-              {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
-            </button>
+            <>
+              <button
+                type="button"
+                className={`sub-pay-btn${payNowDisabled ? ' is-disabled' : ''}`}
+                disabled={payNowDisabled}
+                aria-disabled={payNowDisabled}
+                title={
+                  !selectionReady
+                    ? 'Loading subscription details…'
+                    : payNowForExpiredRenewal
+                      ? 'Renew your expired subscription'
+                      : !subscriptionHasChanges
+                        ? 'Change billing cycle, plan, or allowed users to pay'
+                        : undefined
+                }
+                onClick={() => {
+                  if (!payNowClickable) return
+                  void handlePayNow()
+                }}
+              >
+                {checkoutLoading ? 'Redirecting…' : 'PAY NOW'}
+              </button>
+
+              {canCancelCurrentPlan && (
+                <button
+                  type="button"
+                  className="sub-cancel-btn"
+                  disabled={checkoutLoading}
+                  onClick={() => {
+                    void handleCancelCurrentPlan()
+                  }}
+                >
+                  {checkoutLoading ? 'Cancelling…' : 'Cancel Subscription'}
+                </button>
+              )}
+            </>
           )}
 
           {(switchingToFree || !isNoChargePlan) && checkoutError && (

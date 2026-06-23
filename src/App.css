@@ -7489,6 +7489,39 @@ body,
   transform: none;
 }
 
+.sub-cancel-btn {
+  border: 0;
+  border-radius: 0.45rem;
+  background: #c0392b;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  margin-top: 0.55rem;
+  width: 100%;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.sub-cancel-btn:hover,
+.sub-cancel-btn:focus-visible {
+  background: #a93226;
+  outline: none;
+}
+
+.sub-cancel-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.sub-cancel-btn:disabled {
+  background: #d98880;
+  color: #fff8f7;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .sub-pay-error {
   margin: 0.65rem 0 0;
   color: #c0392b;
