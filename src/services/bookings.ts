@@ -93,6 +93,9 @@ export type BookingItemRecord = {
   title: string
   date_of_event: string | null
   total_amount: string
+  discount_amount?: string | null
+  discount_type?: string | null
+  total_override_amount?: string | null
   required_downpayment_amount: string
   paid_amount?: string
   paid_charge_amount?: string
@@ -239,17 +242,24 @@ export async function fetchBookingItem(id: number): Promise<BookingItemRecord> {
   return res.json()
 }
 
+export type BookingPricingWrite = {
+  total_amount: string
+  discount_amount?: string | null
+  discount_type?: string | null
+  total_override_amount?: string | null
+}
+
 export async function createBookingItem(
   data: Pick<
     BookingItemRecord,
     | 'status'
     | 'title'
     | 'date_of_event'
-    | 'total_amount'
     | 'required_downpayment_amount'
     | 'field_values'
     | 'notes'
-  > & { contact?: number | null; groups?: BookingGroupWrite[] },
+  > &
+    BookingPricingWrite & { contact?: number | null; groups?: BookingGroupWrite[] },
 ): Promise<BookingItemRecord> {
   const res = await apiFetch(buildApiUrl('/quotation-items/'), {
     method: 'POST',
@@ -270,6 +280,9 @@ export async function updateBookingItem(
       | 'title'
       | 'date_of_event'
       | 'total_amount'
+      | 'discount_amount'
+      | 'discount_type'
+      | 'total_override_amount'
       | 'required_downpayment_amount'
       | 'field_values'
       | 'notes'

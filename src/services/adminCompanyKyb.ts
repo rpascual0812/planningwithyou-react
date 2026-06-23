@@ -6,7 +6,7 @@ import {
   buildApiUrl,
   readJsonResponse,
 } from './api'
-import type { CompanyKybRecord, PaymongoKybStatus } from './companyKyb'
+import type { CompanyKybRecord, PaymongoKybStatus, XenditKybStatus } from './companyKyb'
 
 export type CompanyKybListRecord = {
   id: number
@@ -14,20 +14,25 @@ export type CompanyKybListRecord = {
   company_name: string
   business_type: string
   paymongo_status: PaymongoKybStatus
+  xendit_status: XenditKybStatus
   paymongo_merchant_id?: string
+  xendit_account_id?: string
   merchant_business_name?: string
   merchant_email?: string
   submitted_at: string | null
+  xendit_submitted_at: string | null
   reviewed_at: string | null
   created_at: string
   updated_at: string
 }
 
 export type AdminKybStatusFilter =
+  | 'all'
   | 'pending_paymongo'
+  | 'pending_xendit'
+  | 'approved_paymongo'
+  | 'approved_xendit'
   | 'approved'
-  | 'rejected'
-  | 'draft'
 
 export type AdminKybVerificationsPage = {
   count: number
@@ -49,8 +54,11 @@ export async function fetchAdminKybVerificationsPage(
   status: AdminKybStatusFilter,
   search = '',
 ): Promise<AdminKybVerificationsPage> {
-  const params = new URLSearchParams({ paymongo_status: status })
+  const params = new URLSearchParams()
   params.set('page', String(page))
+  if (status !== 'all') {
+    params.set('status', status)
+  }
   if (search.trim()) {
     params.set('search', search.trim())
   }

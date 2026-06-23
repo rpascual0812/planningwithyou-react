@@ -8736,6 +8736,106 @@ body,
   background: rgba(31, 58, 95, 0.06);
 }
 
+.booking-edit-modal-header__pricing-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-right: 0.15rem;
+  color: var(--brand-green);
+  text-decoration: none;
+  border: 0;
+  border-radius: 0.375rem;
+  background: var(--brand-green-soft);
+}
+
+.booking-edit-modal-header__pricing-btn:hover,
+.booking-edit-modal-header__pricing-btn:focus-visible {
+  color: #fff;
+  background: var(--brand-green);
+}
+
+.quotation-pricing-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1310;
+}
+
+.quotation-pricing-modal {
+  z-index: 1320;
+  overflow-y: auto;
+}
+
+.quotation-pricing-modal__layout {
+  display: grid;
+  grid-template-columns: minmax(9.5rem, 11rem) minmax(0, 1fr);
+  min-height: 16rem;
+}
+
+.quotation-pricing-modal__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 0.75rem;
+  border-right: 1px solid var(--brand-line);
+  background: rgba(31, 58, 95, 0.03);
+}
+
+.quotation-pricing-modal__nav-link {
+  display: block;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--brand-ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+.quotation-pricing-modal__nav-link:hover,
+.quotation-pricing-modal__nav-link:focus-visible {
+  background: rgba(31, 58, 95, 0.06);
+}
+
+.quotation-pricing-modal__nav-link.is-active {
+  background: #fff;
+  color: var(--brand-navy);
+  box-shadow: inset 0 0 0 1px var(--brand-line);
+}
+
+.quotation-pricing-modal__panel {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.quotation-pricing-modal__preview {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--brand-line);
+}
+
+.booking-price-summary__adjustment {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 575.98px) {
+  .quotation-pricing-modal__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .quotation-pricing-modal__nav {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid var(--brand-line);
+  }
+}
+
 .admin-error-logs-toolbar {
   display: flex;
   flex-wrap: wrap;

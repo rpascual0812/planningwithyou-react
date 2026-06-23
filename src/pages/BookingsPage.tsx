@@ -53,10 +53,15 @@ import {
 import { quotationCardSuppliersFromFieldValues } from '../lib/bookingCardSuppliers'
 import {
   bookingPriceSummaryRequiredDownpaymentAmount,
-  bookingPriceSummaryTotalAmount,
   validateBookingFieldDownpayment,
   validateBookingSupplierFieldDownpayment,
 } from '../lib/bookingPriceSummary'
+import {
+  quotationPricingAdjustmentFromApiItem,
+  quotationPricingAdjustmentFromForm,
+  quotationPricingPayloadFromForm,
+  type QuotationPricingAdjustment,
+} from '../lib/quotationPricingAdjustments'
 import { normalizeContactId } from '../lib/contactDisplay'
 import {
   currencyFormatFromAccount,
@@ -447,6 +452,12 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     dateOfEvent = formatYmd(d)
     timeOfEvent = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
+  const fields = fieldValuesToFields(item)
+  const extraGroupNames = emptyBookingGroupNamesFromItem(
+    item.field_values ?? [],
+    item.groups ?? [],
+  )
+  const pricingAdjustment = quotationPricingAdjustmentFromApiItem(item)
   return {
     mode: 'edit',
     id: item.id,
@@ -456,14 +467,14 @@ function bookingItemToEditForm(item: BookingItem): BookingFormState {
     title: item.title,
     dateOfEvent,
     timeOfEvent,
-    fields: fieldValuesToFields(item),
-    extraGroupNames: emptyBookingGroupNamesFromItem(
-      item.field_values ?? [],
-      item.groups ?? [],
-    ),
+    fields,
+    extraGroupNames,
     notes: item.notes,
     pdfUrl: item.pdf_url ?? '',
     totalAmount: item.total_amount ?? '',
+    discountAmount: pricingAdjustment.discountAmount,
+    discountType: pricingAdjustment.discountType,
+    overrideTotalAmount: pricingAdjustment.overrideTotalAmount,
     requiredDownpaymentAmount: item.required_downpayment_amount ?? '',
     paidAmount: item.paid_amount ?? '0',
     paidChargeAmount: item.paid_charge_amount ?? '0',
@@ -1831,6 +1842,33 @@ const BookingsPage = () => {
     }
   }
 
+  const handlePricingApplied = useCallback(
+    async (adjustment: QuotationPricingAdjustment) => {
+      if (!itemModal || itemModal.mode !== 'edit' || itemModal.id == null) {
+        return
+      }
+      const fieldsForSave = itemModal.fields.filter((field) => field.saved)
+      const payload = quotationPricingPayloadFromForm(
+        fieldsForSave,
+        itemModal.extraGroupNames ?? [],
+        modalBookingGroups ?? [],
+        adjustment,
+      )
+      const updated = await updateBookingItem(itemModal.id, payload)
+      const pricingAdjustment = quotationPricingAdjustmentFromApiItem(updated)
+      setItemModal({
+        ...itemModal,
+        discountAmount: pricingAdjustment.discountAmount,
+        discountType: pricingAdjustment.discountType,
+        overrideTotalAmount: pricingAdjustment.overrideTotalAmount,
+        totalAmount:
+          (updated.total_amount ?? payload.total_amount).trim() ||
+          payload.total_amount,
+      })
+    },
+    [itemModal, modalBookingGroups],
+  )
+
   const handleItemSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!itemModal) {
@@ -1907,10 +1945,11 @@ const BookingsPage = () => {
         const existing = await fetchBookingItem(itemModal.id)
         apiGroups = existing.groups ?? []
       }
-      const total_amount = bookingPriceSummaryTotalAmount(
+      const pricingPayload = quotationPricingPayloadFromForm(
         fieldsForSave,
         itemModal.extraGroupNames ?? [],
         apiGroups,
+        quotationPricingAdjustmentFromForm(itemModal),
       )
       const required_downpayment_amount = bookingPriceSummaryRequiredDownpaymentAmount(
         fieldsForSave,
@@ -1921,7 +1960,7 @@ const BookingsPage = () => {
           contact,
           title,
           date_of_event,
-          total_amount,
+          ...pricingPayload,
           required_downpayment_amount,
           groups,
           field_values,
@@ -1933,7 +1972,7 @@ const BookingsPage = () => {
         if (!closeAfterSave) {
           setItemModal({
             ...bookingItemToEditForm(created),
-            totalAmount: (created.total_amount ?? total_amount).trim() || total_amount,
+            totalAmount: (created.total_amount ?? pricingPayload.total_amount).trim() || pricingPayload.total_amount,
             requiredDownpaymentAmount:
               (created.required_downpayment_amount ?? required_downpayment_amount).trim() ||
               required_downpayment_amount,
@@ -1956,7 +1995,7 @@ const BookingsPage = () => {
         const updated = await updateBookingItem(itemModal.id, {
           title,
           date_of_event,
-          total_amount,
+          ...pricingPayload,
           required_downpayment_amount,
           groups,
           field_values,
@@ -1969,7 +2008,7 @@ const BookingsPage = () => {
         if (!closeAfterSave) {
           setItemModal({
             ...bookingItemToEditForm(updated),
-            totalAmount: (updated.total_amount ?? total_amount).trim() || total_amount,
+            totalAmount: (updated.total_amount ?? pricingPayload.total_amount).trim() || pricingPayload.total_amount,
             requiredDownpaymentAmount:
               (updated.required_downpayment_amount ?? required_downpayment_amount).trim() ||
               required_downpayment_amount,
@@ -3055,6 +3094,11 @@ const BookingsPage = () => {
           }
           onClose={closeItemModal}
           onSubmit={handleItemSubmit}
+          onPricingApplied={
+            bookingsWrite && itemModal.mode === 'edit' && itemModal.id != null
+              ? handlePricingApplied
+              : undefined
+          }
           historyRefreshKey={bookingHistoryRefresh}
           onSendToCalendar={
             itemModal.mode === 'edit' && itemModal.id != null

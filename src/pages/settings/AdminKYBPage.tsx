@@ -7,27 +7,74 @@ import {
   type AdminKybStatusFilter,
   type CompanyKybListRecord,
 } from '../../services/adminCompanyKyb'
+import type { PaymongoKybStatus, XenditKybStatus } from '../../services/companyKyb'
 import { formatAppDateTime } from '../../lib/formatDateTime'
 
 const STATUS_OPTIONS: { value: AdminKybStatusFilter; label: string }[] = [
+  { value: 'all', label: 'Pending or approved (any provider)' },
   { value: 'pending_paymongo', label: 'Pending PayMongo' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'draft', label: 'Draft' },
+  { value: 'pending_xendit', label: 'Pending Xendit' },
+  { value: 'approved_paymongo', label: 'Approved PayMongo' },
+  { value: 'approved_xendit', label: 'Approved Xendit' },
+  { value: 'approved', label: 'Approved (any provider)' },
 ]
 
-const STATUS_BADGE: Record<string, string> = {
+const PAYMONGO_STATUS_BADGE: Record<PaymongoKybStatus, string> = {
   draft: 'text-bg-secondary',
   pending_paymongo: 'text-bg-warning',
   approved: 'text-bg-success',
   rejected: 'text-bg-danger',
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Draft',
-  pending_paymongo: 'Pending PayMongo',
+const XENDIT_STATUS_BADGE: Record<XenditKybStatus, string> = {
+  draft: 'text-bg-secondary',
+  pending_xendit: 'text-bg-warning',
+  approved: 'text-bg-success',
+  rejected: 'text-bg-danger',
+}
+
+const PAYMONGO_STATUS_LABEL: Record<PaymongoKybStatus, string> = {
+  draft: 'Not started',
+  pending_paymongo: 'Pending',
   approved: 'Approved',
   rejected: 'Rejected',
+}
+
+const XENDIT_STATUS_LABEL: Record<XenditKybStatus, string> = {
+  draft: 'Not started',
+  pending_xendit: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+}
+
+function providerStatusBadge(
+  provider: 'paymongo' | 'xendit',
+  status: PaymongoKybStatus | XenditKybStatus,
+) {
+  const badgeClass =
+    provider === 'paymongo'
+      ? (PAYMONGO_STATUS_BADGE[status as PaymongoKybStatus] ?? 'text-bg-secondary')
+      : (XENDIT_STATUS_BADGE[status as XenditKybStatus] ?? 'text-bg-secondary')
+  const label =
+    provider === 'paymongo'
+      ? (PAYMONGO_STATUS_LABEL[status as PaymongoKybStatus] ?? status)
+      : (XENDIT_STATUS_LABEL[status as XenditKybStatus] ?? status)
+  return (
+    <span className={`badge ${badgeClass}`} title={status}>
+      {label}
+    </span>
+  )
+}
+
+function startedAt(row: CompanyKybListRecord): string {
+  const paymongo = row.submitted_at
+  const xendit = row.xendit_submitted_at
+  if (paymongo && xendit) {
+    return formatAppDateTime(
+      new Date(paymongo) <= new Date(xendit) ? paymongo : xendit,
+    )
+  }
+  return formatAppDateTime(paymongo ?? xendit)
 }
 
 const AdminKYBPage = () => {
@@ -41,8 +88,7 @@ const AdminKYBPage = () => {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [statusFilter, setStatusFilter] =
-    useState<AdminKybStatusFilter>('pending_paymongo')
+  const [statusFilter, setStatusFilter] = useState<AdminKybStatusFilter>('all')
   const [selected, setSelected] = useState<CompanyKybListRecord | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -135,9 +181,9 @@ const AdminKYBPage = () => {
   return (
     <>
       <p className="text-muted small mb-3">
-        Merchants complete document verification on PayMongo. Use this list to
-        monitor status and manually approve only when PayMongo verification needs
-        an override.
+        Companies appear here once PayMongo or Xendit verification has been
+        started and is pending or approved. Companies that have not started KYB
+        on either provider are not listed.
       </p>
 
       <div className="emails-table-card">
@@ -206,7 +252,8 @@ const AdminKYBPage = () => {
                   <th>Id</th>
                   <th>Company</th>
                   <th>Business</th>
-                  <th>Status</th>
+                  <th>PayMongo</th>
+                  <th>Xendit</th>
                   <th>Started</th>
                   <th>Reviewed</th>
                   <th className="emails-th-actions">Action</th>
@@ -215,7 +262,7 @@ const AdminKYBPage = () => {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="emails-table-empty">
+                    <td colSpan={8} className="emails-table-empty">
                       No verifications for this filter.
                     </td>
                   </tr>
@@ -232,16 +279,9 @@ const AdminKYBPage = () => {
                           <div className="text-muted small">{row.merchant_email}</div>
                         ) : null}
                       </td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            STATUS_BADGE[row.paymongo_status] ?? 'text-bg-secondary'
-                          }`}
-                        >
-                          {STATUS_LABEL[row.paymongo_status] ?? row.paymongo_status}
-                        </span>
-                      </td>
-                      <td>{formatAppDateTime(row.submitted_at)}</td>
+                      <td>{providerStatusBadge('paymongo', row.paymongo_status)}</td>
+                      <td>{providerStatusBadge('xendit', row.xendit_status)}</td>
+                      <td>{startedAt(row)}</td>
                       <td>{formatAppDateTime(row.reviewed_at)}</td>
                       <td className="emails-table-actions">
                         <button
@@ -257,7 +297,7 @@ const AdminKYBPage = () => {
                 )}
                 {hasMore && rows.length > 0 && (
                   <tr className="emails-list-sentinel">
-                    <td colSpan={7} className="text-center text-muted small py-3">
+                    <td colSpan={8} className="text-center text-muted small py-3">
                       {loadingMore ? (
                         <>
                           <span
@@ -275,7 +315,7 @@ const AdminKYBPage = () => {
                 )}
                 {!hasMore && rows.length > 0 && !loading && (
                   <tr className="emails-list-end">
-                    <td colSpan={7} className="emails-table-empty">
+                    <td colSpan={8} className="emails-table-empty">
                       All {totalCount} verification{totalCount !== 1 ? 's have' : ' has'} been loaded.
                     </td>
                   </tr>

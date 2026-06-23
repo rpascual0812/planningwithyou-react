@@ -69,6 +69,13 @@ import { fetchBookingPaymentLinks } from "../services/bookingPaymentLinks";
 import { sendEmail, type EmailPayload } from "../services/emails";
 import { EMPTY_CONTACT_FORM, validateContactPayload } from "../lib/contactForm";
 import { fetchSecuredFileBlobUrl } from "../lib/securedFileUrl";
+import {
+  computeQuotationEffectiveTotal,
+  quotationPricingAdjustmentFromForm,
+  type QuotationDiscountType,
+  type QuotationPricingAdjustment,
+} from "../lib/quotationPricingAdjustments";
+import QuotationPricingModal from "./QuotationPricingModal";
 import { showErrorToast, showSuccessToast } from "../utils/toast";
 
 export type {
@@ -94,6 +101,11 @@ export type BookingFormState = {
   pdfUrl?: string;
   /** Persisted ``bookings.total_amount`` (set after save). */
   totalAmount?: string;
+  /** Optional percent or fixed discount applied to the line-item subtotal. */
+  discountAmount?: string;
+  discountType?: QuotationDiscountType;
+  /** When set, replaces the computed/discounted total. */
+  overrideTotalAmount?: string;
   /** Persisted ``bookings.required_downpayment_amount`` (set after save). */
   requiredDownpaymentAmount?: string;
   /** Sum of successful ``quotation_payments`` base credited (edit). */
@@ -146,6 +158,7 @@ type BookingEditModalProps = {
   onSubmit: (e: SubmitEvent<HTMLFormElement>) => void | Promise<void>;
   onSendToCalendar?: () => void;
   onDuplicated?: (item: BookingItemRecord) => void | Promise<void>;
+  onPricingApplied?: (adjustment: QuotationPricingAdjustment) => Promise<void>;
   historyRefreshKey?: number;
   /** When false, the modal is view-only (no save / field edits). */
   canWrite?: boolean;
@@ -225,6 +238,7 @@ const BookingEditModal = ({
   onClose,
   onSubmit,
   onSendToCalendar,
+  onPricingApplied,
   historyRefreshKey = 0,
   canWrite = true,
   saving = false,
@@ -282,6 +296,7 @@ const BookingEditModal = ({
   const [localHistoryRefresh, setLocalHistoryRefresh] = useState(0);
   const [emailLogsRefresh, setEmailLogsRefresh] = useState(0);
   const [paymentsModalOpen, setPaymentsModalOpen] = useState(false);
+  const [pricingModalOpen, setPricingModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailPaymentLinkMode, setEmailPaymentLinkMode] = useState(false);
   const [paymentLinkUrlForEmail, setPaymentLinkUrlForEmail] = useState<
@@ -825,21 +840,29 @@ const BookingEditModal = ({
     () => getBookingPriceGroups(fieldGroups),
     [fieldGroups],
   );
+  const priceTotal = useMemo(
+    () => sumBookingPriceGroups(priceGroups),
+    [priceGroups],
+  );
+  const pricingAdjustment = useMemo(
+    () => quotationPricingAdjustmentFromForm(form),
+    [form.discountAmount, form.discountType, form.overrideTotalAmount],
+  );
+  const effectivePriceTotal = useMemo(
+    () => computeQuotationEffectiveTotal(priceTotal, pricingAdjustment),
+    [priceTotal, pricingAdjustment],
+  );
   const showPaymentsButton =
     !viewOnly &&
     form.mode === "edit" &&
     form.id != null &&
-    bookingStoredTotalAmountHasValue(form.totalAmount);
-
-  const storedBookingTotal = useMemo(() => {
-    const raw = (form.totalAmount ?? "").trim();
-    const n = Number(raw);
-    return !Number.isNaN(n) && n > 0 ? n : 0;
-  }, [form.totalAmount]);
-
-  const priceTotal = useMemo(
-    () => sumBookingPriceGroups(priceGroups),
-    [priceGroups],
+    (bookingStoredTotalAmountHasValue(form.totalAmount) ||
+      effectivePriceTotal > 0);
+  const hasPricingAdjustment = useMemo(
+    () =>
+      Boolean(pricingAdjustment.overrideTotalAmount.trim()) ||
+      Boolean(pricingAdjustment.discountAmount.trim()),
+    [pricingAdjustment],
   );
   const requiredDownpaymentTotal = useMemo(
     () => bookingPriceSummaryRequiredDownpayment(form.fields),
@@ -869,7 +892,7 @@ const BookingEditModal = ({
     () => parseAmount(form.refundedAmount),
     [form.refundedAmount],
   );
-  const balanceTotal = storedBookingTotal > 0 ? storedBookingTotal : priceTotal;
+  const balanceTotal = effectivePriceTotal;
   const remainingBalance = Math.max(0, balanceTotal - paidTotal);
   const showPaymentBalance =
     form.mode === "edit" && form.id != null && balanceTotal > 0;
@@ -1292,7 +1315,9 @@ const BookingEditModal = ({
     setFieldDragOver(null);
   };
 
-  const resolveFieldDragSourceIdx = (e: DragEvent<HTMLElement>): number | null => {
+  const resolveFieldDragSourceIdx = (
+    e: DragEvent<HTMLElement>,
+  ): number | null => {
     const fromRef = fieldDragIdxRef.current;
     if (fromRef !== null) return fromRef;
     try {
@@ -1392,7 +1417,10 @@ const BookingEditModal = ({
     window.setTimeout(() => clearFieldDrag(), 0);
   };
 
-  const handleFieldBuilderDragOver = (e: DragEvent<HTMLElement>, idx: number) => {
+  const handleFieldBuilderDragOver = (
+    e: DragEvent<HTMLElement>,
+    idx: number,
+  ) => {
     if (fieldDragIdxRef.current === null) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1440,9 +1468,7 @@ const BookingEditModal = ({
           viewOnly ? undefined : (e) => handleSavedFieldDragOver(e, idx)
         }
         onDrop={
-          viewOnly
-            ? undefined
-            : (e) => handleFieldDrop(e, idx, groupName)
+          viewOnly ? undefined : (e) => handleFieldDrop(e, idx, groupName)
         }
       >
         {!viewOnly && (
@@ -1466,9 +1492,7 @@ const BookingEditModal = ({
             viewOnly ? undefined : (e) => handleSavedFieldDragOver(e, idx)
           }
           onDrop={
-            viewOnly
-              ? undefined
-              : (e) => handleFieldDrop(e, idx, groupName)
+            viewOnly ? undefined : (e) => handleFieldDrop(e, idx, groupName)
           }
         >
           {renderSavedField(field, idx, showSchemaActions)}
@@ -2480,7 +2504,9 @@ const BookingEditModal = ({
                                           ? undefined
                                           : (e) => {
                                               if (
-                                                (e.target as HTMLElement).closest(
+                                                (
+                                                  e.target as HTMLElement
+                                                ).closest(
                                                   ".booking-saved-field-row, .booking-field-builder",
                                                 )
                                               ) {
@@ -2521,21 +2547,21 @@ const BookingEditModal = ({
                                           <div className="booking-fields-manage-panel__fields">
                                             {group.items.map(
                                               ({ field, idx }) =>
-                                                field.saved ? (
-                                                  renderDraggableSavedField(
-                                                    field,
-                                                    idx,
-                                                    true,
-                                                    group.groupName,
-                                                  )
-                                                ) : (
-                                                  renderUnsavedFieldCard(
-                                                    idx,
-                                                    group.groupName,
-                                                  )
-                                                ),
+                                                field.saved
+                                                  ? renderDraggableSavedField(
+                                                      field,
+                                                      idx,
+                                                      true,
+                                                      group.groupName,
+                                                    )
+                                                  : renderUnsavedFieldCard(
+                                                      idx,
+                                                      group.groupName,
+                                                    ),
                                             )}
-                                            {renderGroupDropZone(group.groupName)}
+                                            {renderGroupDropZone(
+                                              group.groupName,
+                                            )}
                                             <button
                                               type="button"
                                               className="btn btn-sm btn-outline-primary booking-fields-manage-panel__add-field"
@@ -2943,8 +2969,22 @@ const BookingEditModal = ({
                           </div>
                         )}
                         <div className="booking-price-summary mt-auto">
-                          <h6 className="booking-price-summary__title">
+                          <h6 className="booking-price-summary__title d-flex justify-content-between">
                             Price summary
+                            {!viewOnly && (
+                              <button
+                                type="button"
+                                className="btn btn-link booking-edit-modal-header__pricing-btn"
+                                aria-label="Quotation pricing"
+                                title="Quotation pricing"
+                                onClick={() => setPricingModalOpen(true)}
+                              >
+                                <i
+                                  className="bi bi-cash-coin"
+                                  aria-hidden="true"
+                                />
+                              </button>
+                            )}
                           </h6>
                           {priceGroups.length === 0 ? (
                             <p className="booking-price-summary__empty text-muted small mb-0">
@@ -2993,10 +3033,56 @@ const BookingEditModal = ({
                               ))}
                             </div>
                           )}
+                          {hasPricingAdjustment && (
+                            <>
+                              <div className="booking-price-summary__row booking-price-summary__adjustment">
+                                <span className="text-muted">
+                                  Line-item subtotal
+                                </span>
+                                <span>
+                                  {formatCurrency(priceTotal, currencyOptions)}
+                                </span>
+                              </div>
+                              {pricingAdjustment.discountAmount.trim() ? (
+                                <div className="booking-price-summary__row booking-price-summary__adjustment">
+                                  <span className="text-muted">
+                                    Discount
+                                    {pricingAdjustment.discountType ===
+                                    "percent"
+                                      ? ` (${pricingAdjustment.discountAmount}%)`
+                                      : ""}
+                                  </span>
+                                  <span>
+                                    −
+                                    {formatCurrency(
+                                      Math.max(
+                                        0,
+                                        priceTotal - effectivePriceTotal,
+                                      ),
+                                      currencyOptions,
+                                    )}
+                                  </span>
+                                </div>
+                              ) : null}
+                              {pricingAdjustment.overrideTotalAmount.trim() ? (
+                                <div className="booking-price-summary__row booking-price-summary__adjustment">
+                                  <span className="text-muted">
+                                    Manual total override
+                                  </span>
+                                  <span className="text-muted small">
+                                    Applied
+                                  </span>
+                                </div>
+                              ) : null}
+                            </>
+                          )}
                           <div className="booking-price-summary__total">
                             <span>Total</span>
                             <span>
-                              {formatCurrency(priceTotal, currencyOptions)}
+                              {formatCurrency(
+                                effectivePriceTotal,
+                                currencyOptions,
+                              )}
                             </span>
                           </div>
                           <div className="booking-price-summary__total booking-price-summary__downpayment">
@@ -3271,7 +3357,7 @@ const BookingEditModal = ({
         <BookingPaymentsModal
           bookingId={form.id}
           nestedModalOpen={emailModalOpen}
-          bookingTotal={storedBookingTotal}
+          bookingTotal={effectivePriceTotal}
           requiredDownpayment={
             Number((form.requiredDownpaymentAmount ?? "").trim()) > 0
               ? Number(form.requiredDownpaymentAmount)
@@ -3348,6 +3434,38 @@ const BookingEditModal = ({
           }
           onClose={() => setAiPanelOpen(false)}
           onUseEmailDraft={handleUseAiEmailDraft}
+        />
+      )}
+
+      {pricingModalOpen && (
+        <QuotationPricingModal
+          open={pricingModalOpen}
+          lineSubtotal={priceTotal}
+          currencyOptions={currencyOptions}
+          value={pricingAdjustment}
+          onClose={() => setPricingModalOpen(false)}
+          onApply={(next) => {
+            const effectiveTotal = computeQuotationEffectiveTotal(
+              priceTotal,
+              next,
+            ).toFixed(2);
+            onChange({
+              ...form,
+              discountAmount: next.discountAmount,
+              discountType: next.discountType,
+              overrideTotalAmount: next.overrideTotalAmount,
+              totalAmount: effectiveTotal,
+            });
+            if (onPricingApplied) {
+              void onPricingApplied(next).catch((err) => {
+                showErrorToast(
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to save quotation pricing",
+                );
+              });
+            }
+          }}
         />
       )}
 
