@@ -1,8 +1,9 @@
-/** Subscription slug for AI Plus (matches ``subscriptions.plan``). */
-export const AI_PLUS_PLAN = "ai";
+import { ADMIN_PLAN, AI_PLUS_PLAN } from "./subscriptionPlans";
+
+export { AI_PLUS_PLAN } from "./subscriptionPlans";
 
 export function hasAiPlusSubscription(
   plan: string | null | undefined,
 ): boolean {
-  return plan === AI_PLUS_PLAN;
+  return plan === AI_PLUS_PLAN || plan === ADMIN_PLAN;
 }

@@ -8,6 +8,7 @@ export type SubscriptionPlanPricing = {
 export type SubscriptionPlanPricingSettings = {
   pro: SubscriptionPlanPricing
   ai: SubscriptionPlanPricing
+  admin: SubscriptionPlanPricing
 }
 
 export async function fetchAdminSubscriptionPlanPricing(): Promise<SubscriptionPlanPricingSettings> {

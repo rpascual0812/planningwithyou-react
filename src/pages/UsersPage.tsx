@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
+import { planGrantsPaidFeatures } from '../lib/subscriptionPlans'
 import { useFeatureAccess } from '../hooks/useFeatureAccess'
 import EditModalHistoryTabs from '../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../components/ResourceHistoryPanel'
@@ -84,8 +85,7 @@ const UsersPage = () => {
   const canManageUser = (user: UserRecord): boolean => !user.account_restricted
   const canAddUser =
     usersWrite &&
-    subscriptionPlan != null &&
-    subscriptionPlan !== 'free' &&
+    planGrantsPaidFeatures(subscriptionPlan) &&
     !atSeatLimit
   const [searchParams, setSearchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
@@ -435,7 +435,7 @@ const UsersPage = () => {
               onChange={setSelectedCompanyId}
             />
           </div>
-          {atSeatLimit && subscriptionPlan !== 'free' && (
+          {atSeatLimit && planGrantsPaidFeatures(subscriptionPlan) && (
             <div
               className="alert alert-warning py-2 mx-2 mt-2 mb-0"
               role="status"
@@ -482,7 +482,7 @@ const UsersPage = () => {
                   ? `${users.length} of ${usersTotal} users`
                   : `${users.length} user${users.length !== 1 ? 's' : ''}`}
               </span>
-              {subscriptionPlan !== 'free' && (
+              {planGrantsPaidFeatures(subscriptionPlan) && (
                 <button
                   type="button"
                   className="btn users-btn-add"

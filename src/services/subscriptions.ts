@@ -179,6 +179,31 @@ export async function subscribeToFreePlan(
   return res.json()
 }
 
+export async function subscribeToAdminPlan(
+  billingCycle: 'monthly' | 'yearly' = 'monthly',
+  teamSeats = 1,
+): Promise<AccountSubscriptionRecord> {
+  const res = await apiFetch(buildApiUrl('/subscriptions/subscribe-admin/'), {
+    method: 'POST',
+    headers: {
+      ...authHeaders(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ billing_cycle: billingCycle, team_seats: teamSeats }),
+  })
+  if (!res.ok) {
+    let detail = 'Failed to switch to the Admin plan'
+    try {
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) detail = body.detail
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail)
+  }
+  return res.json()
+}
+
 export async function createSubscriptionCheckout(
   payload: SubscriptionCheckoutPayload,
 ): Promise<SubscriptionCheckoutResponse> {

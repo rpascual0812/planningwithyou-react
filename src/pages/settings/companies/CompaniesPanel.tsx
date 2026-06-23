@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import EditModalHistoryTabs from "../../../components/EditModalHistoryTabs";
 import ResourceHistoryPanel from "../../../components/ResourceHistoryPanel";
+import { planGrantsPaidFeatures } from "../../../lib/subscriptionPlans";
 import { useAuthSession } from "../../../context/AuthSessionContext";
 import { useFeatureAccess } from "../../../hooks/useFeatureAccess";
 import { historyPaths } from "../../../services/history";
@@ -68,7 +69,7 @@ const CompaniesPanel = () => {
   const { subscriptionPlan } = useAuthSession();
   const { canWrite: companiesWrite } = useFeatureAccess("companies_settings");
   const canAddCompany =
-    companiesWrite && subscriptionPlan != null && subscriptionPlan !== "free";
+    companiesWrite && planGrantsPaidFeatures(subscriptionPlan);
   const [companies, setCompanies] = useState<CompanyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

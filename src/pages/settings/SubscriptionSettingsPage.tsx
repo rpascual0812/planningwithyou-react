@@ -10,11 +10,17 @@ import {
   fetchCurrentAccountSubscription,
   fetchSubscriptionPlans,
   previewSubscriptionCheckout,
+  subscribeToAdminPlan,
   subscribeToFreePlan,
   type AccountSubscriptionRecord,
   type SubscriptionCheckoutPreview,
   type SubscriptionPlanRecord,
 } from '../../services/subscriptions'
+import {
+  ADMIN_PLAN,
+  FREE_PLAN,
+  isLifetimePlan,
+} from '../../lib/subscriptionPlans'
 import {
   fetchSubscriptionPaymentProvider,
   SUBSCRIPTION_PROVIDER_COPY,
@@ -374,24 +380,27 @@ const SubscriptionSettingsPage = () => {
 
   const cycleSuffix = billingCycle === 'monthly' ? 'monthly' : 'yearly'
   const billingCycleLabel = billingCycle === 'monthly' ? 'Monthly' : 'Yearly'
-  const isFreePlan = selectedPlanId === 'free'
-  const currentPlanIsFree = currentSubscription?.plan === 'free'
+  const isNoChargePlan = isLifetimePlan(selectedPlanId)
+  const isFreePlan = selectedPlanId === FREE_PLAN
+  const isAdminPlan = selectedPlanId === ADMIN_PLAN
+  const currentPlanIsFree = currentSubscription?.plan === FREE_PLAN
+  const currentPlanIsAdmin = currentSubscription?.plan === ADMIN_PLAN
 
   const selectPlan = (plan: SubscriptionPlan) => {
-    if (!plan.isSelectable && plan.id !== 'free') return
+    if (!plan.isSelectable && !isLifetimePlan(plan.id)) return
     setSelectedPlanId(plan.id)
     setTeamSeats(1)
-    if (plan.id === 'free') {
+    if (isLifetimePlan(plan.id)) {
       setBillingCycle('monthly')
     }
     setCheckoutError(null)
   }
 
   useEffect(() => {
-    if (isFreePlan && billingCycle === 'yearly') {
+    if (isNoChargePlan && billingCycle === 'yearly') {
       setBillingCycle('monthly')
     }
-  }, [billingCycle, isFreePlan])
+  }, [billingCycle, isNoChargePlan])
 
   const handleApplyDiscount = () => {
     setDiscountMessage('Discount code invalid')
@@ -412,7 +421,7 @@ const SubscriptionSettingsPage = () => {
   }, [])
 
   const subscriptionHasChanges = useMemo(() => {
-    if (isFreePlan || !selectionReady || !initialSelection) return false
+    if (isNoChargePlan || !selectionReady || !initialSelection) return false
     return (
       billingCycle !== initialSelection.billingCycle ||
       selectedPlanId !== initialSelection.selectedPlanId ||
@@ -421,7 +430,7 @@ const SubscriptionSettingsPage = () => {
   }, [
     billingCycle,
     initialSelection,
-    isFreePlan,
+    isNoChargePlan,
     selectionReady,
     selectedPlanId,
     teamSeats,
@@ -438,7 +447,7 @@ const SubscriptionSettingsPage = () => {
   )
 
   const payNowForExpiredRenewal =
-    !isFreePlan &&
+    !isNoChargePlan &&
     selectionReady &&
     subscriptionRenewalDue &&
     (selectedPlanId === renewalPlanId ||
@@ -460,9 +469,23 @@ const SubscriptionSettingsPage = () => {
     initialSelection !== null &&
     selectedPlanId !== initialSelection.selectedPlanId
 
+  const switchingToAdmin =
+    isAdminPlan &&
+    !currentPlanIsAdmin &&
+    selectionReady &&
+    initialSelection !== null &&
+    selectedPlanId !== initialSelection.selectedPlanId
+
   const freeSubscribeClickable =
     subscriptionWrite &&
     switchingToFree &&
+    !checkoutLoading &&
+    !currentSubscriptionLoading &&
+    !plansLoading
+
+  const adminSubscribeClickable =
+    subscriptionWrite &&
+    switchingToAdmin &&
     !checkoutLoading &&
     !currentSubscriptionLoading &&
     !plansLoading
@@ -568,8 +591,47 @@ const SubscriptionSettingsPage = () => {
     }
   }
 
+  const handleSubscribeToAdminPlan = async () => {
+    if (!adminSubscribeClickable) return
+    setCheckoutError(null)
+
+    const confirmed = await Swal.fire({
+      title: 'Switch to Admin plan?',
+      html:
+        '<div class="text-start">' +
+        '<p class="mb-2">Your account will move to the internal <strong>Admin</strong> plan immediately.</p>' +
+        '<p class="mb-0">Paid billing stops and staff features stay enabled at no charge.</p>' +
+        '</div>',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Activate Admin plan',
+      cancelButtonText: 'Cancel',
+      focusCancel: true,
+      reverseButtons: true,
+    })
+    if (!confirmed.isConfirmed) return
+
+    setCheckoutLoading(true)
+    try {
+      await subscribeToAdminPlan('monthly', teamSeats)
+      setCheckoutNoticeTone('info')
+      setCheckoutNotice('You are now on the Admin plan.')
+      lastAppliedSubscriptionKeyRef.current = ''
+      setSelectionReady(false)
+      setInitialSelection(null)
+      await loadCurrentSubscription()
+      syncAuthState()
+    } catch (e) {
+      setCheckoutError(
+        e instanceof Error ? e.message : 'Failed to switch to the Admin plan',
+      )
+    } finally {
+      setCheckoutLoading(false)
+    }
+  }
+
   const handlePayNow = async () => {
-    if (isFreePlan || !payNowClickable) return
+    if (isNoChargePlan || !payNowClickable) return
     setCheckoutError(null)
     const renewExpired = subscriptionRenewalDue
     try {
@@ -861,14 +923,16 @@ const SubscriptionSettingsPage = () => {
   }, [billingCycle, formatPrice, plans, selectedPlanId, teamSeats])
 
   const nextPaymentNote = useMemo(() => {
-    if (isFreePlan) {
-      return 'No upcoming charges on the Free plan'
+    if (isNoChargePlan) {
+      return isAdminPlan
+        ? 'No charge on the Admin plan'
+        : 'No upcoming charges on the Free plan'
     }
     const chargeDateLabel = currentSubscription?.end_date
       ? formatAccountSubscriptionEndDate(currentSubscription.end_date)
       : formatNextPaymentCharge(billingCycle)
     return `Next payment will charge on the ${chargeDateLabel}`
-  }, [billingCycle, currentSubscription?.end_date, isFreePlan])
+  }, [billingCycle, currentSubscription?.end_date, isAdminPlan, isNoChargePlan])
 
   const expiredPaidPlanId = currentSubscription?.expired_paid_plan ?? null
   const activeSubscriptionExpired =
@@ -925,7 +989,7 @@ const SubscriptionSettingsPage = () => {
           )}
           <p className="sub-current-plan-detail">
             <strong>{currentSubscription.plan_name}</strong>
-            {currentSubscription.plan !== 'free' && (
+            {!isLifetimePlan(currentSubscription.plan) && (
               <>
                 {' · '}
                 {currentSubscription.billing_cycle === 'monthly' ? 'Monthly' : 'Yearly'}
@@ -938,15 +1002,18 @@ const SubscriptionSettingsPage = () => {
             {' · '}
             {currentSubscription.team_seats}{' '}
             allowed {currentSubscription.team_seats === 1 ? 'user' : 'users'}
-            {currentSubscription.plan !== 'free' && currentSubscription.end_date && (
+            {!isLifetimePlan(currentSubscription.plan) && currentSubscription.end_date && (
               <>
                 {' · '}
                 prepaid through{' '}
                 {formatAccountSubscriptionEndDate(currentSubscription.end_date)}
               </>
             )}
-            {currentSubscription.plan === 'free' && (
+            {currentSubscription.plan === FREE_PLAN && (
               <> · Free forever (1 user)</>
+            )}
+            {currentSubscription.plan === ADMIN_PLAN && (
+              <> · Internal staff plan (no charge)</>
             )}
           </p>
           {currentSubscription.scheduled_plan && currentSubscription.end_date && (
@@ -966,7 +1033,7 @@ const SubscriptionSettingsPage = () => {
           <h6 className="sub-col-title">Choose plan</h6>
           <div className="sub-pill-toggle" role="tablist" aria-label="Billing cycle">
             {(['monthly', 'yearly'] as const)
-              .filter((cycle) => cycle === 'monthly' || !isFreePlan)
+              .filter((cycle) => cycle === 'monthly' || !isNoChargePlan)
               .map((cycle) => (
               <button
                 key={cycle}
@@ -1014,13 +1081,13 @@ const SubscriptionSettingsPage = () => {
                 }${isDisabled ? ' is-disabled' : ''}`}
               >
                 <label
-                  className={`sub-plan-head${isDisabled && plan.id !== 'free' ? ' is-disabled' : ''}`}
+                  className={`sub-plan-head${isDisabled && !isLifetimePlan(plan.id) ? ' is-disabled' : ''}`}
                 >
                   <input
                     type="radio"
                     name="sub-plan"
                     checked={isSelected}
-                    disabled={isDisabled && plan.id !== 'free'}
+                    disabled={isDisabled && !isLifetimePlan(plan.id)}
                     onChange={() => selectPlan(plan)}
                   />
                   <div className="sub-plan-name-wrap">
@@ -1156,7 +1223,7 @@ const SubscriptionSettingsPage = () => {
             )}
           </div>
 
-          {!isFreePlan && totals.planName && (
+          {!isNoChargePlan && totals.planName && (
             <>
               <div className="sub-line">
                 <div className="sub-line-text">
@@ -1222,7 +1289,22 @@ const SubscriptionSettingsPage = () => {
             </button>
           )}
 
-          {!isFreePlan && (
+          {switchingToAdmin && (
+            <button
+              type="button"
+              className={`sub-pay-btn${!adminSubscribeClickable ? ' is-disabled' : ''}`}
+              disabled={!adminSubscribeClickable}
+              aria-disabled={!adminSubscribeClickable}
+              onClick={() => {
+                if (!adminSubscribeClickable) return
+                void handleSubscribeToAdminPlan()
+              }}
+            >
+              {checkoutLoading ? 'Saving…' : 'Activate Admin plan'}
+            </button>
+          )}
+
+          {!isNoChargePlan && (
             <button
               type="button"
               className={`sub-pay-btn${payNowDisabled ? ' is-disabled' : ''}`}
@@ -1246,7 +1328,7 @@ const SubscriptionSettingsPage = () => {
             </button>
           )}
 
-          {(switchingToFree || !isFreePlan) && checkoutError && (
+          {(switchingToFree || switchingToAdmin || !isNoChargePlan) && checkoutError && (
             <p className="sub-pay-error" role="alert">
               {checkoutError}
             </p>

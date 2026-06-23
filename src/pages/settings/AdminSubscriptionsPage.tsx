@@ -43,6 +43,7 @@ const PROVIDER_CARDS: ProviderCard[] = [
 const EMPTY_PRICING: SubscriptionPlanPricingSettings = {
   pro: { base_price: '995.00', price_per_user: '100.00' },
   ai: { base_price: '1495.00', price_per_user: '150.00' },
+  admin: { base_price: '0.00', price_per_user: '0.00' },
 }
 
 const AdminSubscriptionsPage = () => {
@@ -77,7 +78,7 @@ const AdminSubscriptionsPage = () => {
     setPricingError(null)
     try {
       const data = await fetchAdminSubscriptionPlanPricing()
-      setPricing(data)
+      setPricing({ ...EMPTY_PRICING, ...data, admin: data.admin ?? EMPTY_PRICING.admin })
     } catch (e) {
       setPricingError(
         e instanceof Error ? e.message : 'Failed to load subscription plan pricing',
@@ -111,7 +112,7 @@ const AdminSubscriptionsPage = () => {
   }
 
   const handlePricingFieldChange = (
-    plan: 'pro' | 'ai',
+    plan: 'pro' | 'ai' | 'admin',
     field: 'base_price' | 'price_per_user',
     value: string,
   ) => {
@@ -176,7 +177,7 @@ const AdminSubscriptionsPage = () => {
                     the monthly rate. Additional users are charged per seat above the first user.
                   </p>
                   <div className="row g-3">
-                    <div className="col-md-6">
+                    <div className="col-md-4">
                       <h6 className="mb-2">Pro</h6>
                       <label className="form-label small mb-1" htmlFor="pro-base-price">
                         Base price (1 user)
@@ -209,7 +210,7 @@ const AdminSubscriptionsPage = () => {
                         }
                       />
                     </div>
-                    <div className="col-md-6">
+                    <div className="col-md-4">
                       <h6 className="mb-2">AI Plus</h6>
                       <label className="form-label small mb-1" htmlFor="ai-base-price">
                         Base price (1 user)
@@ -239,6 +240,42 @@ const AdminSubscriptionsPage = () => {
                         disabled={!subscriptionsWrite || pricingSaving}
                         onChange={(e) =>
                           handlePricingFieldChange('ai', 'price_per_user', e.target.value)
+                        }
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <h6 className="mb-2">Admin</h6>
+                      <p className="text-muted small mb-2">
+                        Visible only to platform admins. Zero is allowed.
+                      </p>
+                      <label className="form-label small mb-1" htmlFor="admin-base-price">
+                        Base price (1 user)
+                      </label>
+                      <input
+                        id="admin-base-price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="form-control form-control-sm mb-2"
+                        value={pricing.admin.base_price}
+                        disabled={!subscriptionsWrite || pricingSaving}
+                        onChange={(e) =>
+                          handlePricingFieldChange('admin', 'base_price', e.target.value)
+                        }
+                      />
+                      <label className="form-label small mb-1" htmlFor="admin-price-per-user">
+                        Price per additional user
+                      </label>
+                      <input
+                        id="admin-price-per-user"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="form-control form-control-sm"
+                        value={pricing.admin.price_per_user}
+                        disabled={!subscriptionsWrite || pricingSaving}
+                        onChange={(e) =>
+                          handlePricingFieldChange('admin', 'price_per_user', e.target.value)
                         }
                       />
                     </div>
