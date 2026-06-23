@@ -193,8 +193,14 @@ export async function createSubscriptionCheckout(
   if (!res.ok) {
     let detail = 'Failed to start subscription checkout'
     try {
-      const body = (await res.json()) as { detail?: string }
+      const body = (await res.json()) as { detail?: string; errors?: unknown }
       if (body.detail) detail = body.detail
+      if (Array.isArray(body.errors) && body.errors.length > 0) {
+        const extra = body.errors.map((item) => String(item)).filter(Boolean).join('; ')
+        if (extra && !detail.includes(extra)) {
+          detail = `${detail} ${extra}`.trim()
+        }
+      }
     } catch {
       /* ignore */
     }
