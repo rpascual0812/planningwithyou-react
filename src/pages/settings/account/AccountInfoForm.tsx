@@ -91,10 +91,7 @@ const AccountInfoForm = () => {
       {error && <div className="alert alert-danger py-2">{error}</div>}
       {success && <div className="alert alert-success py-2">{success}</div>}
 
-      <fieldset
-        disabled={!accountWrite}
-        className="account-info-fieldset border-0 m-0 p-0 min-w-0"
-      >
+      <fieldset disabled={!accountWrite} className="account-info-fieldset">
       <label className="account-info-field">
         <span className="account-info-label">Account Name</span>
         <span className="account-info-control">
@@ -152,7 +149,7 @@ const AccountInfoForm = () => {
         </span>
       </label>
 
-      <label className="account-info-field">
+      <label className="account-info-field account-info-field--timezone">
         <span className="account-info-label" id="account-timezone-label">
           Timezone
         </span>
@@ -161,6 +158,7 @@ const AccountInfoForm = () => {
           <TimezoneSelect
             hideLabel
             embedded
+            wrapperClassName="account-info-timezone-wrap"
             labelledBy="account-timezone-label"
             value={timezone}
             onChange={setTimezone}
@@ -180,8 +178,8 @@ const AccountInfoForm = () => {
     </form>
 
     {accountId != null && (
-      <div className="mt-4 pt-3 border-top">
-        <h3 className="h6 mb-3">Change history</h3>
+      <div className="account-info-history">
+        <h3 className="account-info-history__title">Change history</h3>
         <ResourceHistoryPanel
           historyPath={historyPaths.account(accountId)}
           refreshKey={historyRefresh}

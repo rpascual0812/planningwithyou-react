@@ -5889,7 +5889,7 @@ body,
   background: transparent;
   box-shadow: none;
   border-radius: 0;
-  padding: 0.7rem 2rem 0.7rem 0.35rem;
+  padding: 0.7rem 2rem 0.7rem 2.55rem;
 }
 
 .searchable-select--embedded .searchable-select__trigger:hover:not(:disabled),
@@ -9034,9 +9034,7 @@ body,
 }
 
 .faq-answer--form {
-  padding-left: 0.9rem;
-  padding-right: 0.9rem;
-  padding-bottom: 1rem;
+  padding: 1rem 1rem 1.15rem;
   color: var(--brand-ink);
 }
 
@@ -9057,16 +9055,27 @@ body,
 .account-info-form {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  padding-top: 0.5rem;
+  gap: 1.25rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--brand-line);
+}
+
+.account-info-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .account-info-field {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);
-  align-items: center;
-  column-gap: 0.95rem;
+  align-items: start;
+  column-gap: 1rem;
+  row-gap: 0.35rem;
   margin: 0;
 }
 
@@ -9075,6 +9084,7 @@ body,
   font-weight: 800;
   font-size: 0.9rem;
   letter-spacing: -0.005em;
+  padding-top: 0.72rem;
 }
 
 .account-info-control {
@@ -9160,10 +9170,28 @@ body,
   pointer-events: none;
 }
 
+.account-info-timezone-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.account-info-field--timezone .searchable-select {
+  width: 100%;
+}
+
+.account-info-field--timezone .searchable-select__panel {
+  right: auto;
+  width: 200%;
+  max-width: min(42rem, calc(100vw - 2.5rem));
+}
+
 .account-info-actions {
   display: flex;
   justify-content: flex-end;
-  padding-top: 0.5rem;
+  padding-top: 1rem;
+  margin-top: 0.25rem;
+  border-top: 1px solid var(--brand-line);
 }
 
 .account-info-save {
@@ -9196,8 +9224,25 @@ body,
 @media (max-width: 575.98px) {
   .account-info-field {
     grid-template-columns: 1fr;
-    row-gap: 0.4rem;
+    row-gap: 0.45rem;
   }
+
+  .account-info-label {
+    padding-top: 0;
+  }
+}
+
+.account-info-history {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--brand-line);
+}
+
+.account-info-history__title {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--brand-ink);
 }
 
 /* ============================================================
