@@ -10,14 +10,12 @@ import {
   fetchCurrentAccountSubscription,
   fetchSubscriptionPlans,
   previewSubscriptionCheckout,
-  subscribeToAdminPlan,
   subscribeToFreePlan,
   type AccountSubscriptionRecord,
   type SubscriptionCheckoutPreview,
   type SubscriptionPlanRecord,
 } from '../../services/subscriptions'
 import {
-  ADMIN_PLAN,
   FREE_PLAN,
   isLifetimePlan,
 } from '../../lib/subscriptionPlans'
@@ -67,7 +65,7 @@ function firstSelectablePlanId(planList: SubscriptionPlan[]): string {
   return planList.find((p) => p.isSelectable)?.id ?? ''
 }
 
-const PAID_PLAN_IDS = new Set(['pro', 'ai'])
+const PAID_PLAN_IDS = new Set(['pro', 'ai', 'admin'])
 
 function isPaidPlanId(planId: string): boolean {
   return PAID_PLAN_IDS.has(planId)
@@ -382,9 +380,7 @@ const SubscriptionSettingsPage = () => {
   const billingCycleLabel = billingCycle === 'monthly' ? 'Monthly' : 'Yearly'
   const isNoChargePlan = isLifetimePlan(selectedPlanId)
   const isFreePlan = selectedPlanId === FREE_PLAN
-  const isAdminPlan = selectedPlanId === ADMIN_PLAN
   const currentPlanIsFree = currentSubscription?.plan === FREE_PLAN
-  const currentPlanIsAdmin = currentSubscription?.plan === ADMIN_PLAN
 
   const selectPlan = (plan: SubscriptionPlan) => {
     if (!plan.isSelectable && !isLifetimePlan(plan.id)) return
@@ -469,23 +465,9 @@ const SubscriptionSettingsPage = () => {
     initialSelection !== null &&
     selectedPlanId !== initialSelection.selectedPlanId
 
-  const switchingToAdmin =
-    isAdminPlan &&
-    !currentPlanIsAdmin &&
-    selectionReady &&
-    initialSelection !== null &&
-    selectedPlanId !== initialSelection.selectedPlanId
-
   const freeSubscribeClickable =
     subscriptionWrite &&
     switchingToFree &&
-    !checkoutLoading &&
-    !currentSubscriptionLoading &&
-    !plansLoading
-
-  const adminSubscribeClickable =
-    subscriptionWrite &&
-    switchingToAdmin &&
     !checkoutLoading &&
     !currentSubscriptionLoading &&
     !plansLoading
@@ -585,45 +567,6 @@ const SubscriptionSettingsPage = () => {
     } catch (e) {
       setCheckoutError(
         e instanceof Error ? e.message : 'Failed to switch to the Free plan',
-      )
-    } finally {
-      setCheckoutLoading(false)
-    }
-  }
-
-  const handleSubscribeToAdminPlan = async () => {
-    if (!adminSubscribeClickable) return
-    setCheckoutError(null)
-
-    const confirmed = await Swal.fire({
-      title: 'Switch to Admin plan?',
-      html:
-        '<div class="text-start">' +
-        '<p class="mb-2">Your account will move to the internal <strong>Admin</strong> plan immediately.</p>' +
-        '<p class="mb-0">Paid billing stops and staff features stay enabled at no charge.</p>' +
-        '</div>',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Activate Admin plan',
-      cancelButtonText: 'Cancel',
-      focusCancel: true,
-      reverseButtons: true,
-    })
-    if (!confirmed.isConfirmed) return
-
-    setCheckoutLoading(true)
-    try {
-      await subscribeToAdminPlan('monthly', teamSeats)
-      setCheckoutNoticeTone('info')
-      setCheckoutNotice('You are now on the Admin plan.')
-      lastAppliedSubscriptionKeyRef.current = ''
-      setSelectionReady(false)
-      setInitialSelection(null)
-      await loadCurrentSubscription()
-      syncAuthState()
-    } catch (e) {
-      setCheckoutError(
-        e instanceof Error ? e.message : 'Failed to switch to the Admin plan',
       )
     } finally {
       setCheckoutLoading(false)
@@ -924,15 +867,13 @@ const SubscriptionSettingsPage = () => {
 
   const nextPaymentNote = useMemo(() => {
     if (isNoChargePlan) {
-      return isAdminPlan
-        ? 'No charge on the Admin plan'
-        : 'No upcoming charges on the Free plan'
+      return 'No upcoming charges on the Free plan'
     }
     const chargeDateLabel = currentSubscription?.end_date
       ? formatAccountSubscriptionEndDate(currentSubscription.end_date)
       : formatNextPaymentCharge(billingCycle)
     return `Next payment will charge on the ${chargeDateLabel}`
-  }, [billingCycle, currentSubscription?.end_date, isAdminPlan, isNoChargePlan])
+  }, [billingCycle, currentSubscription?.end_date, isNoChargePlan])
 
   const expiredPaidPlanId = currentSubscription?.expired_paid_plan ?? null
   const activeSubscriptionExpired =
@@ -974,7 +915,9 @@ const SubscriptionSettingsPage = () => {
                 ? 'AI Plus'
                 : expiredPaidPlanId === 'pro'
                   ? 'Pro'
-                  : expiredPaidPlanId}{' '}
+                  : expiredPaidPlanId === 'admin'
+                    ? 'Admin'
+                    : expiredPaidPlanId}{' '}
               plan has expired. Your account is on the Free plan until you subscribe again.
               {subscriptionRenewalDue && subscriptionWrite && (
                 <> Use Pay Now below to renew.</>
@@ -1011,9 +954,6 @@ const SubscriptionSettingsPage = () => {
             )}
             {currentSubscription.plan === FREE_PLAN && (
               <> · Free forever (1 user)</>
-            )}
-            {currentSubscription.plan === ADMIN_PLAN && (
-              <> · Internal staff plan (no charge)</>
             )}
           </p>
           {currentSubscription.scheduled_plan && currentSubscription.end_date && (
@@ -1289,21 +1229,6 @@ const SubscriptionSettingsPage = () => {
             </button>
           )}
 
-          {switchingToAdmin && (
-            <button
-              type="button"
-              className={`sub-pay-btn${!adminSubscribeClickable ? ' is-disabled' : ''}`}
-              disabled={!adminSubscribeClickable}
-              aria-disabled={!adminSubscribeClickable}
-              onClick={() => {
-                if (!adminSubscribeClickable) return
-                void handleSubscribeToAdminPlan()
-              }}
-            >
-              {checkoutLoading ? 'Saving…' : 'Activate Admin plan'}
-            </button>
-          )}
-
           {!isNoChargePlan && (
             <button
               type="button"
@@ -1328,7 +1253,7 @@ const SubscriptionSettingsPage = () => {
             </button>
           )}
 
-          {(switchingToFree || switchingToAdmin || !isNoChargePlan) && checkoutError && (
+          {(switchingToFree || !isNoChargePlan) && checkoutError && (
             <p className="sub-pay-error" role="alert">
               {checkoutError}
             </p>

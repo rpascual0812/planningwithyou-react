@@ -43,7 +43,7 @@ const PROVIDER_CARDS: ProviderCard[] = [
 const EMPTY_PRICING: SubscriptionPlanPricingSettings = {
   pro: { base_price: '995.00', price_per_user: '100.00' },
   ai: { base_price: '1495.00', price_per_user: '150.00' },
-  admin: { base_price: '0.00', price_per_user: '0.00' },
+  admin: { base_price: '995.00', price_per_user: '100.00' },
 }
 
 const AdminSubscriptionsPage = () => {
@@ -246,7 +246,7 @@ const AdminSubscriptionsPage = () => {
                     <div className="col-md-4">
                       <h6 className="mb-2">Admin</h6>
                       <p className="text-muted small mb-2">
-                        Visible only to platform admins. Zero is allowed.
+                        Visible only to platform admins. Billed like Pro via recurring checkout.
                       </p>
                       <label className="form-label small mb-1" htmlFor="admin-base-price">
                         Base price (1 user)
@@ -254,7 +254,7 @@ const AdminSubscriptionsPage = () => {
                       <input
                         id="admin-base-price"
                         type="number"
-                        min="0"
+                        min="0.01"
                         step="0.01"
                         className="form-control form-control-sm mb-2"
                         value={pricing.admin.base_price}
