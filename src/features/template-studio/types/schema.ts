@@ -180,6 +180,10 @@ export type RsvpElement = BaseElement & {
   submitLabel: string
   fields: RsvpField[]
   successMessage?: string
+  /** Shown on the public RSVP responses page analytics. */
+  expectedGuestCount?: number
+  /** ISO date (YYYY-MM-DD) for RSVP confirmation deadline analytics. */
+  rsvpDeadline?: string
 }
 
 export type GalleryElement = BaseElement & {

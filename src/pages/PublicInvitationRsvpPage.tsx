@@ -5,6 +5,7 @@ import {
   getPublicRsvpExportUrl,
   type PublicRsvpListResponse,
 } from '../services/templateStudioApi'
+import PublicRsvpAnalyticsPanel from '../features/template-studio/components/rsvp/PublicRsvpAnalyticsPanel'
 import '../features/template-studio/styles/public-rsvp-list.css'
 
 function formatSubmittedAt(iso: string): string {
@@ -90,6 +91,8 @@ const PublicInvitationRsvpPage = () => {
           </Link>
         </div>
       </header>
+
+      <PublicRsvpAnalyticsPanel analytics={data.analytics} />
 
       <div className="public-rsvp-table-wrap">
         {rows.length === 0 ? (

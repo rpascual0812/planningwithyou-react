@@ -240,10 +240,29 @@ export type PublicRsvpRecord = {
   created_at: string
 }
 
+export type PublicRsvpBreakdownItem = {
+  key: 'will_go' | 'will_not_go' | 'awaiting_reply'
+  label: string
+  count: number
+  percent: number
+}
+
+export type PublicRsvpAnalytics = {
+  total_views: number
+  expected_visitors: number
+  days_remaining: number | null
+  will_go: number
+  will_not_go: number
+  awaiting_reply: number
+  total_guests: number
+  breakdown: PublicRsvpBreakdownItem[]
+}
+
 export type PublicRsvpListResponse = {
   title: string
   slug: string
   field_columns: PublicRsvpFieldColumn[]
+  analytics: PublicRsvpAnalytics
   results: PublicRsvpRecord[]
 }
 

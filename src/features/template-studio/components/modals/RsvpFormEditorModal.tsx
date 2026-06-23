@@ -4,14 +4,26 @@ import {
   cloneRsvpFields,
   createRsvpField,
   normalizeRsvpElement,
+  parseExpectedGuestCountInput,
   RSVP_FIELD_TYPES,
+  toRsvpDeadlineInputValue,
 } from '../../lib/rsvpFields'
 import type { RsvpElement, RsvpField } from '../../types/schema'
+
+type RsvpFormSavePatch = Pick<
+  RsvpElement,
+  | 'heading'
+  | 'submitLabel'
+  | 'successMessage'
+  | 'fields'
+  | 'expectedGuestCount'
+  | 'rsvpDeadline'
+>
 
 type RsvpFormEditorModalProps = {
   open: boolean
   element: RsvpElement | null
-  onSave: (patch: Pick<RsvpElement, 'heading' | 'submitLabel' | 'successMessage' | 'fields'>) => void
+  onSave: (patch: RsvpFormSavePatch) => void
   onClose: () => void
 }
 
@@ -19,6 +31,8 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
   const [heading, setHeading] = useState('')
   const [submitLabel, setSubmitLabel] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [expectedGuestCount, setExpectedGuestCount] = useState('')
+  const [rsvpDeadline, setRsvpDeadline] = useState('')
   const [fields, setFields] = useState<RsvpField[]>([])
 
   useEffect(() => {
@@ -27,6 +41,12 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
     setHeading(rsvp.heading)
     setSubmitLabel(rsvp.submitLabel)
     setSuccessMessage(rsvp.successMessage ?? 'Thank you! Your RSVP has been received.')
+    setExpectedGuestCount(
+      rsvp.expectedGuestCount != null && rsvp.expectedGuestCount > 0
+        ? String(rsvp.expectedGuestCount)
+        : '',
+    )
+    setRsvpDeadline(toRsvpDeadlineInputValue(rsvp.rsvpDeadline))
     setFields(cloneRsvpFields(rsvp.fields))
   }, [open, element?.id])
 
@@ -46,11 +66,16 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
   }
 
   const handleSave = () => {
+    const parsedExpected = parseExpectedGuestCountInput(expectedGuestCount)
+    const trimmedDeadline = rsvpDeadline.trim()
+
     onSave({
       heading: heading.trim() || 'Please RSVP',
       submitLabel: submitLabel.trim() || 'Submit',
       successMessage: successMessage.trim() || 'Thank you! Your RSVP has been received.',
       fields,
+      expectedGuestCount: parsedExpected,
+      rsvpDeadline: trimmedDeadline || undefined,
     })
     onClose()
   }
@@ -91,6 +116,43 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
                     value={successMessage}
                     onChange={(e) => setSuccessMessage(e.target.value)}
                   />
+                </div>
+              </div>
+
+              <div className="border rounded-3 p-3 mb-3 bg-light-subtle">
+                <h6 className="small fw-semibold mb-2">RSVP responses page</h6>
+                <p className="text-muted small mb-3">
+                  These settings power analytics on the public RSVP link (expected visitors,
+                  awaiting replies, and days remaining).
+                </p>
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label small" htmlFor="rsvp-expected-guests">
+                      Expected number of visitors
+                    </label>
+                    <input
+                      id="rsvp-expected-guests"
+                      type="number"
+                      min={1}
+                      step={1}
+                      className="form-control form-control-sm"
+                      value={expectedGuestCount}
+                      onChange={(e) => setExpectedGuestCount(e.target.value)}
+                      placeholder="e.g. 150"
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small" htmlFor="rsvp-confirmation-deadline">
+                      Confirmation deadline
+                    </label>
+                    <input
+                      id="rsvp-confirmation-deadline"
+                      type="date"
+                      className="form-control form-control-sm"
+                      value={rsvpDeadline}
+                      onChange={(e) => setRsvpDeadline(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 

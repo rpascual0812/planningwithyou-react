@@ -68,3 +68,18 @@ export function normalizeRsvpElement(el: RsvpElement): RsvpElement {
 export function cloneRsvpFields(fields: RsvpField[]): RsvpField[] {
   return fields.map((f) => ({ ...f, options: f.options ? [...f.options] : undefined }))
 }
+
+/** Normalize stored RSVP deadline values for ``<input type="date">``. */
+export function toRsvpDeadlineInputValue(value?: string): string {
+  if (!value) return ''
+  const datePart = value.trim().slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : ''
+}
+
+export function parseExpectedGuestCountInput(value: string): number | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  const parsed = Number.parseInt(trimmed, 10)
+  if (!Number.isFinite(parsed) || parsed < 1) return undefined
+  return parsed
+}
