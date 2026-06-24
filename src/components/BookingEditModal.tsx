@@ -921,11 +921,22 @@ const BookingEditModal = ({
   const getSavedFieldDisplayDownpayment = (
     field: BookingField,
   ): string | null => {
-    if (!field.saved || field.field_type === "supplier") return null;
-    const raw = field.requiredDownpayment;
+    if (!field.saved) return null;
+    const raw =
+      field.field_type === "supplier"
+        ? field.packageRequiredDownpayment
+        : field.requiredDownpayment;
     if (raw === null || raw === undefined || raw === "") return null;
     return formatFieldPriceAmount(raw);
   };
+
+  useEffect(() => {
+    if (viewOnly || hasPricingAdjustment) return;
+    const next = effectivePriceTotal.toFixed(2);
+    if ((form.totalAmount ?? "").trim() === next) return;
+    onChange({ ...form, totalAmount: next });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePriceTotal, hasPricingAdjustment, viewOnly, form.fields]);
 
   // Restore draft on mount (create only — edit keeps server contact/status)
   useEffect(() => {

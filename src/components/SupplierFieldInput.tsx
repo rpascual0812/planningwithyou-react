@@ -10,6 +10,8 @@ import {
   fetchSupplierBookingCapacity,
   fetchSupplierOptions,
   fetchTiersForSupplier,
+  resolveSupplierPackageDownpayment,
+  resolveSupplierPackageLinePrice,
   type BookingSupplierPackageRecord,
   type SupplierOptionRecord,
   type SupplierTierOptionRecord,
@@ -304,9 +306,9 @@ export default function SupplierFieldInput({
       {
         supplier_id: parsed.supplier_id,
         tier_id,
-        price: tier?.price ?? null,
+        price: resolveSupplierPackageLinePrice(tier, packageDetail),
       },
-      tier?.required_downpayment_amount ?? null,
+      resolveSupplierPackageDownpayment(tier, packageDetail),
     )
   }
 
@@ -358,14 +360,19 @@ export default function SupplierFieldInput({
   useEffect(() => {
     if (parsed.tier_id == null || !tierStillValid) return
     const tier = tiers.find((t) => t.id === parsed.tier_id)
-    if (!tier?.price || parsed.price === tier.price) return
-    emit({
-      supplier_id: parsed.supplier_id,
-      tier_id: parsed.tier_id,
-      price: tier.price,
-    })
+    const nextPrice = resolveSupplierPackageLinePrice(tier, packageDetail)
+    const nextDown = resolveSupplierPackageDownpayment(tier, packageDetail)
+    if (!nextPrice || parsed.price === nextPrice) return
+    emit(
+      {
+        supplier_id: parsed.supplier_id,
+        tier_id: parsed.tier_id,
+        price: nextPrice,
+      },
+      nextDown,
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiers, parsed.tier_id, parsed.supplier_id, tierStillValid])
+  }, [tiers, packageDetail, parsed.tier_id, parsed.supplier_id, tierStillValid])
 
   return (
     <div className="row g-2">

@@ -20,6 +20,8 @@ export type SupplierTierOptionRecord = {
   price_override: string | null
   tax: string | null
   price: string | null
+  /** Active package ``total_price`` for this tier (before tenant adjustments). */
+  package_total_price?: string | null
   required_downpayment_amount: string | null
   package_id: number | null
   package_version_id: number | null
@@ -96,6 +98,29 @@ export type BookingSupplierPackageRecord = {
   total_price: string
   required_downpayment_amount: string
   items: PackageItemRecord[]
+}
+
+/** Quotation line price for a selected supplier package. */
+export function resolveSupplierPackageLinePrice(
+  tier: SupplierTierOptionRecord | undefined,
+  packageDetail: BookingSupplierPackageRecord | null,
+): string | null {
+  const tierPrice = tier?.price?.trim()
+  if (tierPrice) return tierPrice
+  const packagePrice = packageDetail?.total_price?.trim()
+  if (packagePrice) return packagePrice
+  const tierPackagePrice = tier?.package_total_price?.trim()
+  return tierPackagePrice || null
+}
+
+export function resolveSupplierPackageDownpayment(
+  tier: SupplierTierOptionRecord | undefined,
+  packageDetail: BookingSupplierPackageRecord | null,
+): string | null {
+  const tierDown = tier?.required_downpayment_amount?.trim()
+  if (tierDown) return tierDown
+  const packageDown = packageDetail?.required_downpayment_amount?.trim()
+  return packageDown || null
 }
 
 export async function fetchBookingSupplierPackage(params: {
