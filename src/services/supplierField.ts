@@ -102,7 +102,7 @@ export type BookingSupplierPackageRecord = {
 
 /** Quotation line price for a selected supplier package. */
 export function resolveSupplierPackageLinePrice(
-  tier: SupplierTierOptionRecord | undefined,
+  tier: SupplierTierOptionRecord | null | undefined,
   packageDetail: BookingSupplierPackageRecord | null,
 ): string | null {
   const tierPrice = tier?.price?.trim()
@@ -114,7 +114,7 @@ export function resolveSupplierPackageLinePrice(
 }
 
 export function resolveSupplierPackageDownpayment(
-  tier: SupplierTierOptionRecord | undefined,
+  tier: SupplierTierOptionRecord | null | undefined,
   packageDetail: BookingSupplierPackageRecord | null,
 ): string | null {
   const tierDown = tier?.required_downpayment_amount?.trim()
