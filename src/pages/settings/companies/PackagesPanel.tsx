@@ -450,6 +450,8 @@ const PackagesPanel = () => {
 
     setSaving(true)
     setFormError(null)
+    const hadOtherActiveSibling =
+      isActive && packages.some((pkg) => pkg.is_active && pkg.id !== editing?.id)
     const payload: PackagePayload = {
       tier: packageTierId,
       description: description.trim(),
@@ -461,14 +463,22 @@ const PackagesPanel = () => {
     try {
       if (editing) {
         await updatePackage(editing.id, payload)
-        showSuccessToast('Package updated.')
+        showSuccessToast(
+          hadOtherActiveSibling
+            ? 'Package updated. Other packages for this tier and version were set to inactive.'
+            : 'Package updated.',
+        )
       } else {
         await createPackage({
           ...payload,
           company: activeCompanyId!,
           package_version: selectedPackageVersionId!,
         })
-        showSuccessToast('Package created.')
+        showSuccessToast(
+          hadOtherActiveSibling
+            ? 'Package created. Other packages for this tier and version were set to inactive.'
+            : 'Package created.',
+        )
       }
       closePackageModal()
       if (
