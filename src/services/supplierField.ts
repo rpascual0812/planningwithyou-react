@@ -23,7 +23,7 @@ export type SupplierTierOptionRecord = {
   /** Active package ``total_price`` for this tier (before tenant adjustments). */
   package_total_price?: string | null
   required_downpayment_amount: string | null
-  package_id: number | null
+  package_price_id: number | null
   package_version_id: number | null
 }
 

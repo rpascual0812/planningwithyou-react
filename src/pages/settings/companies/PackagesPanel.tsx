@@ -600,25 +600,12 @@ const PackagesPanel = () => {
       <div className="row g-2 align-items-end mb-3">
         <CompanyFilterSelect
           id="packages-company"
-          className="col-sm-8 col-md-6"
+          className="col-12 col-md-6"
           companies={companies}
           loading={companiesLoading}
           value={selectedCompanyId}
           onChange={setSelectedCompanyId}
         />
-        {companiesWrite && (
-          <div className="col-sm-4 col-md-6 d-flex justify-content-sm-end">
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={openAddPackage}
-              disabled={!canManage}
-            >
-              <i className="bi bi-plus-lg me-1" />
-              Add package
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="row g-2 align-items-end mb-3">
@@ -692,6 +679,19 @@ const PackagesPanel = () => {
             )}
           </div>
         </div>
+        {companiesWrite && (
+          <div className="col-sm-6 col-md-auto d-flex align-items-end">
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={openAddPackage}
+              disabled={!canManage}
+            >
+              <i className="bi bi-plus-lg me-1" />
+              Add package
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="d-flex justify-content-between align-items-center mb-3">

@@ -83,3 +83,15 @@ export function parseExpectedGuestCountInput(value: string): number | undefined 
   if (!Number.isFinite(parsed) || parsed < 1) return undefined
   return parsed
 }
+
+/** Preserve empty lines while editing the options textarea (one option per line). */
+export function rsvpOptionsFromText(text: string): string[] {
+  return text.split('\n')
+}
+
+/** Drop blank lines when persisting dropdown options. */
+export function normalizeRsvpOptions(options: string[] | undefined): string[] | undefined {
+  if (!options) return undefined
+  const cleaned = options.map((line) => line.trim()).filter(Boolean)
+  return cleaned.length > 0 ? cleaned : undefined
+}

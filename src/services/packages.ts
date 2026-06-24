@@ -61,7 +61,7 @@ async function packageApiError(res: Response, fallback: string): Promise<Error> 
 }
 
 export async function fetchPackage(id: number): Promise<PackageRecord> {
-  const res = await apiFetch(buildApiUrl(`/packages/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/package-prices/${id}/`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load package')
@@ -78,7 +78,7 @@ export async function fetchPackages(
     tier_id: String(tierId),
     package_version_id: String(packageVersionId),
   })
-  const res = await apiFetch(buildApiUrl(`/packages/?${params.toString()}`), {
+  const res = await apiFetch(buildApiUrl(`/package-prices/?${params.toString()}`), {
     headers: authHeaders(),
   })
   if (!res.ok) throw new Error('Failed to load packages')
@@ -87,7 +87,7 @@ export async function fetchPackages(
 }
 
 export async function createPackage(data: PackagePayload): Promise<PackageRecord> {
-  const res = await apiFetch(buildApiUrl('/packages/'), {
+  const res = await apiFetch(buildApiUrl('/package-prices/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -100,7 +100,7 @@ export async function updatePackage(
   id: number,
   data: Partial<PackagePayload>,
 ): Promise<PackageRecord> {
-  const res = await apiFetch(buildApiUrl(`/packages/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/package-prices/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -110,7 +110,7 @@ export async function updatePackage(
 }
 
 export async function deletePackage(id: number): Promise<void> {
-  const res = await apiFetch(buildApiUrl(`/packages/${id}/`), {
+  const res = await apiFetch(buildApiUrl(`/package-prices/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })

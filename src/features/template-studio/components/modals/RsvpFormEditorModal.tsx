@@ -4,8 +4,10 @@ import {
   cloneRsvpFields,
   createRsvpField,
   normalizeRsvpElement,
+  normalizeRsvpOptions,
   parseExpectedGuestCountInput,
   RSVP_FIELD_TYPES,
+  rsvpOptionsFromText,
   toRsvpDeadlineInputValue,
 } from '../../lib/rsvpFields'
 import type { RsvpElement, RsvpField } from '../../types/schema'
@@ -73,7 +75,11 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
       heading: heading.trim() || 'Please RSVP',
       submitLabel: submitLabel.trim() || 'Submit',
       successMessage: successMessage.trim() || 'Thank you! Your RSVP has been received.',
-      fields,
+      fields: fields.map((field) =>
+        field.type === 'select'
+          ? { ...field, options: normalizeRsvpOptions(field.options) }
+          : field,
+      ),
       expectedGuestCount: parsedExpected,
       rsvpDeadline: trimmedDeadline || undefined,
     })
@@ -156,13 +162,7 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
                 </div>
               </div>
 
-              <div className="d-flex align-items-center justify-content-between mb-2">
-                <span className="form-label small mb-0">Form fields</span>
-                <button type="button" className="btn btn-sm btn-outline-primary" onClick={addField}>
-                  <i className="bi bi-plus-lg me-1" aria-hidden="true" />
-                  Add field
-                </button>
-              </div>
+              <span className="form-label small d-block mb-2">Form fields</span>
 
               {fields.length === 0 && (
                 <p className="text-muted small">No fields yet. Add at least one field for guests to fill in.</p>
@@ -232,10 +232,7 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
                                 value={(field.options ?? []).join('\n')}
                                 onChange={(e) =>
                                   updateField(field.id, {
-                                    options: e.target.value
-                                      .split('\n')
-                                      .map((s) => s.trim())
-                                      .filter(Boolean),
+                                    options: rsvpOptionsFromText(e.target.value),
                                   })
                                 }
                               />
@@ -255,6 +252,11 @@ const RsvpFormEditorModal = ({ open, element, onSave, onClose }: RsvpFormEditorM
                   </li>
                 ))}
               </ul>
+
+              <button type="button" className="btn btn-sm btn-outline-primary mt-3" onClick={addField}>
+                <i className="bi bi-plus-lg me-1" aria-hidden="true" />
+                Add field
+              </button>
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline-secondary" onClick={onClose}>
