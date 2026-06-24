@@ -126,9 +126,9 @@ function summarizeSupplierSetting(entry: HistoryRecord): string[] {
     const delta = changes.supplier_name as { old?: unknown; new?: unknown }
     lines.push(`Name: ${formatValue(delta.old)} → ${formatValue(delta.new)}`)
   }
-  const tiers = changes.tiers
-  if (Array.isArray(tiers) && tiers.length > 0) {
-    lines.push(`Tier pricing updated (${tiers.length} tier${tiers.length === 1 ? '' : 's'})`)
+  const packages = changes.packages
+  if (Array.isArray(packages) && packages.length > 0) {
+    lines.push(`Package pricing updated (${packages.length} package${packages.length === 1 ? '' : 's'})`)
   }
   return lines
 }

@@ -9,7 +9,7 @@ export type SupplierOptionRecord = {
   kyb_verified: boolean
 }
 
-export type SupplierTierOptionRecord = {
+export type SupplierPackageOptionRecord = {
   id: number
   name: string
   is_active: boolean
@@ -19,10 +19,10 @@ export type SupplierTierOptionRecord = {
   mark_up_type: string
   price_override: string | null
   tax: string | null
-  price: string | null
-  /** Active package ``total_price`` for this tier (before tenant adjustments). */
-  package_total_price?: string | null
-  required_downpayment_amount: string | null
+  price: string | number | null
+  /** Active package ``total_price`` for this package (before tenant adjustments). */
+  package_total_price?: string | number | null
+  required_downpayment_amount: string | number | null
   package_price_id: number | null
   package_version_id: number | null
 }
@@ -53,7 +53,6 @@ export async function fetchSupplierOptions(
   return parseApiList<SupplierOptionRecord>(data)
 }
 
-/** Tiers available for the selected supplier. */
 export type SupplierBookingCapacityResult = {
   supplier_id: number
   max_bookings_per_day: number
@@ -71,7 +70,8 @@ export async function fetchSupplierBookingCapacity(params: {
   search.set('supplier_id', String(params.supplierId))
   search.set('date_of_event', params.dateOfEvent)
   if (params.excludeQuotationId != null) {
-    search.set('exclude_quotation_id', String(params.excludeQuotationId))  }
+    search.set('exclude_quotation_id', String(params.excludeQuotationId))
+  }
   const res = await apiFetch(
     buildApiUrl(`/supplier-quotation-capacity/?${search.toString()}`),
     { headers: authHeaders() },
@@ -80,57 +80,66 @@ export async function fetchSupplierBookingCapacity(params: {
   return res.json()
 }
 
-export async function fetchTiersForSupplier(
+export async function fetchPackagesForSupplier(
   supplierId: number,
-): Promise<SupplierTierOptionRecord[]> {
-  const url = `${buildApiUrl('/supplier-tiers/')}?supplier_id=${encodeURIComponent(String(supplierId))}`
+): Promise<SupplierPackageOptionRecord[]> {
+  const url = `${buildApiUrl('/supplier-packages/')}?supplier_id=${encodeURIComponent(String(supplierId))}`
   const res = await apiFetch(url, { headers: authHeaders() })
-  if (!res.ok) throw new Error('Failed to load tiers')
+  if (!res.ok) throw new Error('Failed to load packages')
   const data: unknown = await res.json()
-  return parseApiList<SupplierTierOptionRecord>(data)
+  return parseApiList<SupplierPackageOptionRecord>(data)
 }
 
 export type BookingSupplierPackageRecord = {
   id: number
-  tier: number
-  tier_name: string
+  package: number
+  package_name: string
   description: string
-  total_price: string
-  required_downpayment_amount: string
+  total_price: string | number
+  required_downpayment_amount: string | number
   items: PackageItemRecord[]
+}
+
+function amountString(value: string | number | null | undefined): string | null {
+  if (value == null || value === '') return null
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : null
+  }
+  const trimmed = value.trim()
+  return trimmed || null
 }
 
 /** Quotation line price for a selected supplier package. */
 export function resolveSupplierPackageLinePrice(
-  tier: SupplierTierOptionRecord | null | undefined,
+  pkg: SupplierPackageOptionRecord | null | undefined,
   packageDetail: BookingSupplierPackageRecord | null,
 ): string | null {
-  const tierPrice = tier?.price?.trim()
-  if (tierPrice) return tierPrice
-  const packagePrice = packageDetail?.total_price?.trim()
+  const packagePrice = amountString(pkg?.price)
   if (packagePrice) return packagePrice
-  const tierPackagePrice = tier?.package_total_price?.trim()
-  return tierPackagePrice || null
+  const detailPrice = amountString(packageDetail?.total_price)
+  if (detailPrice) return detailPrice
+  const fallbackPrice = amountString(pkg?.package_total_price)
+  return fallbackPrice || null
 }
 
 export function resolveSupplierPackageDownpayment(
-  tier: SupplierTierOptionRecord | null | undefined,
+  pkg: SupplierPackageOptionRecord | null | undefined,
   packageDetail: BookingSupplierPackageRecord | null,
 ): string | null {
-  const tierDown = tier?.required_downpayment_amount?.trim()
-  if (tierDown) return tierDown
-  const packageDown = packageDetail?.required_downpayment_amount?.trim()
-  return packageDown || null
+  const packageDown = amountString(pkg?.required_downpayment_amount)
+  if (packageDown) return packageDown
+  const detailDown = amountString(packageDetail?.required_downpayment_amount)
+  return detailDown || null
 }
 
 export async function fetchBookingSupplierPackage(params: {
   companyId: number
-  tierId: number
+  packageId: number
   packageVersionId?: number | null
 }): Promise<BookingSupplierPackageRecord | null> {
   const search = new URLSearchParams({
     company_id: String(params.companyId),
-    tier_id: String(params.tierId),
+    package_id: String(params.packageId),
   })
   if (params.packageVersionId != null) {
     search.set('package_version_id', String(params.packageVersionId))

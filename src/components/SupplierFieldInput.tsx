@@ -9,12 +9,12 @@ import {
   fetchBookingSupplierPackage,
   fetchSupplierBookingCapacity,
   fetchSupplierOptions,
-  fetchTiersForSupplier,
+  fetchPackagesForSupplier,
   resolveSupplierPackageDownpayment,
   resolveSupplierPackageLinePrice,
   type BookingSupplierPackageRecord,
   type SupplierOptionRecord,
-  type SupplierTierOptionRecord,
+  type SupplierPackageOptionRecord,
 } from '../services/supplierField'
 import PackageItemsPopover from './PackageItemsPopover'
 import {
@@ -44,7 +44,7 @@ function supplierCapacityErrorMessage(supplierName: string): string {
 
 type SupplierFieldInputProps = {
   value: string
-  /** Tier price and package required downpayment for booking totals. */
+  /** Package price and package required downpayment for booking totals. */
   onChange: (
     value: string,
     price?: string | null,
@@ -57,7 +57,6 @@ type SupplierFieldInputProps = {
   excludeQuotationId?: number | null
   /** When set, supplier type is fixed by the field definition (customize fields). */
   fixedSupplierTypeId?: number | null
-  tierLabel?: string
   packageLabel?: string
   supplierLabel?: string
   supplierTypeLabel?: string
@@ -84,10 +83,10 @@ export default function SupplierFieldInput({
   const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
   const [supplierTypeId, setSupplierTypeId] = useState<number | ''>('')
   const [suppliers, setSuppliers] = useState<SupplierOptionRecord[]>([])
-  const [tiers, setTiers] = useState<SupplierTierOptionRecord[]>([])
+  const [supplierPackages, setSupplierPackages] = useState<SupplierPackageOptionRecord[]>([])
   const [loadingTypes, setLoadingTypes] = useState(true)
   const [loadingSuppliers, setLoadingSuppliers] = useState(false)
-  const [loadingTiers, setLoadingTiers] = useState(false)
+  const [loadingPackages, setLoadingPackages] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [supplierMenuOpen, setSupplierMenuOpen] = useState(false)
   const [packageDetail, setPackageDetail] = useState<BookingSupplierPackageRecord | null>(
@@ -172,44 +171,44 @@ export default function SupplierFieldInput({
 
   useEffect(() => {
     if (parsed.supplier_id == null) {
-      setTiers([])
+      setSupplierPackages([])
       return
     }
     let cancelled = false
-    setLoadingTiers(true)
+    setLoadingPackages(true)
     setLoadError('')
-    fetchTiersForSupplier(parsed.supplier_id)
+    fetchPackagesForSupplier(parsed.supplier_id)
       .then((data) => {
         if (!cancelled) {
-          setTiers(data)
+          setSupplierPackages(data)
           if (data.length === 0) {
             setLoadError(
-              'No tiers configured for this supplier in Supplier Settings.',
+              'No supplierPackages configured for this supplier in Supplier Settings.',
             )
           }
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setTiers([])
-          setLoadError('Could not load tiers for this supplier.')
+          setSupplierPackages([])
+          setLoadError('Could not load supplierPackages for this supplier.')
         }
       })
       .finally(() => {
-        if (!cancelled) setLoadingTiers(false)
+        if (!cancelled) setLoadingPackages(false)
       })
     return () => {
       cancelled = true
     }
   }, [parsed.supplier_id])
 
-  const selectedTierOption =
-    parsed.tier_id != null ? tiers.find((t) => t.id === parsed.tier_id) : undefined
+  const selectedPackageOption =
+    parsed.package_id != null ? supplierPackages.find((t) => t.id === parsed.package_id) : undefined
 
   useEffect(() => {
     const companyId = parsed.supplier_id
-    const tierId = parsed.tier_id
-    if (companyId == null || tierId == null) {
+    const packageId = parsed.package_id
+    if (companyId == null || packageId == null) {
       setPackageDetail(null)
       return
     }
@@ -217,8 +216,8 @@ export default function SupplierFieldInput({
     setPackageLoading(true)
     void fetchBookingSupplierPackage({
       companyId,
-      tierId,
-      packageVersionId: selectedTierOption?.package_version_id ?? null,
+      packageId,
+      packageVersionId: selectedPackageOption?.package_version_id ?? null,
     })
       .then((pkg) => {
         if (!cancelled) setPackageDetail(pkg)
@@ -232,7 +231,7 @@ export default function SupplierFieldInput({
     return () => {
       cancelled = true
     }
-  }, [parsed.supplier_id, parsed.tier_id, selectedTierOption?.package_version_id])
+  }, [parsed.supplier_id, parsed.package_id, selectedPackageOption?.package_version_id])
 
   const emit = (
     next: SupplierFieldValue,
@@ -240,7 +239,7 @@ export default function SupplierFieldInput({
   ) => {
     onChange(
       serializeSupplierFieldValue({
-        tier_id: next.tier_id,
+        package_id: next.package_id,
         supplier_id: next.supplier_id,
       }),
       next.price ?? null,
@@ -252,7 +251,7 @@ export default function SupplierFieldInput({
     const nextTypeId = typeId === '' ? '' : Number(typeId)
     setSupplierTypeId(nextTypeId)
     setSupplierMenuOpen(false)
-    emit({ supplier_id: null, tier_id: null, price: null })
+    emit({ supplier_id: null, package_id: null, price: null })
   }
 
   const showSupplierCapacityError = async (supplierName: string) => {
@@ -281,7 +280,7 @@ export default function SupplierFieldInput({
   const handleSupplierChange = async (supplierId: string) => {
     if (supplierId === '') {
       setSupplierMenuOpen(false)
-      emit({ supplier_id: null, tier_id: null, price: null })
+      emit({ supplier_id: null, package_id: null, price: null })
       return
     }
     const supplier_id = Number(supplierId)
@@ -291,24 +290,24 @@ export default function SupplierFieldInput({
       if (atCapacity) {
         await showSupplierCapacityError(supplier?.name ?? 'This supplier')
         setSupplierMenuOpen(false)
-        emit({ supplier_id: null, tier_id: null, price: null })
+        emit({ supplier_id: null, package_id: null, price: null })
         return
       }
     }
     setSupplierMenuOpen(false)
-    emit({ supplier_id, tier_id: null, price: null })
+    emit({ supplier_id, package_id: null, price: null })
   }
 
-  const handleTierChange = (tierId: string) => {
-    const tier_id = tierId === '' ? null : Number(tierId)
-    const tier = tier_id == null ? null : tiers.find((t) => t.id === tier_id)
+  const handlePackageChange = (packageIdRaw: string) => {
+    const package_id = packageIdRaw === '' ? null : Number(packageIdRaw)
+    const pkg = package_id == null ? null : supplierPackages.find((t) => t.id === package_id)
     emit(
       {
         supplier_id: parsed.supplier_id,
-        tier_id,
-        price: resolveSupplierPackageLinePrice(tier, packageDetail),
+        package_id,
+        price: resolveSupplierPackageLinePrice(pkg, packageDetail),
       },
-      resolveSupplierPackageDownpayment(tier, packageDetail),
+      resolveSupplierPackageDownpayment(pkg, packageDetail),
     )
   }
 
@@ -332,7 +331,7 @@ export default function SupplierFieldInput({
       const supplierName =
         suppliers.find((s) => s.id === supplierId)?.name ?? 'This supplier'
       await showSupplierCapacityError(supplierName)
-      emit({ supplier_id: null, tier_id: null, price: null })
+      emit({ supplier_id: null, package_id: null, price: null })
     })()
     return () => {
       cancelled = true
@@ -354,25 +353,25 @@ export default function SupplierFieldInput({
     return () => document.removeEventListener('mousedown', close)
   }, [supplierMenuOpen])
 
-  const tierStillValid =
-    parsed.tier_id == null || tiers.some((t) => t.id === parsed.tier_id)
+  const packageStillValid =
+    parsed.package_id == null || supplierPackages.some((t) => t.id === parsed.package_id)
 
   useEffect(() => {
-    if (parsed.tier_id == null || !tierStillValid) return
-    const tier = tiers.find((t) => t.id === parsed.tier_id)
-    const nextPrice = resolveSupplierPackageLinePrice(tier, packageDetail)
-    const nextDown = resolveSupplierPackageDownpayment(tier, packageDetail)
+    if (parsed.package_id == null || !packageStillValid) return
+    const pkg = supplierPackages.find((t) => t.id === parsed.package_id)
+    const nextPrice = resolveSupplierPackageLinePrice(pkg, packageDetail)
+    const nextDown = resolveSupplierPackageDownpayment(pkg, packageDetail)
     if (!nextPrice || parsed.price === nextPrice) return
     emit(
       {
         supplier_id: parsed.supplier_id,
-        tier_id: parsed.tier_id,
+        package_id: parsed.package_id,
         price: nextPrice,
       },
       nextDown,
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tiers, packageDetail, parsed.tier_id, parsed.supplier_id, tierStillValid])
+  }, [supplierPackages, packageDetail, parsed.package_id, parsed.supplier_id, packageStillValid])
 
   return (
     <div className="row g-2">
@@ -483,32 +482,32 @@ export default function SupplierFieldInput({
         <div className="d-flex align-items-stretch gap-1">
           <select
             className={`${selectClass} flex-grow-1 min-w-0`}
-            value={tierStillValid && parsed.tier_id != null ? parsed.tier_id : ''}
-            onChange={(e) => handleTierChange(e.target.value)}
+            value={packageStillValid && parsed.package_id != null ? parsed.package_id : ''}
+            onChange={(e) => handlePackageChange(e.target.value)}
             required={required && parsed.supplier_id != null}
             disabled={
-              parsed.supplier_id == null || loadingTiers || tiers.length === 0
+              parsed.supplier_id == null || loadingPackages || supplierPackages.length === 0
             }
           >
             <option value="">
               {parsed.supplier_id == null
                 ? 'Select a supplier first'
-                : loadingTiers
+                : loadingPackages
                   ? 'Loading packages...'
-                  : tiers.length === 0
+                  : supplierPackages.length === 0
                     ? 'No packages for this supplier'
                     : 'Select package...'}
             </option>
-            {tiers.map((tier) => (
-              <option key={tier.id} value={tier.id}>
-                {tier.name}
+            {supplierPackages.map((pkg) => (
+              <option key={pkg.id} value={pkg.id}>
+                {pkg.name}
               </option>
             ))}
           </select>
-          {parsed.tier_id != null && parsed.supplier_id != null && (
+          {parsed.package_id != null && parsed.supplier_id != null && (
             <PackageItemsPopover
-              tierName={
-                tiers.find((t) => t.id === parsed.tier_id)?.name ?? packageLabel
+              packageName={
+                supplierPackages.find((t) => t.id === parsed.package_id)?.name ?? packageLabel
               }
               packageDescription={packageDetail?.description ?? ''}
               items={packageDetail?.items ?? []}

@@ -3,17 +3,17 @@ import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
 import { historyPaths } from '../../services/history'
 import {
-  fetchCompanyTierPricing,
-  updateCompanyTierPricing,
-  type CompanyTierPricingRow,
-  type TierAdjustmentType,
-} from '../../services/companyTierPricing'
+  fetchCompanyPackagePricing,
+  updateCompanyPackagePricing,
+  type CompanyPackagePricingRow,
+  type PackageAdjustmentType,
+} from '../../services/companyPackagePricing'
 import {
   deleteCompany,
   fetchCompaniesBySupplierType,
   updateCompany,
   type CompanyRecord,
-  type CompanySupplierTierSummary,
+  type CompanySupplierPackageSummary,
 } from '../../services/companies'
 import {
   fetchActiveSupplierTypes,
@@ -23,14 +23,14 @@ import { useFeatureAccess } from '../../hooks/useFeatureAccess'
 
 const PAGE_SIZES = [10, 25, 50, 100] as const
 
-type TierPricingFormRow = {
-  tier_id: number
-  tier_name: string
+type PackagePricingFormRow = {
+  package_id: number
+  package_name: string
   original_price: string | null
   discount: string
-  discount_type: TierAdjustmentType
+  discount_type: PackageAdjustmentType
   mark_up: string
-  mark_up_type: TierAdjustmentType
+  mark_up_type: PackageAdjustmentType
 }
 
 function parseAdjustmentValue(value: string): number | null {
@@ -43,14 +43,14 @@ function parseAdjustmentValue(value: string): number | null {
 function adjustmentAmount(
   base: number,
   value: number | null,
-  type: TierAdjustmentType,
+  type: PackageAdjustmentType,
 ): number {
   if (value === null) return 0
   if (type === 'fixed') return value
   return (base * value) / 100
 }
 
-function computeFinalPrice(row: TierPricingFormRow): string | null {
+function computeFinalPrice(row: PackagePricingFormRow): string | null {
   if (row.original_price === null || row.original_price === '') return null
   const base = Number(row.original_price)
   if (!Number.isFinite(base)) return null
@@ -80,7 +80,7 @@ function formatPercentValue(value: string | null | undefined): string {
 
 function formatAdjustmentValue(
   value: string | null | undefined,
-  type: TierAdjustmentType | undefined,
+  type: PackageAdjustmentType | undefined,
   currencyCode: string,
 ): string {
   if (value === null || value === undefined || value === '') return '—'
@@ -111,34 +111,34 @@ function formatMoney(
   }
 }
 
-function formatTierColumn(
-  tiers: CompanySupplierTierSummary[] | undefined,
+function formatPackageColumn(
+  packages: CompanySupplierPackageSummary[] | undefined,
   field: 'discount' | 'mark_up' | 'original_price' | 'price',
   currencyCode = 'USD',
 ) {
-  if (!tiers || tiers.length === 0) return <span>—</span>
+  if (!packages || packages.length === 0) return <span>—</span>
   return (
     <ul className="suppliers-tier-value-list list-unstyled mb-0">
-      {tiers.map((tier) => {
+      {packages.map((pkg) => {
         let display: string
         if (field === 'discount') {
           display = formatAdjustmentValue(
-            tier.discount,
-            tier.discount_type ?? 'percent',
+            pkg.discount,
+            pkg.discount_type ?? 'percent',
             currencyCode,
           )
         } else if (field === 'mark_up') {
           display = formatAdjustmentValue(
-            tier.mark_up,
-            tier.mark_up_type ?? 'percent',
+            pkg.mark_up,
+            pkg.mark_up_type ?? 'percent',
             currencyCode,
           )
         } else {
-          display = formatMoney(tier[field], currencyCode)
+          display = formatMoney(pkg[field], currencyCode)
         }
         return (
-          <li key={tier.tier_id} className="suppliers-tier-value-list__row">
-            <span className="suppliers-tier-value-list__name">{tier.tier_name}</span>
+          <li key={pkg.package_id} className="suppliers-tier-value-list__row">
+            <span className="suppliers-tier-value-list__name">{pkg.package_name}</span>
             <span className="suppliers-tier-value-list__value">{display}</span>
           </li>
         )
@@ -147,10 +147,10 @@ function formatTierColumn(
   )
 }
 
-function tierRowToForm(row: CompanyTierPricingRow): TierPricingFormRow {
+function packageRowToForm(row: CompanyPackagePricingRow): PackagePricingFormRow {
   return {
-    tier_id: row.tier_id,
-    tier_name: row.tier_name,
+    package_id: row.package_id,
+    package_name: row.package_name,
     original_price: row.original_price,
     discount: row.discount ?? '',
     discount_type: row.discount_type ?? 'percent',
@@ -177,8 +177,8 @@ const SupplierSettingsPage = () => {
 
   const [editTarget, setEditTarget] = useState<CompanyRecord | null>(null)
   const [editName, setEditName] = useState('')
-  const [tierPricing, setTierPricing] = useState<TierPricingFormRow[]>([])
-  const [tierPricingLoading, setTierPricingLoading] = useState(false)
+  const [packagePricing, setPackagePricing] = useState<PackagePricingFormRow[]>([])
+  const [packagePricingLoading, setPackagePricingLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editModalTab, setEditModalTab] = useState<'details' | 'history'>('details')
   const [historyRefresh, setHistoryRefresh] = useState(0)
@@ -279,37 +279,37 @@ const SupplierSettingsPage = () => {
   const openEdit = async (row: CompanyRecord) => {
     setEditTarget(row)
     setEditName(row.name)
-    setTierPricing([])
-    setTierPricingLoading(true)
+    setPackagePricing([])
+    setPackagePricingLoading(true)
     setCompaniesError(null)
     try {
-      const data = await fetchCompanyTierPricing(row.id, { supplierDirectory: true })
+      const data = await fetchCompanyPackagePricing(row.id, { supplierDirectory: true })
       setEditName(data.name)
-      setTierPricing(data.tiers.map(tierRowToForm))
+      setPackagePricing(data.packages.map(packageRowToForm))
     } catch (e) {
       setCompaniesError(
-        e instanceof Error ? e.message : 'Failed to load tier pricing',
+        e instanceof Error ? e.message : 'Failed to load package pricing',
       )
       setEditTarget(null)
     } finally {
-      setTierPricingLoading(false)
+      setPackagePricingLoading(false)
     }
   }
 
   const closeEdit = () => {
     setEditModalTab('details')
     setEditTarget(null)
-    setTierPricing([])
+    setPackagePricing([])
   }
 
-  const updateTierField = (
-    tierId: number,
+  const updatePackageField = (
+    packageId: number,
     field: 'discount' | 'mark_up' | 'discount_type' | 'mark_up_type',
     value: string,
   ) => {
-    setTierPricing((prev) =>
+    setPackagePricing((prev) =>
       prev.map((row) =>
-        row.tier_id === tierId ? { ...row, [field]: value } : row,
+        row.package_id === packageId ? { ...row, [field]: value } : row,
       ),
     )
   }
@@ -319,12 +319,12 @@ const SupplierSettingsPage = () => {
     setSaving(true)
     setCompaniesError(null)
     try {
-      await updateCompanyTierPricing(
+      await updateCompanyPackagePricing(
         editTarget.id,
         {
           name: editName.trim() || editTarget.name,
-          tiers: tierPricing.map((row) => ({
-            tier_id: row.tier_id,
+          packages: packagePricing.map((row) => ({
+            package_id: row.package_id,
             discount: row.discount.trim() === '' ? null : row.discount.trim(),
             discount_type: row.discount_type,
             mark_up: row.mark_up.trim() === '' ? null : row.mark_up.trim(),
@@ -472,20 +472,20 @@ const SupplierSettingsPage = () => {
                     </td>
                     <td className="users-table-name">{row.name}</td>
                     <td>
-                      {formatTierColumn(
-                        row.supplier_tiers,
+                      {formatPackageColumn(
+                        row.supplier_packages,
                         'original_price',
                         row.currency_code,
                       )}
                     </td>
                     <td>
-                      {formatTierColumn(row.supplier_tiers, 'discount', row.currency_code)}
+                      {formatPackageColumn(row.supplier_packages, 'discount', row.currency_code)}
                     </td>
                     <td>
-                      {formatTierColumn(row.supplier_tiers, 'mark_up', row.currency_code)}
+                      {formatPackageColumn(row.supplier_packages, 'mark_up', row.currency_code)}
                     </td>
                     <td>
-                      {formatTierColumn(row.supplier_tiers, 'price', row.currency_code)}
+                      {formatPackageColumn(row.supplier_packages, 'price', row.currency_code)}
                     </td>
                     <td>
                       {supplierWrite && (
@@ -593,49 +593,49 @@ const SupplierSettingsPage = () => {
                       className="form-control"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      disabled={tierPricingLoading}
+                      disabled={packagePricingLoading}
                     />
                   </div>
 
-                  {tierPricingLoading ? (
-                    <p className="text-muted small mb-0">Loading tiers…</p>
-                  ) : tierPricing.length === 0 ? (
+                  {packagePricingLoading ? (
+                    <p className="text-muted small mb-0">Loading packages…</p>
+                  ) : packagePricing.length === 0 ? (
                     <p className="text-muted small mb-0">
-                      No tiers configured for this company.
+                      No packages configured for this company.
                     </p>
                   ) : (
                     <div className="supplier-tier-pricing-cards">
-                      {tierPricing.map((tier) => (
+                      {packagePricing.map((pkg) => (
                         <div
-                          key={tier.tier_id}
+                          key={pkg.package_id}
                           className="supplier-tier-pricing-card"
                         >
                           <h3 className="supplier-tier-pricing-card__title">
-                            {tier.tier_name}
+                            {pkg.package_name}
                           </h3>
                           <p className="text-muted small mb-2">
                             Original price:{' '}
-                            {formatMoney(tier.original_price, editTarget.currency_code)}
+                            {formatMoney(pkg.original_price, editTarget.currency_code)}
                           </p>
                           <div className="row g-2">
                             <div className="col-sm-4">
                               <label
                                 className="form-label"
-                                htmlFor={`tier-discount-${tier.tier_id}`}
+                                htmlFor={`package-discount-${pkg.package_id}`}
                               >
                                 Discount
                               </label>
                               <div className="input-group input-group-sm">
                                 <input
-                                  id={`tier-discount-${tier.tier_id}`}
+                                  id={`package-discount-${pkg.package_id}`}
                                   type="number"
                                   step="0.01"
                                   min="0"
                                   className="form-control"
-                                  value={tier.discount}
+                                  value={pkg.discount}
                                   onChange={(e) =>
-                                    updateTierField(
-                                      tier.tier_id,
+                                    updatePackageField(
+                                      pkg.package_id,
                                       'discount',
                                       e.target.value,
                                     )
@@ -644,10 +644,10 @@ const SupplierSettingsPage = () => {
                                 <select
                                   className="form-select"
                                   aria-label="Discount type"
-                                  value={tier.discount_type}
+                                  value={pkg.discount_type}
                                   onChange={(e) =>
-                                    updateTierField(
-                                      tier.tier_id,
+                                    updatePackageField(
+                                      pkg.package_id,
                                       'discount_type',
                                       e.target.value,
                                     )
@@ -661,21 +661,21 @@ const SupplierSettingsPage = () => {
                             <div className="col-sm-4">
                               <label
                                 className="form-label"
-                                htmlFor={`tier-markup-${tier.tier_id}`}
+                                htmlFor={`package-markup-${pkg.package_id}`}
                               >
                                 Mark-up
                               </label>
                               <div className="input-group input-group-sm">
                                 <input
-                                  id={`tier-markup-${tier.tier_id}`}
+                                  id={`package-markup-${pkg.package_id}`}
                                   type="number"
                                   step="0.01"
                                   min="0"
                                   className="form-control"
-                                  value={tier.mark_up}
+                                  value={pkg.mark_up}
                                   onChange={(e) =>
-                                    updateTierField(
-                                      tier.tier_id,
+                                    updatePackageField(
+                                      pkg.package_id,
                                       'mark_up',
                                       e.target.value,
                                     )
@@ -684,10 +684,10 @@ const SupplierSettingsPage = () => {
                                 <select
                                   className="form-select"
                                   aria-label="Mark-up type"
-                                  value={tier.mark_up_type}
+                                  value={pkg.mark_up_type}
                                   onChange={(e) =>
-                                    updateTierField(
-                                      tier.tier_id,
+                                    updatePackageField(
+                                      pkg.package_id,
                                       'mark_up_type',
                                       e.target.value,
                                     )
@@ -702,7 +702,7 @@ const SupplierSettingsPage = () => {
                               <span className="form-label d-block">Final price</span>
                               <p className="supplier-tier-final-price mb-0">
                                 {formatMoney(
-                                  computeFinalPrice(tier),
+                                  computeFinalPrice(pkg),
                                   editTarget.currency_code,
                                 )}
                               </p>
@@ -735,7 +735,7 @@ const SupplierSettingsPage = () => {
                       type="button"
                       className="btn btn-primary"
                       onClick={() => void handleSaveEdit()}
-                      disabled={saving || tierPricingLoading}
+                      disabled={saving || packagePricingLoading}
                     >
                       {saving ? 'Saving…' : 'Save'}
                     </button>

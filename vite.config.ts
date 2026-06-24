@@ -21,7 +21,6 @@ export default defineConfig(({ mode }) => {
     'calendar-',
     'documents',
     'document-',
-    'tiers',
     'packages',
     'package-',
     'subscriptions',

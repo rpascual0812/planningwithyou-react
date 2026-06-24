@@ -15,8 +15,10 @@ import {
 import EditModalHistoryTabs from '../../components/EditModalHistoryTabs'
 import ResourceHistoryPanel from '../../components/ResourceHistoryPanel'
 import CompanyFilterSelect from '../../components/CompanyFilterSelect'
+import SearchableSelect from '../../components/SearchableSelect'
 import { useCompanyFilter } from '../../hooks/useCompanyFilter'
 import { historyPaths } from '../../services/history'
+import { fetchActiveSupplierTypes, type SupplierTypeRecord } from '../../services/supplierTypes'
 import BookingsViewPlaceholder from '../../components/BookingsViewPlaceholder'
 import BookingStatusesPanel from './bookings/BookingStatusesPanel'
 import QuotationEmailTemplatesPanel from './bookings/QuotationEmailTemplatesPanel'
@@ -55,6 +57,7 @@ const EMPTY_FIELD: Omit<TemplateField, 'id'> = {
   is_required: false,
   options: [],
   price: null,
+  supplier_type: null,
   sort_order: 0,
 }
 
@@ -113,6 +116,7 @@ function formFromRecord(r: FormTemplateRecord): FormTemplatePayload {
         sort_order: o.sort_order,
       })),
       price: f.price,
+      supplier_type: f.supplier_type ?? null,
       sort_order: f.sort_order,
     })),
   }
@@ -952,6 +956,31 @@ const TemplateFormModal = ({
   /* -- validation + submit -- */
   const [localError, setLocalError] = useState<string | null>(null)
   const [tab, setTab] = useState<'details' | 'history'>('details')
+  const [supplierTypes, setSupplierTypes] = useState<SupplierTypeRecord[]>([])
+  const [supplierTypesLoading, setSupplierTypesLoading] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setSupplierTypesLoading(true)
+    fetchActiveSupplierTypes()
+      .then((data) => {
+        if (!cancelled) setSupplierTypes(data)
+      })
+      .catch(() => {
+        if (!cancelled) setSupplierTypes([])
+      })
+      .finally(() => {
+        if (!cancelled) setSupplierTypesLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const supplierTypeSelectOptions = supplierTypes.map((type) => ({
+    value: String(type.id),
+    label: type.name,
+  }))
 
   const handleSubmit = () => {
     setLocalError(null)
@@ -966,6 +995,10 @@ const TemplateFormModal = ({
       }
       if (f.field_type === 'select' && f.options.filter((o) => o.label.trim()).length < 1) {
         setLocalError(`Dropdown field "${f.label}" needs at least one option.`)
+        return
+      }
+      if (f.field_type === 'supplier' && f.supplier_type == null) {
+        setLocalError(`Supplier field "${f.label}" needs a supplier type.`)
         return
       }
     }
@@ -1082,16 +1115,7 @@ const TemplateFormModal = ({
               </div>
 
               {/* UDF fields */}
-              <div className="d-flex align-items-center gap-2 mb-2">
-                <h6 className="mb-0">Fields (UDFs)</h6>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={addField}
-                >
-                  <i className="bi bi-plus-lg me-1" />Add Field
-                </button>
-              </div>
+              <h6 className="mb-2">Fields (UDFs)</h6>
 
               {form.fields.length === 0 && (
                 <div className="text-muted small mb-3">
@@ -1142,9 +1166,31 @@ const TemplateFormModal = ({
                       <select
                         className="form-select form-select-sm"
                         value={field.field_type}
-                        onChange={(e) =>
-                          updateField(idx, { field_type: e.target.value as FieldType })
-                        }
+                        onChange={(e) => {
+                          const field_type = e.target.value as FieldType
+                          if (field_type === 'supplier') {
+                            updateField(idx, {
+                              field_type,
+                              price: null,
+                              supplier_type: null,
+                              options: [],
+                            })
+                            return
+                          }
+                          if (field_type === 'select') {
+                            updateField(idx, {
+                              field_type,
+                              price: null,
+                              supplier_type: null,
+                              options:
+                                field.options.length > 0
+                                  ? field.options
+                                  : [{ ...EMPTY_OPTION }],
+                            })
+                            return
+                          }
+                          updateField(idx, { field_type, supplier_type: null })
+                        }}
                       >
                         {FIELD_TYPE_OPTIONS.map((opt) => (
                           <option key={opt.value} value={opt.value}>
@@ -1196,10 +1242,31 @@ const TemplateFormModal = ({
                   </div>
 
                   {field.field_type === 'supplier' && (
-                    <p className="text-muted small mt-2 mb-0">
-                      On the quotation form, users pick a supplier type, then a supplier
-                      and tier from Supplier Settings (active suppliers only).
-                    </p>
+                    <div className="row g-2 mt-2">
+                      <div className="col-md-6">
+                        <SearchableSelect
+                          label="Supplier type"
+                          labelClassName="form-label small mb-1"
+                          size="sm"
+                          value={
+                            field.supplier_type != null
+                              ? String(field.supplier_type)
+                              : ''
+                          }
+                          onChange={(next) =>
+                            updateField(idx, {
+                              supplier_type: next === '' ? null : Number(next),
+                            })
+                          }
+                          options={supplierTypeSelectOptions}
+                          placeholder="Choose supplier type…"
+                          searchPlaceholder="Search supplier types…"
+                          required
+                          loading={supplierTypesLoading}
+                          emptyMessage="No supplier types match your search"
+                        />
+                      </div>
+                    </div>
                   )}
 
                   {/* Options (for dropdown fields) */}
@@ -1289,6 +1356,14 @@ const TemplateFormModal = ({
                   )}
                 </div>
               ))}
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary mt-3"
+                onClick={addField}
+              >
+                <i className="bi bi-plus-lg me-1" />Add Field
+              </button>
                 </>
               )}
             </div>

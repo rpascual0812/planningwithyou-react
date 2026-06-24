@@ -19,7 +19,7 @@ export type TourStepMeta = {
 
 const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; description: string }[] = [
   { id: 'account', label: 'Account Settings', tour: 'settings-account', description: 'Account Settings lets you manage your account information, subscription, and receipts.' },
-  { id: 'companies', label: 'Company Settings', tour: 'settings-companies', description: 'Company Settings lets you manage your companies, tiers, and packages.' },
+  { id: 'companies', label: 'Company Settings', tour: 'settings-companies', description: 'Company Settings lets you manage your companies, packages, and package pricing.' },
   { id: 'user-settings', label: 'User Settings', tour: 'settings-user-settings', description: 'User Settings lets you manage user-related email templates.' },
   { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when quoting.' },
   { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
@@ -82,9 +82,9 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       description: 'Manage companies linked to your account.',
     },
     {
-      tour: 'settings-companies-tiers',
-      title: 'Tiers',
-      description: 'Configure pricing tiers for your companies.',
+      tour: 'settings-companies-package-definitions',
+      title: 'Packages',
+      description: 'Configure company packages used for supplier pricing.',
     },
     {
       tour: 'settings-companies-packages',

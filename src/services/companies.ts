@@ -3,15 +3,15 @@ import { getAccessToken } from './auth'
 import { parseApiList } from './parseApiList'
 import type { ProviderVerifications } from './companyKyb'
 
-export type TierAdjustmentType = 'percent' | 'fixed'
+export type PackageAdjustmentType = 'percent' | 'fixed'
 
-export type CompanySupplierTierSummary = {
-  tier_id: number
-  tier_name: string
+export type CompanySupplierPackageSummary = {
+  package_id: number
+  package_name: string
   discount: string | null
-  discount_type?: TierAdjustmentType
+  discount_type?: PackageAdjustmentType
   mark_up: string | null
-  mark_up_type?: TierAdjustmentType
+  mark_up_type?: PackageAdjustmentType
   price: string | null
   original_price: string | null
 }
@@ -22,7 +22,7 @@ export type CompanyRecord = {
   business_legal_name?: string
   supplier_type: number
   supplier_type_name: string
-  supplier_tiers?: CompanySupplierTierSummary[]
+  supplier_packages?: CompanySupplierPackageSummary[]
   currency_symbol?: string
   currency_code?: string
   timezone: string

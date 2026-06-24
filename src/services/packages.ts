@@ -16,11 +16,11 @@ export type PackageItemPayload = {
   children?: PackageItemPayload[]
 }
 
-export type PackageRecord = {
+export type PackagePriceRecord = {
   id: number
   package_version: number
-  tier: number
-  tier_name: string
+  package: number
+  package_name: string
   description: string
   total_price: string
   required_downpayment_amount: string
@@ -30,8 +30,8 @@ export type PackageRecord = {
   created_at: string
 }
 
-export type PackagePayload = {
-  tier: number
+export type PackagePricePayload = {
+  package: number
   description?: string
   total_price?: string | number
   required_downpayment_amount?: string | number
@@ -60,61 +60,63 @@ async function packageApiError(res: Response, fallback: string): Promise<Error> 
   }
 }
 
-export async function fetchPackage(id: number): Promise<PackageRecord> {
+export async function fetchPackagePrice(id: number): Promise<PackagePriceRecord> {
   const res = await apiFetch(buildApiUrl(`/package-prices/${id}/`), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load package')
+  if (!res.ok) throw new Error('Failed to load package price')
   return res.json()
 }
 
-export async function fetchPackages(
+export async function fetchPackagePrices(
   companyId: number,
-  tierId: number,
+  packageId: number,
   packageVersionId: number,
-): Promise<PackageRecord[]> {
+): Promise<PackagePriceRecord[]> {
   const params = new URLSearchParams({
     company_id: String(companyId),
-    tier_id: String(tierId),
+    package_id: String(packageId),
     package_version_id: String(packageVersionId),
   })
   const res = await apiFetch(buildApiUrl(`/package-prices/?${params.toString()}`), {
     headers: authHeaders(),
   })
-  if (!res.ok) throw new Error('Failed to load packages')
+  if (!res.ok) throw new Error('Failed to load package prices')
   const data: unknown = await res.json()
-  return parseApiList<PackageRecord>(data)
+  return parseApiList<PackagePriceRecord>(data)
 }
 
-export async function createPackage(data: PackagePayload): Promise<PackageRecord> {
+export async function createPackagePrice(
+  data: PackagePricePayload,
+): Promise<PackagePriceRecord> {
   const res = await apiFetch(buildApiUrl('/package-prices/'), {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw await packageApiError(res, 'Failed to create package')
+  if (!res.ok) throw await packageApiError(res, 'Failed to create package price')
   return res.json()
 }
 
-export async function updatePackage(
+export async function updatePackagePrice(
   id: number,
-  data: Partial<PackagePayload>,
-): Promise<PackageRecord> {
+  data: Partial<PackagePricePayload>,
+): Promise<PackagePriceRecord> {
   const res = await apiFetch(buildApiUrl(`/package-prices/${id}/`), {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw await packageApiError(res, 'Failed to update package')
+  if (!res.ok) throw await packageApiError(res, 'Failed to update package price')
   return res.json()
 }
 
-export async function deletePackage(id: number): Promise<void> {
+export async function deletePackagePrice(id: number): Promise<void> {
   const res = await apiFetch(buildApiUrl(`/package-prices/${id}/`), {
     method: 'DELETE',
     headers: authHeaders(),
   })
-  if (!res.ok) throw await packageApiError(res, 'Failed to delete package')
+  if (!res.ok) throw await packageApiError(res, 'Failed to delete package price')
 }
 
 export function formatPackagePrice(value: string | number | null | undefined): string {
@@ -123,3 +125,12 @@ export function formatPackagePrice(value: string | number | null | undefined): s
   if (Number.isNaN(n)) return String(value)
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+// Backward-compatible aliases during UI migration
+export type PackageRecord = PackagePriceRecord
+export type PackagePayload = PackagePricePayload
+export const fetchPackage = fetchPackagePrice
+export const fetchPackages = fetchPackagePrices
+export const createPackage = createPackagePrice
+export const updatePackage = updatePackagePrice
+export const deletePackage = deletePackagePrice

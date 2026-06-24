@@ -50,7 +50,7 @@ function resolveBookingFieldPriceRawInner(
 
   if (field.field_type === 'supplier') {
     const parsed = parseSupplierFieldValue(field.value)
-    if (parsed.tier_id == null || parsed.supplier_id == null) return null
+    if (parsed.package_id == null || parsed.supplier_id == null) return null
     const raw = field.price ?? parsed.price ?? null
     return raw === null || raw === '' ? null : raw
   }

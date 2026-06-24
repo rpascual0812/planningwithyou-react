@@ -1906,8 +1906,8 @@ const BookingsPage = () => {
     const missingRequired = fieldsForSave.filter((f) => {
       if (!f.saved || !f.is_required) return false
       if (f.field_type === 'supplier') {
-        const { tier_id, supplier_id } = parseSupplierFieldValue(f.value)
-        return tier_id == null || supplier_id == null
+        const { package_id, supplier_id } = parseSupplierFieldValue(f.value)
+        return package_id == null || supplier_id == null
       }
       if (f.field_type === 'checkbox') return f.value !== 'true'
       return !f.value.trim()

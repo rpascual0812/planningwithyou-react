@@ -131,6 +131,7 @@ export type BookingTemplateField = {
   is_required: boolean;
   options: { label: string; price: string | null; sort_order: number }[];
   price: string | null;
+  supplier_type?: number | null;
   sort_order: number;
 };
 
@@ -1011,6 +1012,7 @@ const BookingEditModal = ({
       sort_order: baseOrder + idx,
       saved: true,
       value: "",
+      supplier_type_id: f.supplier_type ?? null,
     }));
   };
 
@@ -1085,6 +1087,7 @@ const BookingEditModal = ({
       sort_order: baseOrder + idx,
       saved: true,
       value: "",
+      supplier_type_id: f.supplier_type ?? null,
     }));
     onChange({ ...form, fields: [...form.fields, ...appended] });
   };

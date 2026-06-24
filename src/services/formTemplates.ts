@@ -39,6 +39,7 @@ export type TemplateField = {
   is_required: boolean
   options: FieldOption[]
   price: string | null
+  supplier_type?: number | null
   sort_order: number
 }
 

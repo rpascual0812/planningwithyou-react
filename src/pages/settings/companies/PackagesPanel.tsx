@@ -21,7 +21,7 @@ import {
   type PackagePayload,
   type PackageRecord,
 } from '../../../services/packages'
-import { fetchAllTiers, type TierRecord } from '../../../services/tiers'
+import { fetchAllCompanyPackages, type CompanyPackageRecord } from '../../../services/companyPackages'
 import { datetimeLocalToIso, formatLocalDateTime } from '../../../lib/calendarEventFormat'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
@@ -152,9 +152,9 @@ const PackagesPanel = () => {
     activeCompanyId,
   } = useCompanyFilter()
 
-  const [tiers, setTiers] = useState<TierRecord[]>([])
-  const [tiersLoading, setTiersLoading] = useState(false)
-  const [selectedTierId, setSelectedTierId] = useState<number | null>(null)
+  const [companyPackages, setCompanyPackages] = useState<CompanyPackageRecord[]>([])
+  const [companyPackagesLoading, setCompanyPackagesLoading] = useState(false)
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null)
 
   const [packageVersions, setPackageVersions] = useState<PackageVersionRecord[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
@@ -166,7 +166,7 @@ const PackagesPanel = () => {
 
   const [showPackageModal, setShowPackageModal] = useState(false)
   const [editing, setEditing] = useState<PackageRecord | null>(null)
-  const [packageTierId, setPackageTierId] = useState<number | null>(null)
+  const [packageCatalogId, setPackageCatalogId] = useState<number | null>(null)
   const [description, setDescription] = useState('')
   const [totalPrice, setTotalPrice] = useState('')
   const [requiredDownpayment, setRequiredDownpayment] = useState('')
@@ -191,22 +191,22 @@ const PackagesPanel = () => {
   const [deleteTarget, setDeleteTarget] = useState<PackageRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const loadTiers = useCallback(async (companyId: number) => {
-    setTiersLoading(true)
+  const loadCompanyPackages = useCallback(async (companyId: number) => {
+    setCompanyPackagesLoading(true)
     try {
-      const rows = await fetchAllTiers(companyId)
-      setTiers(rows)
-      setSelectedTierId((prev) => {
+      const rows = await fetchAllCompanyPackages(companyId)
+      setCompanyPackages(rows)
+      setSelectedPackageId((prev) => {
         if (prev != null && rows.some((t) => t.id === prev)) return prev
         const firstActive = rows.find((t) => t.is_active)
         return firstActive?.id ?? rows[0]?.id ?? null
       })
     } catch (e) {
-      setTiers([])
-      setSelectedTierId(null)
-      setError(e instanceof Error ? e.message : 'Failed to load tiers')
+      setCompanyPackages([])
+      setSelectedPackageId(null)
+      setError(e instanceof Error ? e.message : 'Failed to load packages')
     } finally {
-      setTiersLoading(false)
+      setCompanyPackagesLoading(false)
     }
   }, [])
 
@@ -230,22 +230,22 @@ const PackagesPanel = () => {
 
   useEffect(() => {
     if (activeCompanyId == null) {
-      setTiers([])
+      setCompanyPackages([])
       setPackageVersions([])
-      setSelectedTierId(null)
+      setSelectedPackageId(null)
       setSelectedPackageVersionId(null)
       return
     }
-    void loadTiers(activeCompanyId)
+    void loadCompanyPackages(activeCompanyId)
     void loadPackageVersions(activeCompanyId)
-  }, [activeCompanyId, loadTiers, loadPackageVersions])
+  }, [activeCompanyId, loadCompanyPackages, loadPackageVersions])
 
   const loadPackages = useCallback(
-    async (companyId: number, tierId: number, packageVersionId: number) => {
+    async (companyId: number, packageId: number, packageVersionId: number) => {
       setLoading(true)
       setError(null)
       try {
-        setPackages(await fetchPackages(companyId, tierId, packageVersionId))
+        setPackages(await fetchPackages(companyId, packageId, packageVersionId))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to load packages')
       } finally {
@@ -258,14 +258,14 @@ const PackagesPanel = () => {
   useEffect(() => {
     if (
       activeCompanyId == null ||
-      selectedTierId == null ||
+      selectedPackageId == null ||
       selectedPackageVersionId == null
     ) {
       setPackages([])
       return
     }
-    void loadPackages(activeCompanyId, selectedTierId, selectedPackageVersionId)
-  }, [activeCompanyId, selectedTierId, selectedPackageVersionId, loadPackages])
+    void loadPackages(activeCompanyId, selectedPackageId, selectedPackageVersionId)
+  }, [activeCompanyId, selectedPackageId, selectedPackageVersionId, loadPackages])
 
   const resetItemDraft = () => {
     setItemName('')
@@ -282,7 +282,7 @@ const PackagesPanel = () => {
 
   const openAddPackage = () => {
     setEditing(null)
-    setPackageTierId(selectedTierId)
+    setPackageCatalogId(selectedPackageId)
     setDescription('')
     setTotalPrice('')
     setRequiredDownpayment('')
@@ -294,7 +294,7 @@ const PackagesPanel = () => {
 
   const openEditPackage = async (pkg: PackageRecord) => {
     setEditing(pkg)
-    setPackageTierId(pkg.tier)
+    setPackageCatalogId(pkg.package)
     setDescription(pkg.description)
     setTotalPrice(pkg.total_price)
     setRequiredDownpayment(pkg.required_downpayment_amount ?? '')
@@ -412,8 +412,8 @@ const PackagesPanel = () => {
   }
 
   const handleSavePackage = async () => {
-    if (packageTierId == null) {
-      setFormError('Tier is required.')
+    if (packageCatalogId == null) {
+      setFormError('Package is required.')
       return
     }
     const priceStr = totalPrice.trim()
@@ -453,7 +453,7 @@ const PackagesPanel = () => {
     const hadOtherActiveSibling =
       isActive && packages.some((pkg) => pkg.is_active && pkg.id !== editing?.id)
     const payload: PackagePayload = {
-      tier: packageTierId,
+      package: packageCatalogId,
       description: description.trim(),
       total_price: priceNum.toFixed(2),
       required_downpayment_amount: downpaymentNum.toFixed(2),
@@ -465,7 +465,7 @@ const PackagesPanel = () => {
         await updatePackage(editing.id, payload)
         showSuccessToast(
           hadOtherActiveSibling
-            ? 'Package updated. Other packages for this tier and version were set to inactive.'
+            ? 'Package updated. Other package prices for this package and version were set to inactive.'
             : 'Package updated.',
         )
       } else {
@@ -476,17 +476,17 @@ const PackagesPanel = () => {
         })
         showSuccessToast(
           hadOtherActiveSibling
-            ? 'Package created. Other packages for this tier and version were set to inactive.'
+            ? 'Package created. Other package prices for this package and version were set to inactive.'
             : 'Package created.',
         )
       }
       closePackageModal()
       if (
         activeCompanyId != null &&
-        selectedTierId != null &&
+        selectedPackageId != null &&
         selectedPackageVersionId != null
       ) {
-        await loadPackages(activeCompanyId, selectedTierId, selectedPackageVersionId)
+        await loadPackages(activeCompanyId, selectedPackageId, selectedPackageVersionId)
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
@@ -501,7 +501,7 @@ const PackagesPanel = () => {
     if (
       !deleteTarget ||
       activeCompanyId == null ||
-      selectedTierId == null ||
+      selectedPackageId == null ||
       selectedPackageVersionId == null
     ) {
       return
@@ -512,7 +512,7 @@ const PackagesPanel = () => {
       showSuccessToast('Package deleted.')
       setDeleteTarget(null)
       if (editing?.id === deleteTarget.id) closePackageModal()
-      await loadPackages(activeCompanyId, selectedTierId, selectedPackageVersionId)
+      await loadPackages(activeCompanyId, selectedPackageId, selectedPackageVersionId)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Delete failed'
       setError(message)
@@ -580,17 +580,17 @@ const PackagesPanel = () => {
     activeCompanyId,
     currentUser,
   )
-  const selectedTier = tiers.find((t) => t.id === selectedTierId)
+  const selectedCompanyPackage = companyPackages.find((t) => t.id === selectedPackageId)
   const selectedVersion = packageVersions.find((v) => v.id === selectedPackageVersionId)
   const isFirstPackageInScope = !editing && packages.length === 0
   const isOnlyActivePackageInScope =
     editing != null && isActive && packages.filter((pkg) => pkg.is_active).length === 1
   const activeCheckboxLocked = isFirstPackageInScope || isOnlyActivePackageInScope
-  const filtersLoading = tiersLoading || versionsLoading
+  const filtersLoading = companyPackagesLoading || versionsLoading
   const canManage =
     companiesWrite &&
     activeCompanyId != null &&
-    selectedTierId != null &&
+    selectedPackageId != null &&
     selectedPackageVersionId != null &&
     !companiesLoading &&
     !filtersLoading
@@ -610,26 +610,26 @@ const PackagesPanel = () => {
 
       <div className="row g-2 align-items-end mb-3">
         <div className="col-sm-6 col-md-4">
-          <label className="form-label mb-1" htmlFor="packages-tier">
-            Tier
+          <label className="form-label mb-1" htmlFor="packages-package">
+            Package
           </label>
           <select
-            id="packages-tier"
+            id="packages-package"
             className="form-select form-select-sm"
-            value={selectedTierId ?? ''}
-            disabled={activeCompanyId == null || tiersLoading || tiers.length === 0}
+            value={selectedPackageId ?? ''}
+            disabled={activeCompanyId == null || companyPackagesLoading || companyPackages.length === 0}
             onChange={(e) => {
               const id = Number(e.target.value)
-              setSelectedTierId(Number.isFinite(id) && id > 0 ? id : null)
+              setSelectedPackageId(Number.isFinite(id) && id > 0 ? id : null)
             }}
           >
-            {tiers.length === 0 ? (
-              <option value="">No tiers for this company</option>
+            {companyPackages.length === 0 ? (
+              <option value="">No packages for this company</option>
             ) : (
-              tiers.map((tier) => (
-                <option key={tier.id} value={tier.id}>
-                  {tier.name}
-                  {!tier.is_active ? ' (inactive)' : ''}
+              companyPackages.map((pkgOption) => (
+                <option key={pkgOption.id} value={pkgOption.id}>
+                  {pkgOption.name}
+                  {!pkgOption.is_active ? ' (inactive)' : ''}
                 </option>
               ))
             )}
@@ -696,10 +696,10 @@ const PackagesPanel = () => {
 
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
-          {selectedCompanyName && selectedTier && selectedVersion
-            ? `${packages.length} package${packages.length !== 1 ? 's' : ''} for ${selectedCompanyName} · ${selectedTier.name} · ${selectedVersion.title}${selectedVersion.effectivity_date ? ` (${formatEffectivityDateTime(selectedVersion.effectivity_date)})` : ''}`
+          {selectedCompanyName && selectedCompanyPackage && selectedVersion
+            ? `${packages.length} package price${packages.length !== 1 ? 's' : ''} for ${selectedCompanyName} · ${selectedCompanyPackage.name} · ${selectedVersion.title}${selectedVersion.effectivity_date ? ` (${formatEffectivityDateTime(selectedVersion.effectivity_date)})` : ''}`
             : selectedCompanyName
-              ? 'Select a tier and package version to view packages'
+              ? 'Select a package and package version to view package prices'
               : 'Select a company to view packages'}
         </span>
       </div>
@@ -724,20 +724,20 @@ const PackagesPanel = () => {
         </div>
       ) : (
         <div className="table-responsive">
-          <table className="table table-sm table-hover align-middle mb-0 bookings-tiers-table">
+          <table className="table table-sm table-hover align-middle mb-0 bookings-companyPackages-table">
             <thead>
               <tr>
-                <th>Tier</th>
+                <th>Package</th>
                 <th>Description</th>
                 <th>Total price</th>
-                <th className="bookings-tiers-table__active">Active</th>
+                <th className="bookings-companyPackages-table__active">Active</th>
                 {companiesWrite && <th className="text-end">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {packages.map((pkg) => (
                 <tr key={pkg.id}>
-                  <td className="fw-semibold">{pkg.tier_name}</td>
+                  <td className="fw-semibold">{pkg.package_name}</td>
                   <td
                     className="text-muted small packages-table-description"
                     title={pkg.description.trim() || undefined}
@@ -745,7 +745,7 @@ const PackagesPanel = () => {
                     {previewPackageDescription(pkg.description)}
                   </td>
                   <td>{formatPackagePrice(pkg.total_price)}</td>
-                  <td className="bookings-tiers-table__active">
+                  <td className="bookings-companyPackages-table__active">
                     {pkg.is_active ? (
                       <span className="badge text-bg-success">Yes</span>
                     ) : (
@@ -807,27 +807,27 @@ const PackagesPanel = () => {
                     </p>
                   )}
                   <div className="mb-3">
-                    <label className="form-label" htmlFor="package-tier">
-                      Tier *
+                    <label className="form-label" htmlFor="package-package">
+                      Package *
                     </label>
                     <select
-                      id="package-tier"
+                      id="package-package"
                       className="form-select"
-                      value={packageTierId ?? ''}
-                      disabled={tiers.length === 0}
+                      value={packageCatalogId ?? ''}
+                      disabled={companyPackages.length === 0}
                       onChange={(e) => {
                         const id = Number(e.target.value)
-                        setPackageTierId(Number.isFinite(id) && id > 0 ? id : null)
+                        setPackageCatalogId(Number.isFinite(id) && id > 0 ? id : null)
                       }}
                       autoFocus
                     >
-                      {tiers.length === 0 ? (
-                        <option value="">No tiers for this company</option>
+                      {companyPackages.length === 0 ? (
+                        <option value="">No companyPackages for this company</option>
                       ) : (
-                        tiers.map((tier) => (
-                          <option key={tier.id} value={tier.id}>
-                            {tier.name}
-                            {!tier.is_active ? ' (inactive)' : ''}
+                        companyPackages.map((pkgOption) => (
+                          <option key={pkgOption.id} value={pkgOption.id}>
+                            {pkgOption.name}
+                            {!pkgOption.is_active ? ' (inactive)' : ''}
                           </option>
                         ))
                       )}
@@ -887,8 +887,8 @@ const PackagesPanel = () => {
                     </label>
                     <div className="form-text">
                       {isFirstPackageInScope
-                        ? 'The first package for this tier and version must be active.'
-                        : 'Only one package can be active per company, tier, and version.'}
+                        ? 'The first package price for this package and version must be active.'
+                        : 'Only one package price can be active per company, package, and version.'}
                     </div>
                   </div>
 
@@ -1158,7 +1158,7 @@ const PackagesPanel = () => {
                 </div>
                 <div className="modal-body">
                   <p className="mb-0">
-                    Delete the package for <strong>{deleteTarget.tier_name}</strong>? Line items
+                    Delete the package price for <strong>{deleteTarget.package_name}</strong>? Line items
                     for this package will be removed.
                   </p>
                 </div>

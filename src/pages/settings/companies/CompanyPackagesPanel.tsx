@@ -5,16 +5,16 @@ import { useCompanyFilter } from '../../../hooks/useCompanyFilter'
 import { useFeatureAccess } from '../../../hooks/useFeatureAccess'
 import { companyNameForScope } from '../../../lib/companySelection'
 import {
-  createTier,
-  deleteTier,
-  fetchAllTiers,
-  updateTier,
-  type TierPayload,
-  type TierRecord,
-} from '../../../services/tiers'
+  createCompanyPackage,
+  deleteCompanyPackage,
+  fetchAllCompanyPackages,
+  updateCompanyPackage,
+  type CompanyPackagePayload,
+  type CompanyPackageRecord,
+} from '../../../services/companyPackages'
 import { showErrorToast, showSuccessToast } from '../../../utils/toast'
 
-const TiersPanel = () => {
+const CompanyPackagesPanel = () => {
   const { currentUser } = useAuthSession()
   const { canWrite: companiesWrite } = useFeatureAccess('companies_settings')
   const [error, setError] = useState<string | null>(null)
@@ -26,26 +26,26 @@ const TiersPanel = () => {
     activeCompanyId,
   } = useCompanyFilter({ onFetchError: setError })
 
-  const [tiers, setTiers] = useState<TierRecord[]>([])
+  const [packages, setPackages] = useState<CompanyPackageRecord[]>([])
   const [loading, setLoading] = useState(false)
 
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<TierRecord | null>(null)
+  const [editing, setEditing] = useState<CompanyPackageRecord | null>(null)
   const [name, setName] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const [deleteTarget, setDeleteTarget] = useState<TierRecord | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<CompanyPackageRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  const loadTiers = useCallback(async (companyId: number) => {
+  const loadPackages = useCallback(async (companyId: number) => {
     setLoading(true)
     setError(null)
     try {
-      setTiers(await fetchAllTiers(companyId))
+      setPackages(await fetchAllCompanyPackages(companyId))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load tiers')
+      setError(e instanceof Error ? e.message : 'Failed to load packages')
     } finally {
       setLoading(false)
     }
@@ -53,11 +53,11 @@ const TiersPanel = () => {
 
   useEffect(() => {
     if (activeCompanyId == null) {
-      setTiers([])
+      setPackages([])
       return
     }
-    void loadTiers(activeCompanyId)
-  }, [activeCompanyId, loadTiers])
+    void loadPackages(activeCompanyId)
+  }, [activeCompanyId, loadPackages])
 
   const openAdd = () => {
     setEditing(null)
@@ -67,10 +67,10 @@ const TiersPanel = () => {
     setShowModal(true)
   }
 
-  const openEdit = (tier: TierRecord) => {
-    setEditing(tier)
-    setName(tier.name)
-    setIsActive(tier.is_active)
+  const openEdit = (pkg: CompanyPackageRecord) => {
+    setEditing(pkg)
+    setName(pkg.name)
+    setIsActive(pkg.is_active)
     setFormError(null)
     setShowModal(true)
   }
@@ -93,17 +93,17 @@ const TiersPanel = () => {
     }
     setSaving(true)
     setFormError(null)
-    const payload: TierPayload = { name: trimmed, is_active: isActive }
+    const payload: CompanyPackagePayload = { name: trimmed, is_active: isActive }
     try {
       if (editing) {
-        await updateTier(editing.id, payload)
-        showSuccessToast('Tier updated.')
+        await updateCompanyPackage(editing.id, payload)
+        showSuccessToast('Package updated.')
       } else {
-        await createTier({ ...payload, company: activeCompanyId! })
-        showSuccessToast('Tier created.')
+        await createCompanyPackage({ ...payload, company: activeCompanyId! })
+        showSuccessToast('Package created.')
       }
       closeModal()
-      if (activeCompanyId != null) await loadTiers(activeCompanyId)
+      if (activeCompanyId != null) await loadPackages(activeCompanyId)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Save failed'
       setFormError(message)
@@ -117,11 +117,11 @@ const TiersPanel = () => {
     if (!deleteTarget || activeCompanyId == null) return
     setDeleting(true)
     try {
-      await deleteTier(deleteTarget.id)
-      showSuccessToast('Tier deleted.')
+      await deleteCompanyPackage(deleteTarget.id)
+      showSuccessToast('Package deleted.')
       setDeleteTarget(null)
       if (editing?.id === deleteTarget.id) closeModal()
-      await loadTiers(activeCompanyId)
+      await loadPackages(activeCompanyId)
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Delete failed'
       setError(message)
@@ -137,14 +137,14 @@ const TiersPanel = () => {
     activeCompanyId,
     currentUser,
   )
-  const canManageTiers =
+  const canManagePackages =
     companiesWrite && activeCompanyId != null && !companiesLoading
 
   return (
     <div>
       <div className="row g-2 align-items-end mb-3">
         <CompanyFilterSelect
-          id="tiers-company"
+          id="packages-company"
           className="col-sm-8 col-md-6"
           companies={companies}
           loading={companiesLoading}
@@ -157,10 +157,10 @@ const TiersPanel = () => {
               type="button"
               className="btn btn-sm btn-primary"
               onClick={openAdd}
-              disabled={!canManageTiers}
+              disabled={!canManagePackages}
             >
               <i className="bi bi-plus-lg me-1" />
-              Add tier
+              Add package
             </button>
           </div>
         )}
@@ -169,39 +169,39 @@ const TiersPanel = () => {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <span className="text-muted small">
           {selectedCompanyName
-            ? `${tiers.length} tier${tiers.length !== 1 ? 's' : ''} for ${selectedCompanyName}`
-            : 'Select a company to view tiers'}
+            ? `${packages.length} package${packages.length !== 1 ? 's' : ''} for ${selectedCompanyName}`
+            : 'Select a company to view packages'}
         </span>
       </div>
 
       {error && <div className="alert alert-danger py-2">{error}</div>}
 
-      {companiesLoading || (loading && tiers.length === 0) ? (
+      {companiesLoading || (loading && packages.length === 0) ? (
         <div className="text-muted">Loading…</div>
       ) : activeCompanyId == null ? (
-        <div className="text-muted small">Add an active company before managing tiers.</div>
-      ) : tiers.length === 0 ? (
+        <div className="text-muted small">Add an active company before managing packages.</div>
+      ) : packages.length === 0 ? (
         <div className="text-muted small">
           {companiesWrite
-            ? 'No tiers yet for this company. Click "Add tier" to create one.'
-            : 'No tiers yet for this company.'}
+            ? 'No packages yet for this company. Click "Add package" to create one.'
+            : 'No packages yet for this company.'}
         </div>
       ) : (
         <div className="table-responsive">
-          <table className="table table-sm table-hover align-middle mb-0 bookings-tiers-table">
+          <table className="table table-sm table-hover align-middle mb-0 bookings-packages-table">
             <thead>
               <tr>
                 <th>Name</th>
-                <th className="bookings-tiers-table__active">Active</th>
+                <th className="bookings-packages-table__active">Active</th>
                 {companiesWrite && <th className="text-end">Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {tiers.map((tier) => (
-                <tr key={tier.id}>
-                  <td className="fw-semibold">{tier.name}</td>
-                  <td className="bookings-tiers-table__active">
-                    {tier.is_active ? (
+              {packages.map((pkg) => (
+                <tr key={pkg.id}>
+                  <td className="fw-semibold">{pkg.name}</td>
+                  <td className="bookings-packages-table__active">
+                    {pkg.is_active ? (
                       <span className="badge text-bg-success">Yes</span>
                     ) : (
                       <span className="badge text-bg-secondary">No</span>
@@ -213,16 +213,16 @@ const TiersPanel = () => {
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-primary"
-                          title="Edit tier"
-                          onClick={() => openEdit(tier)}
+                          title="Edit package"
+                          onClick={() => openEdit(pkg)}
                         >
                           <i className="bi bi-pencil-square" />
                         </button>
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-danger"
-                          title="Delete tier"
-                          onClick={() => setDeleteTarget(tier)}
+                          title="Delete package"
+                          onClick={() => setDeleteTarget(pkg)}
                         >
                           <i className="bi bi-trash3" />
                         </button>
@@ -251,7 +251,7 @@ const TiersPanel = () => {
               <div className="modal-content">
                 <div className="modal-header">
                   <h2 className="modal-title fs-5">
-                    {editing ? 'Edit tier' : 'Add tier'}
+                    {editing ? 'Edit package' : 'Add package'}
                   </h2>
                   <button
                     type="button"
@@ -267,11 +267,11 @@ const TiersPanel = () => {
                     </p>
                   )}
                   <div className="mb-3">
-                    <label className="form-label" htmlFor="tier-name">
+                    <label className="form-label" htmlFor="package-name">
                       Name
                     </label>
                     <input
-                      id="tier-name"
+                      id="package-name"
                       type="text"
                       className="form-control"
                       value={name}
@@ -281,13 +281,13 @@ const TiersPanel = () => {
                   </div>
                   <div className="form-check">
                     <input
-                      id="tier-is-active"
+                      id="package-is-active"
                       type="checkbox"
                       className="form-check-input"
                       checked={isActive}
                       onChange={(e) => setIsActive(e.target.checked)}
                     />
-                    <label className="form-check-label" htmlFor="tier-is-active">
+                    <label className="form-check-label" htmlFor="package-is-active">
                       Active
                     </label>
                   </div>
@@ -335,7 +335,7 @@ const TiersPanel = () => {
             <div className="modal-dialog modal-dialog-centered modal-sm">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h2 className="modal-title fs-5">Delete tier</h2>
+                  <h2 className="modal-title fs-5">Delete package</h2>
                   <button
                     type="button"
                     className="btn-close"
@@ -346,7 +346,7 @@ const TiersPanel = () => {
                 <div className="modal-body">
                   <p className="mb-0">
                     Delete <strong>{deleteTarget.name}</strong>? Supplier pricing
-                    for this tier will be removed.
+                    for this package will be removed.
                   </p>
                 </div>
                 <div className="modal-footer">
@@ -376,4 +376,4 @@ const TiersPanel = () => {
   )
 }
 
-export default TiersPanel
+export default CompanyPackagesPanel

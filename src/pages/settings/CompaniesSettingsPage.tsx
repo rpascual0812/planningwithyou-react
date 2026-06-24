@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import CompaniesPanel from './companies/CompaniesPanel'
-import TiersPanel from './companies/TiersPanel'
+import CompanyPackagesPanel from './companies/CompanyPackagesPanel'
 import PackagesPanel from './companies/PackagesPanel'
 
 const CompaniesSettingsPage = () => {
   const [companiesOpen, setCompaniesOpen] = useState(false)
-  const [tiersOpen, setTiersOpen] = useState(false)
+  const [companyPackagesOpen, setCompanyPackagesOpen] = useState(false)
   const [packagesOpen, setPackagesOpen] = useState(false)
 
   return (
@@ -34,25 +34,25 @@ const CompaniesSettingsPage = () => {
           )}
         </li>
 
-        <li className={`faq-item${tiersOpen ? ' is-open' : ''}`}>
+        <li className={`faq-item${companyPackagesOpen ? ' is-open' : ''}`}>
           <button
             type="button"
             className="faq-toggle"
-            data-tour="settings-companies-tiers"
-            aria-expanded={tiersOpen}
-            onClick={() => setTiersOpen((prev) => !prev)}
+            data-tour="settings-companies-package-definitions"
+            aria-expanded={companyPackagesOpen}
+            onClick={() => setCompanyPackagesOpen((prev) => !prev)}
           >
             <span className="faq-icon" aria-hidden="true">
               <i className="bi bi-layers" />
             </span>
-            <span className="faq-question">Tiers</span>
+            <span className="faq-question">Packages</span>
             <span className="faq-chevron" aria-hidden="true">
               <i className="bi bi-chevron-down" />
             </span>
           </button>
-          {tiersOpen && (
+          {companyPackagesOpen && (
             <div className="faq-answer faq-answer--view">
-              <TiersPanel />
+              <CompanyPackagesPanel />
             </div>
           )}
         </li>

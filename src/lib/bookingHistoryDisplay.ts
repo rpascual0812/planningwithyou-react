@@ -20,7 +20,7 @@ const LINE_FIELD_LABELS: Record<string, string> = {
   required_downpayment: 'Downpayment',
   value: 'Value',
   company_id: 'Supplier',
-  tier_id: 'Tier',
+  package_id: 'Package',
   package_version_id: 'Package',
   sort_order: 'Order',
 }

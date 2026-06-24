@@ -18,7 +18,7 @@ const POPOVER_ESTIMATE_H = 280
 
 type PackageItemsPopoverProps = {
   packageDescription: string
-  tierName: string
+  packageName: string
   items: PackageItemRecord[]
   loading?: boolean
   disabled?: boolean
@@ -59,7 +59,7 @@ function renderItemRows(items: PackageItemRecord[], depth = 0): ReactElement[] {
 
 export default function PackageItemsPopover({
   packageDescription,
-  tierName,
+  packageName,
   items,
   loading = false,
   disabled = false,
@@ -191,7 +191,7 @@ export default function PackageItemsPopover({
                 </div>
                 <div className="package-items-popover__header-text">
                   <span className="package-items-popover__eyebrow">Package</span>
-                  <strong className="package-items-popover__title">{tierName}</strong>
+                  <strong className="package-items-popover__title">{packageName}</strong>
                   {packageDescription.trim() && (
                     <span className="package-items-popover__subtitle">
                       {packageDescription}
