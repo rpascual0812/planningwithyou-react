@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { Canvas, type FabricObject } from 'fabric'
+import { Canvas, IText, type FabricObject } from 'fabric'
 import {
   collectTransformSyncTargets,
+  commitFabricTextScale,
   createFabricObject,
   fabricElementNeedsRecreate,
   fabricObjectToElementTransform,
+  fabricTextTransformPlacement,
   getElementId,
   patchFabricObjectFromElement,
+  refreshFabricTextMetrics,
+  textTransformPlacementChanged,
 } from '../lib/fabricSync'
 import { persistDraft } from '../store/templateStudioStore'
 import { isElementVisibleOnPage } from '../lib/pageBounds'
 import { useTemplateStudioStore } from '../store/templateStudioStore'
-import type { CanvasElement } from '../types/schema'
+import type { CanvasElement, ElementTransform } from '../types/schema'
 
 type UseFabricCanvasOptions = {
   width: number
@@ -51,6 +55,40 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
   const selectElements = useTemplateStudioStore((s) => s.selectElements)
   const updateElement = useTemplateStudioStore((s) => s.updateElement)
   const updateElementTransform = useTemplateStudioStore((s) => s.updateElementTransform)
+  const batchUpdateElementTransforms = useTemplateStudioStore((s) => s.batchUpdateElementTransforms)
+  const textSyncInProgressRef = useRef(false)
+
+  const syncTextDimensionsToStore = useCallback((scale: number) => {
+    const canvas = fabricRef.current
+    if (!canvas || textSyncInProgressRef.current) return false
+
+    const pageElements = useTemplateStudioStore.getState().getActivePage().elements
+    const updates: Array<{ id: string; transform: Partial<ElementTransform> }> = []
+
+    for (const el of pageElements) {
+      if (el.type !== 'text') continue
+      const obj = canvas.getObjects().find((o) => getElementId(o) === el.id)
+      if (!obj || (obj.type !== 'i-text' && obj.type !== 'IText' && obj.type !== 'text')) {
+        continue
+      }
+      const measured = fabricTextTransformPlacement(obj as IText, scale)
+      if (!textTransformPlacementChanged(el.transform, measured)) continue
+      updates.push({ id: el.id, transform: measured })
+    }
+
+    if (!updates.length) return false
+
+    textSyncInProgressRef.current = true
+    useTemplateStudioStore.setState({ suppressHistory: true })
+    try {
+      batchUpdateElementTransforms(updates, { preserveCanvas: true })
+    } finally {
+      useTemplateStudioStore.setState({ suppressHistory: false })
+      textSyncInProgressRef.current = false
+    }
+    canvas.requestRenderAll()
+    return true
+  }, [batchUpdateElementTransforms])
 
   const restoreCanvasSelection = useCallback(async (canvas: Canvas, ids: string[]) => {
     if (ids.length === 1) {
@@ -76,6 +114,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
     const preserveIds = [...useTemplateStudioStore.getState().selectedIds]
     syncingRef.current = true
     try {
+      let textReflowed = false
       for (const el of elements) {
         let obj = canvas.getObjects().find((o) => getElementId(o) === el.id)
         if (!obj) continue
@@ -89,9 +128,10 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
             canvas.moveObjectTo(created, index)
           }
           obj = created
+          if (el.type === 'text') textReflowed = true
         } else {
-          const patched = patchFabricObjectFromElement(obj, el, scale)
-          if (!patched) {
+          const patched = await patchFabricObjectFromElement(obj, el, scale)
+          if (!patched.ok) {
             const created = await createFabricObject(el, scale)
             if (!created) continue
             const index = canvas.getObjects().indexOf(obj)
@@ -100,15 +140,21 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
             if (index >= 0) {
               canvas.moveObjectTo(created, index)
             }
+            if (el.type === 'text') textReflowed = true
+          } else if (patched.textReflowed) {
+            textReflowed = true
           }
         }
       }
       await restoreCanvasSelection(canvas, preserveIds)
+      if (textReflowed) {
+        syncTextDimensionsToStore(scale)
+      }
       canvas.requestRenderAll()
     } finally {
       syncingRef.current = false
     }
-  }, [elements, restoreCanvasSelection])
+  }, [elements, restoreCanvasSelection, syncTextDimensionsToStore])
 
   const rebuildCanvas = useCallback(async () => {
     const canvas = fabricRef.current
@@ -149,13 +195,14 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       )
 
       if (token !== rebuildTokenRef.current) return
+      syncTextDimensionsToStore(scale)
       canvas.requestRenderAll()
     } finally {
       if (token === rebuildTokenRef.current) {
         syncingRef.current = false
       }
     }
-  }, [elements, width, height, restoreCanvasSelection])
+  }, [elements, width, height, restoreCanvasSelection, syncTextDimensionsToStore])
 
   const scheduleFullRebuild = useCallback(() => {
     void document.fonts.ready.then(() => {
@@ -193,6 +240,27 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       selectElements(ids)
     }
 
+    const remeasureActiveTextBox = async () => {
+      if (syncingRef.current) return
+      const active = canvas.getActiveObject()
+      if (!active) return
+      const type = active.type
+      if (type !== 'i-text' && type !== 'IText' && type !== 'text') return
+      syncingRef.current = true
+      try {
+        await refreshFabricTextMetrics(active as IText)
+        syncTextDimensionsToStore(Math.max(displayScaleRef.current, 0.01))
+        canvas.requestRenderAll()
+      } finally {
+        syncingRef.current = false
+      }
+    }
+
+    const onSelectionWithMetrics = () => {
+      onSelection()
+      void remeasureActiveTextBox()
+    }
+
     const finishTransformSync = () => {
       suppressRebuildUntilRef.current = Date.now() + 250
       useTemplateStudioStore.setState({
@@ -206,7 +274,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       }, 280)
     }
 
-    const syncTargetToStore = (raw?: FabricObject) => {
+    const syncTargetToStore = async (raw?: FabricObject) => {
       if (syncingRef.current) return
       const seed = raw ?? canvas.getActiveObject()
       if (!seed) return
@@ -219,35 +287,64 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
         suppressFabricRebuild: true,
       })
 
+      syncingRef.current = true
       let synced = 0
-      for (const target of targets) {
-        const mapped = fabricObjectToElementTransform(
-          target,
-          displayScaleRef.current,
-          gridSize,
-          snapToGrid,
-        )
-        if (!mapped) continue
-        synced += 1
-        updateElementTransform(mapped.id, mapped.transform)
-        if (
-          target.type === 'i-text' ||
-          target.type === 'text' ||
-          target.type === 'IText'
-        ) {
-          const text = (target as { text?: string }).text ?? ''
-          updateElement(mapped.id, { content: text } as Partial<CanvasElement>)
+      try {
+        for (const target of targets) {
+          const isText =
+            target.type === 'i-text' ||
+            target.type === 'text' ||
+            target.type === 'IText'
+
+          let scaledStyle: { fontSize: number; charSpacing: number } | null = null
+          if (isText) {
+            scaledStyle = await commitFabricTextScale(
+              target as IText,
+              displayScaleRef.current,
+            )
+          }
+
+          const mapped = fabricObjectToElementTransform(
+            target,
+            displayScaleRef.current,
+            gridSize,
+            snapToGrid,
+          )
+          if (!mapped) continue
+          synced += 1
+
+          if (isText) {
+            const el = useTemplateStudioStore
+              .getState()
+              .getActivePage()
+              .elements.find((e) => e.id === mapped.id)
+            if (el?.type === 'text') {
+              updateElement(mapped.id, {
+                transform: mapped.transform,
+                content: (target as IText).text ?? '',
+                style: scaledStyle
+                  ? { ...el.style, ...scaledStyle }
+                  : el.style,
+              } as Partial<CanvasElement>)
+              continue
+            }
+          }
+
+          updateElementTransform(mapped.id, mapped.transform)
         }
+      } finally {
+        syncingRef.current = false
       }
       if (!synced) return
 
       persistDraft(useTemplateStudioStore.getState().document)
       finishTransformSync()
+      canvas.requestRenderAll()
     }
 
     const onModified = (e: { target?: FabricObject }) => {
       if (!e.target) return
-      syncTargetToStore(e.target)
+      void syncTargetToStore(e.target)
     }
 
     const onMouseDown = () => {
@@ -265,11 +362,11 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       transformGestureRef.current = false
       if (!wasTransforming) return
       if (syncedGestureRef.current) return
-      syncTargetToStore()
+      void syncTargetToStore()
     }
 
-    canvas.on('selection:created', onSelection)
-    canvas.on('selection:updated', onSelection)
+    canvas.on('selection:created', onSelectionWithMetrics)
+    canvas.on('selection:updated', onSelectionWithMetrics)
     canvas.on('selection:cleared', () => {
       if (syncingRef.current) return
       selectElements([])
@@ -288,7 +385,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       fabricRef.current = null
       host.replaceChildren()
     }
-  }, [width, height, enabled, gridSize, snapToGrid, selectElements, updateElement, updateElementTransform])
+  }, [width, height, enabled, gridSize, snapToGrid, selectElements, updateElement, updateElementTransform, syncTextDimensionsToStore])
 
   useEffect(() => {
     if (!enabled || !fabricRef.current) return

@@ -89,6 +89,10 @@ export type TemplateStudioState = {
     opts?: { preserveCanvas?: boolean },
   ) => void
   updateElementTransform: (id: string, transform: Partial<ElementTransform>) => void
+  batchUpdateElementTransforms: (
+    updates: Array<{ id: string; transform: Partial<ElementTransform> }>,
+    opts?: { preserveCanvas?: boolean },
+  ) => void
   deleteSelected: () => void
   duplicateSelected: () => void
   layerSelected: (direction: LayerDirection) => void
@@ -331,6 +335,33 @@ export const useTemplateStudioStore = create<TemplateStudioState>()(
       get().updateElement(id, {
         transform: { ...el.transform, ...transform },
       } as Partial<CanvasElement>)
+    },
+
+    batchUpdateElementTransforms: (updates, opts) => {
+      if (!updates.length) return
+      set((s) => {
+        const doc = cloneDoc(s.document)
+        const page = doc.pages.find((p) => p.id === s.activePageId)
+        if (!page) return s
+        let touched = false
+        for (const update of updates) {
+          const idx = page.elements.findIndex((el) => el.id === update.id)
+          if (idx < 0) continue
+          page.elements[idx] = {
+            ...page.elements[idx],
+            transform: { ...page.elements[idx].transform, ...update.transform },
+          } as CanvasElement
+          touched = true
+        }
+        if (!touched) return s
+        doc.meta.updatedAt = new Date().toISOString()
+        return {
+          document: doc,
+          isDirty: true,
+          suppressFabricRebuild: opts?.preserveCanvas ?? true,
+          ...(s.suppressHistory ? {} : pushPast(s)),
+        }
+      })
     },
 
     deleteSelected: () => {

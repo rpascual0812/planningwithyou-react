@@ -56,6 +56,219 @@ export function transformToFabricProps(t: ElementTransform, displayScale = 1) {
   }
 }
 
+/** Text objects size from glyph metrics; stored width/height must not override them. */
+export function fabricPlacementProps(
+  t: ReturnType<typeof transformToFabricProps>,
+) {
+  const { width: _width, height: _height, ...placement } = t
+  return placement
+}
+
+function canvasFontFamily(fontFamily: string): string {
+  return fontFamily.includes(' ') || fontFamily.includes(',')
+    ? `"${fontFamily}"`
+    : fontFamily
+}
+
+function canvasFontString(
+  fontSize: number,
+  fontFamily: string,
+  fontWeight: string | number,
+  fontStyle: string,
+): string {
+  return `${fontStyle} ${fontWeight} ${fontSize}px ${canvasFontFamily(fontFamily)}`
+}
+
+function measureTextCanvasBounds(
+  content: string,
+  fontSize: number,
+  fontFamily: string,
+  fontWeight: string | number,
+  fontStyle: string,
+): { width: number; height: number } {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) {
+    return { width: fontSize * Math.max(1, content.length * 0.6), height: fontSize * 1.25 }
+  }
+  ctx.font = canvasFontString(fontSize, fontFamily, fontWeight, fontStyle)
+  const metrics = ctx.measureText(content || ' ')
+  const left = metrics.actualBoundingBoxLeft ?? 0
+  const right = metrics.actualBoundingBoxRight ?? metrics.width
+  const ascent = metrics.actualBoundingBoxAscent ?? fontSize * 0.82
+  const descent = metrics.actualBoundingBoxDescent ?? fontSize * 0.22
+  // Serif/web fonts often draw outside advance width; bias to ink bounds.
+  const inkWidth = left + right
+  const advanceWidth = metrics.width
+  const padX = fontSize * 0.16
+  const padY = fontSize * 0.1
+  return {
+    width: Math.max(inkWidth, advanceWidth) * 1.15 + padX * 2,
+    height: ascent + descent + padY * 2,
+  }
+}
+
+async function waitForGoogleFontsStylesheet(): Promise<void> {
+  const link = document.getElementById('template-studio-google-fonts') as HTMLLinkElement | null
+  if (!link?.href || link.sheet) return
+  await new Promise<void>((resolve) => {
+    const done = () => resolve()
+    link.addEventListener('load', done, { once: true })
+    link.addEventListener('error', done, { once: true })
+    window.setTimeout(done, 2500)
+  })
+}
+
+async function ensureFabricTextFontLoaded(text: IText): Promise<void> {
+  const fontSize = text.fontSize ?? 16
+  const fontFamily = text.fontFamily ?? 'sans-serif'
+  const fontWeight = text.fontWeight ?? 'normal'
+  const fontStyle = text.fontStyle ?? 'normal'
+  const content = text.text ?? ' '
+  const descriptor = canvasFontString(fontSize, fontFamily, fontWeight, fontStyle)
+  try {
+    await waitForGoogleFontsStylesheet()
+    await document.fonts.ready
+    if (document.fonts?.load) {
+      await document.fonts.load(descriptor, content)
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        if (document.fonts.check(descriptor)) break
+        await new Promise((resolve) => setTimeout(resolve, 80))
+        await document.fonts.load(descriptor, content)
+      }
+    }
+    await new Promise(requestAnimationFrame)
+  } catch {
+    await document.fonts.ready
+  }
+}
+
+function setFabricTextWidth(text: IText, targetWidth: number): void {
+  const current = text.width ?? 0
+  const delta = targetWidth - current
+  if (delta <= 0.5) return
+  const left = text.left ?? 0
+  const align = text.textAlign ?? 'left'
+  if (align === 'center' || align === 'justify-center') {
+    text.set({ left: left - delta / 2, width: targetWidth })
+  } else if (align === 'right' || align === 'justify-right') {
+    text.set({ left: left - delta, width: targetWidth })
+  } else {
+    text.set({ width: targetWidth })
+  }
+}
+
+function expandFabricTextBox(text: IText): void {
+  const fontSize = text.fontSize ?? 16
+  const measured = measureTextCanvasBounds(
+    text.text ?? '',
+    fontSize,
+    text.fontFamily ?? 'sans-serif',
+    text.fontWeight ?? 'normal',
+    text.fontStyle ?? 'normal',
+  )
+  const lineHeight = text.lineHeight ?? 1.16
+  const sideMargin = fontSize * 0.16
+  const fabricLineWidth = text.calcTextWidth()
+  const targetWidth = Math.max(measured.width, fabricLineWidth + fontSize * 0.32) + sideMargin * 2
+  const targetHeight = Math.max(fontSize * lineHeight, measured.height, text.calcTextHeight()) + sideMargin
+  const controlPad = Math.ceil(fontSize * 0.12)
+
+  setFabricTextWidth(text, targetWidth)
+  if (targetHeight > (text.height ?? 0) + 0.5) {
+    text.set({ height: targetHeight })
+  }
+  text.set({ padding: controlPad })
+}
+
+export async function refreshFabricTextMetrics(text: IText): Promise<void> {
+  await ensureFabricTextFontLoaded(text)
+  text.initDimensions()
+  expandFabricTextBox(text)
+  text.setCoords()
+}
+
+/** Bake Fabric scale into font size so resize handles change typography, not just the box. */
+export async function commitFabricTextScale(
+  text: IText,
+  displayScale: number,
+): Promise<{ fontSize: number; charSpacing: number } | null> {
+  const scaleX = text.scaleX ?? 1
+  const scaleY = text.scaleY ?? 1
+  if (Math.abs(scaleX - 1) < 0.002 && Math.abs(scaleY - 1) < 0.002) {
+    return null
+  }
+
+  const scale = (scaleX + scaleY) / 2
+  const canvasFontSize = (text.fontSize ?? 16) * scale
+  const canvasCharSpacing = (text.charSpacing ?? 0) * scale
+
+  text.set({
+    scaleX: 1,
+    scaleY: 1,
+    fontSize: canvasFontSize,
+    charSpacing: canvasCharSpacing,
+  })
+  await refreshFabricTextMetrics(text)
+  text.setCoords()
+
+  const s = displayScale || 1
+  return {
+    fontSize: Math.max(8, Math.round(canvasFontSize / s)),
+    charSpacing: canvasCharSpacing / s,
+  }
+}
+
+export function fabricTextTransformSize(
+  text: IText,
+  displayScale: number,
+): Pick<ElementTransform, 'width' | 'height'> {
+  const s = displayScale || 1
+  text.setCoords()
+  return {
+    width: text.getScaledWidth() / s,
+    height: text.getScaledHeight() / s,
+  }
+}
+
+export function fabricTextTransformPlacement(
+  text: IText,
+  displayScale: number,
+): Pick<ElementTransform, 'x' | 'y' | 'width' | 'height'> {
+  const s = displayScale || 1
+  const pad = text.padding ?? 0
+  text.setCoords()
+  return {
+    x: Math.round(((text.left ?? 0) - pad) / s),
+    y: Math.round(((text.top ?? 0) - pad) / s),
+    width: Math.round((text.getScaledWidth() + pad * 2) / s),
+    height: Math.round((text.getScaledHeight() + pad * 2) / s),
+  }
+}
+
+export function textTransformSizeChanged(
+  current: ElementTransform,
+  measured: Pick<ElementTransform, 'width' | 'height'>,
+  tolerance = 1,
+): boolean {
+  return (
+    Math.abs(current.width - measured.width) > tolerance ||
+    Math.abs(current.height - measured.height) > tolerance
+  )
+}
+
+export function textTransformPlacementChanged(
+  current: ElementTransform,
+  measured: Pick<ElementTransform, 'x' | 'y' | 'width' | 'height'>,
+  tolerance = 1,
+): boolean {
+  return (
+    Math.abs(current.x - measured.x) > tolerance ||
+    Math.abs(current.y - measured.y) > tolerance ||
+    textTransformSizeChanged(current, measured, tolerance)
+  )
+}
+
 /** Resolve Fabric modified target (groups are stored on the group, not activeSelection). */
 export function resolveFabricModifiedTarget(obj: FabricObject): FabricObject | null {
   if (obj.type === 'activeSelection' || obj.type === 'ActiveSelection') {
@@ -92,6 +305,23 @@ export function fabricPropsToTransform(obj: FabricObject, displayScale = 1): Ele
   const scaleY = obj.scaleY ?? 1
   const zIndex = (obj.get('data') as { zIndex?: number })?.zIndex ?? 1
   const locked = Boolean(obj.lockMovementX && obj.lockMovementY)
+
+  if (
+    obj.type === 'i-text' ||
+    obj.type === 'IText' ||
+    obj.type === 'text'
+  ) {
+    const placement = fabricTextTransformPlacement(obj as IText, s)
+    return {
+      ...placement,
+      rotation: obj.angle ?? 0,
+      scaleX: 1,
+      scaleY: 1,
+      opacity: obj.opacity ?? 1,
+      zIndex,
+      locked,
+    }
+  }
 
   if (obj.type === 'Group') {
     return {
@@ -170,7 +400,7 @@ export async function createFabricObject(
   switch (element.type) {
     case 'text': {
       const text = new IText(element.content, {
-        ...base,
+        ...fabricPlacementProps(base),
         fontFamily: element.style.fontFamily,
         fontSize: element.style.fontSize * s,
         fill: element.style.fill,
@@ -181,6 +411,7 @@ export async function createFabricObject(
         textAlign: element.style.textAlign,
         lineHeight: element.style.lineHeight,
       })
+      await refreshFabricTextMetrics(text)
       return text
     }
     case 'image': {
@@ -317,6 +548,30 @@ export function applyTextStyleToFabric(
   })
 }
 
+function textStyleChangedOnFabric(
+  text: IText,
+  el: TextElement,
+  displayScale: number,
+): boolean {
+  const s = displayScale
+  return (
+    text.fontFamily !== el.style.fontFamily
+    || (text.fontSize ?? 0) !== el.style.fontSize * s
+    || text.fill !== el.style.fill
+    || text.fontWeight !== el.style.fontWeight
+    || text.fontStyle !== el.style.fontStyle
+    || Boolean(text.underline) !== el.style.underline
+    || (text.charSpacing ?? 0) !== el.style.charSpacing * s
+    || text.textAlign !== el.style.textAlign
+    || (text.lineHeight ?? 0) !== el.style.lineHeight
+  )
+}
+
+export type PatchFabricResult = {
+  ok: boolean
+  textReflowed?: boolean
+}
+
 function fabricImageNeedsRecreate(obj: FabricObject, element: ImageElement): boolean {
   const data = obj.get('data') as { imageSrc?: string; imageObjectFit?: string } | undefined
   return (
@@ -325,15 +580,16 @@ function fabricImageNeedsRecreate(obj: FabricObject, element: ImageElement): boo
 }
 
 /** Update an existing Fabric object from the document (avoids full canvas clear). */
-export function patchFabricObjectFromElement(
+export async function patchFabricObjectFromElement(
   obj: FabricObject,
   element: CanvasElement,
   displayScale = 1,
-): boolean {
+): Promise<PatchFabricResult> {
   const s = displayScale
   const t = transformToFabricProps(element.transform, s)
+  const placement = element.type === 'text' ? fabricPlacementProps(t) : t
   obj.set({
-    ...t,
+    ...placement,
     opacity: element.transform.opacity,
     selectable: !element.transform.locked,
     evented: !element.transform.locked,
@@ -348,12 +604,18 @@ export function patchFabricObjectFromElement(
   if (element.type === 'text') {
     const text = obj as IText
     if (text.type !== 'i-text' && text.type !== 'IText' && text.type !== 'text') {
-      return false
+      return { ok: false }
     }
+    const contentChanged = (text.text ?? '') !== element.content
+    const styleChanged = textStyleChangedOnFabric(text, element, s)
     text.set({ text: element.content })
     applyTextStyleToFabric(text, element, s)
-    text.setCoords()
-    return true
+    if (contentChanged || styleChanged) {
+      await refreshFabricTextMetrics(text)
+    } else {
+      text.setCoords()
+    }
+    return { ok: true, textReflowed: contentChanged || styleChanged }
   }
 
   if (element.type === 'shape' && obj.type === 'rect') {
@@ -372,7 +634,7 @@ export function patchFabricObjectFromElement(
           : 0,
     })
     obj.setCoords()
-    return true
+    return { ok: true }
   }
 
   if (element.type === 'image' && obj.type === 'rect') {
@@ -382,11 +644,11 @@ export function patchFabricObjectFromElement(
       ry: element.style.borderRadius * s,
     })
     obj.setCoords()
-    return !fabricImageNeedsRecreate(obj, element)
+    return { ok: !fabricImageNeedsRecreate(obj, element) }
   }
 
   obj.setCoords()
-  return true
+  return { ok: true }
 }
 
 export function fabricElementNeedsRecreate(

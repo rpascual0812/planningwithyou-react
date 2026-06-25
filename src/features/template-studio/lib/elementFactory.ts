@@ -32,7 +32,7 @@ export function createHeadingText(): CanvasElement {
   return createDefaultTextElement('Your heading', {
     name: 'Heading',
     style: { ...DEFAULT_TEXT_STYLE, fontSize: scaleFontFromLegacy(36) },
-    transform: scaleLayoutFromLegacy({ x: 40, y: 60, width: 310, height: 52 }),
+    transform: scaleLayoutFromLegacy({ x: 40, y: 60, width: 310, height: 80 }),
   })
 }
 
