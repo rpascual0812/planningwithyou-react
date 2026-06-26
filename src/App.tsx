@@ -10,13 +10,14 @@ import {
 } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Sidebar from './components/Sidebar'
+import ImpersonationBanner from './components/ImpersonationBanner'
 import AppTimezoneSync from './components/AppTimezoneSync'
 import { useAuthSession } from './context/AuthSessionContext'
 import { accessFor } from './lib/featureAccess'
 import { canAccessAdmin, canAccessAnyAdminTab } from './lib/adminNavAccess'
 import { firstAccessiblePath } from './lib/appNavigation'
 import { canAccessAnySettings } from './lib/settingsNavAccess'
-import { hasStoredSession } from './services/auth'
+import { hasStoredSession, isImpersonatingSession } from './services/auth'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
@@ -161,6 +162,9 @@ function RequireAdmin() {
   if (!canAccessAdmin(currentUser) || !canAccessAnyAdminTab(currentUser)) {
     return <Navigate to={firstAccessiblePath(currentUser)} replace />
   }
+  if (isImpersonatingSession()) {
+    return <Navigate to={firstAccessiblePath(currentUser)} replace />
+  }
   return <Outlet />
 }
 
@@ -256,6 +260,7 @@ function DashboardLayout() {
     <div className={wrapperClassName}>
       <AppTimezoneSync />
       <ProductTourRunner onEnsureSidebarOpen={ensureSidebarOpenForTour} />
+      <ImpersonationBanner />
       <Navbar onToggleSidebar={handleToggleSidebar} />
       <Sidebar />
 

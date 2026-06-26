@@ -1091,6 +1091,41 @@ body,
 }
 
 /* ============================================================
+   Impersonation banner (platform admin viewing as tenant user)
+   ============================================================ */
+.impersonation-banner {
+  position: sticky;
+  top: 0;
+  z-index: 1040;
+  background: linear-gradient(90deg, #0f3d2e 0%, #145c43 100%);
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(8, 20, 39, 0.12);
+}
+
+.impersonation-banner__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.impersonation-banner__text {
+  font-size: 0.9rem;
+}
+
+.impersonation-banner__email {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.impersonation-banner__exit {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ============================================================
    Top navbar – frosted glass with subtle navy shadow and green badge.
    ============================================================ */
 .app-header.navbar {
@@ -10308,6 +10343,12 @@ body,
   position: relative;
   flex: 1 1 340px;
   max-width: 420px;
+}
+
+.admin-accounts-user-search {
+  flex: 1 1 220px;
+  max-width: 280px;
+  min-width: 180px;
 }
 
 .emails-search .bi-search {

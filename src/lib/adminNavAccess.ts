@@ -1,5 +1,6 @@
 import type { UserRecord } from '../services/users'
 import type { AdminSection } from '../pages/settings/types'
+import { isImpersonatingSession } from '../services/auth'
 import { canRead } from './featureAccess'
 
 const ADMIN_TAB_ORDER: AdminSection[] = [
@@ -27,6 +28,7 @@ const TAB_READ_FEATURES: Record<AdminSection, string> = {
 
 /** Can open the Admin area (sidebar / route shell). */
 export function canAccessAdmin(user: UserRecord | null): boolean {
+  if (isImpersonatingSession()) return false
   return canRead(user, 'platform_admin')
 }
 

@@ -1,10 +1,16 @@
 import type { CompanyRecord } from '../services/companies'
 import type { UserRecord } from '../services/users'
+import { isImpersonatingSession } from '../services/auth'
 import { canRead } from './featureAccess'
 
 export const CHANGE_COMPANY_FEATURE = 'change_company'
 
+export function isImpersonatingUser(user: UserRecord | null): boolean {
+  return isImpersonatingSession() || Boolean(user?.impersonating)
+}
+
 export function canChangeCompany(user: UserRecord | null): boolean {
+  if (isImpersonatingUser(user)) return false
   return canRead(user, CHANGE_COMPANY_FEATURE)
 }
 

@@ -1,12 +1,54 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   fetchAdminAccountsPage,
   type AdminAccountsPage as AdminAccountsPageResponse,
   type AdminAccountRecord,
 } from '../../services/adminAccounts'
+import {
+  fetchImpersonationUsers,
+  startImpersonation,
+  type ImpersonationUserRecord,
+} from '../../services/impersonation'
+import { useAuthSession } from '../../context/AuthSessionContext'
 import { formatAppDateTime } from '../../lib/formatDateTime'
 
+function userDisplayName(user: ImpersonationUserRecord): string {
+  const full = `${user.first_name ?? ''} ${user.last_name ?? ''}`.trim()
+  return full || user.username || user.email
+}
+
+function companyKey(accountId: number, companyId: number): string {
+  return `${accountId}:${companyId}`
+}
+
+function filterAccountUsers(
+  users: ImpersonationUserRecord[],
+  query: string,
+): ImpersonationUserRecord[] {
+  const q = query.trim().toLowerCase()
+  if (!q) return users
+  return users.filter((user) => {
+    const haystack = [
+      user.username,
+      user.email,
+      user.first_name,
+      user.last_name,
+      user.company_name,
+      userDisplayName(user),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return haystack.includes(q)
+  })
+}
+
+const USERS_PAGE_SIZE = 5
+
 const AdminAccountsPage = () => {
+  const navigate = useNavigate()
+  const { syncAuthState } = useAuthSession()
   const [rows, setRows] = useState<AdminAccountRecord[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(0)
@@ -17,6 +59,19 @@ const AdminAccountsPage = () => {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [expandedAccountIds, setExpandedAccountIds] = useState<Set<number>>(new Set())
+  const [expandedCompanyKeys, setExpandedCompanyKeys] = useState<Set<string>>(new Set())
+  const [companyUsers, setCompanyUsers] = useState<
+    Record<string, ImpersonationUserRecord[]>
+  >({})
+  const [companyUsersLoadingKeys, setCompanyUsersLoadingKeys] = useState<Set<string>>(
+    new Set(),
+  )
+  const [companyUsersError, setCompanyUsersError] = useState<Record<string, string>>({})
+  const [impersonatingUserId, setImpersonatingUserId] = useState<number | null>(null)
+  const [companyUsersVisibleCount, setCompanyUsersVisibleCount] = useState<
+    Record<string, number>
+  >({})
+  const [companyUserSearch, setCompanyUserSearch] = useState<Record<string, string>>({})
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const loadingMoreRef = useRef(false)
@@ -70,7 +125,61 @@ const AdminAccountsPage = () => {
 
   useEffect(() => {
     setExpandedAccountIds(new Set())
+    setExpandedCompanyKeys(new Set())
+    setCompanyUsers({})
+    setCompanyUsersError({})
+    setCompanyUsersVisibleCount({})
+    setCompanyUserSearch({})
   }, [debouncedSearch])
+
+  const loadCompanyUsers = useCallback(async (accountId: number, companyId: number) => {
+    const key = companyKey(accountId, companyId)
+    setCompanyUsersLoadingKeys((prev) => new Set(prev).add(key))
+    setCompanyUsersError((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+    try {
+      const users = await fetchImpersonationUsers(accountId, companyId)
+      setCompanyUsers((prev) => ({ ...prev, [key]: users }))
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to load users'
+      setCompanyUsersError((prev) => ({ ...prev, [key]: message }))
+      setCompanyUsers((prev) => ({ ...prev, [key]: [] }))
+    } finally {
+      setCompanyUsersLoadingKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(key)
+        return next
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    for (const key of expandedCompanyKeys) {
+      if (companyUsers[key] == null && !companyUsersLoadingKeys.has(key)) {
+        const [accountId, companyId] = key.split(':').map(Number)
+        void loadCompanyUsers(accountId, companyId)
+      }
+    }
+  }, [companyUsers, companyUsersLoadingKeys, expandedCompanyKeys, loadCompanyUsers])
+
+  const handleViewAsUser = async (user: ImpersonationUserRecord) => {
+    if (!user.can_impersonate || impersonatingUserId != null) return
+    setImpersonatingUserId(user.id)
+    try {
+      await startImpersonation(user.id)
+      syncAuthState()
+      navigate('/', { replace: true })
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Failed to start impersonation'
+      window.alert(message)
+    } finally {
+      setImpersonatingUserId(null)
+    }
+  }
 
   const loadNextPage = useCallback(() => {
     if (!hasMore || loading || loadingMore) return
@@ -105,7 +214,7 @@ const AdminAccountsPage = () => {
     return () => window.removeEventListener('scroll', maybeLoadNextPage)
   }, [maybeLoadNextPage])
 
-  const toggleExpanded = (accountId: number) => {
+  const toggleAccountExpanded = (accountId: number) => {
     setExpandedAccountIds((prev) => {
       const next = new Set(prev)
       if (next.has(accountId)) {
@@ -115,6 +224,38 @@ const AdminAccountsPage = () => {
       }
       return next
     })
+  }
+
+  const toggleCompanyExpanded = (accountId: number, companyId: number) => {
+    const key = companyKey(accountId, companyId)
+    setExpandedCompanyKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+        setCompanyUsersVisibleCount((counts) => ({
+          ...counts,
+          [key]: USERS_PAGE_SIZE,
+        }))
+      }
+      return next
+    })
+  }
+
+  const showMoreUsers = (key: string) => {
+    setCompanyUsersVisibleCount((prev) => ({
+      ...prev,
+      [key]: (prev[key] ?? USERS_PAGE_SIZE) + USERS_PAGE_SIZE,
+    }))
+  }
+
+  const handleCompanyUserSearch = (key: string, value: string) => {
+    setCompanyUserSearch((prev) => ({ ...prev, [key]: value }))
+    setCompanyUsersVisibleCount((prev) => ({
+      ...prev,
+      [key]: USERS_PAGE_SIZE,
+    }))
   }
 
   return (
@@ -194,7 +335,7 @@ const AdminAccountsPage = () => {
                 ) : (
                   rows.map((row) => (
                     <Fragment key={row.id}>
-                      <tr key={row.id} className="emails-table-row">
+                      <tr className="emails-table-row">
                         <td className="emails-table-id">{row.id}</td>
                         <td className="fw-semibold">{row.name}</td>
                         <td>
@@ -225,7 +366,7 @@ const AdminAccountsPage = () => {
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-secondary"
-                            onClick={() => toggleExpanded(row.id)}
+                            onClick={() => toggleAccountExpanded(row.id)}
                             aria-expanded={expandedAccountIds.has(row.id)}
                             aria-label={
                               expandedAccountIds.has(row.id)
@@ -248,7 +389,9 @@ const AdminAccountsPage = () => {
                         <tr className="emails-table-row">
                           <td colSpan={9} className="bg-light">
                             {row.companies.length === 0 ? (
-                              <div className="small text-muted px-2 py-1">No companies under this account.</div>
+                              <div className="small text-muted px-2 py-1">
+                                No companies under this account.
+                              </div>
                             ) : (
                               <div className="table-responsive">
                                 <table className="table table-sm mb-0 align-middle">
@@ -261,20 +404,200 @@ const AdminAccountsPage = () => {
                                       <th>KYB verified</th>
                                       <th>Users</th>
                                       <th>Max booking per day</th>
+                                      <th />
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {row.companies.map((company) => (
-                                      <tr key={company.id}>
-                                        <td>{company.name}</td>
-                                        <td>{company.is_main ? 'Yes' : 'No'}</td>
-                                        <td>{company.contact_person || '—'}</td>
-                                        <td>{company.contact_email || '—'}</td>
-                                        <td>{company.kyb_verified ? 'Yes' : 'No'}</td>
-                                        <td>{company.user_count}</td>
-                                        <td>{company.max_booking_per_day ?? '—'}</td>
-                                      </tr>
-                                    ))}
+                                    {row.companies.map((company) => {
+                                      const key = companyKey(row.id, company.id)
+                                      const isCompanyExpanded = expandedCompanyKeys.has(key)
+                                      const allCompanyUsers = companyUsers[key] ?? []
+                                      const userSearch = companyUserSearch[key] ?? ''
+                                      const filteredCompanyUsers = filterAccountUsers(
+                                        allCompanyUsers,
+                                        userSearch,
+                                      )
+                                      const visibleUserCount =
+                                        companyUsersVisibleCount[key] ?? USERS_PAGE_SIZE
+                                      const visibleCompanyUsers = filteredCompanyUsers.slice(
+                                        0,
+                                        visibleUserCount,
+                                      )
+                                      const hasMoreCompanyUsers =
+                                        filteredCompanyUsers.length > visibleUserCount
+                                      const usersLoaded = companyUsers[key] != null
+                                      const usersLoading = companyUsersLoadingKeys.has(key)
+
+                                      return (
+                                        <Fragment key={company.id}>
+                                          <tr>
+                                            <td className="fw-semibold">{company.name}</td>
+                                            <td>{company.is_main ? 'Yes' : 'No'}</td>
+                                            <td>{company.contact_person || '—'}</td>
+                                            <td>{company.contact_email || '—'}</td>
+                                            <td>{company.kyb_verified ? 'Yes' : 'No'}</td>
+                                            <td>{company.user_count}</td>
+                                            <td>{company.max_booking_per_day ?? '—'}</td>
+                                            <td className="text-end">
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-secondary"
+                                                onClick={() =>
+                                                  toggleCompanyExpanded(row.id, company.id)
+                                                }
+                                                aria-expanded={isCompanyExpanded}
+                                                aria-label={
+                                                  isCompanyExpanded
+                                                    ? `Collapse users for ${company.name}`
+                                                    : `Expand users for ${company.name}`
+                                                }
+                                              >
+                                                <i
+                                                  className={`bi ${
+                                                    isCompanyExpanded
+                                                      ? 'bi-caret-up-fill'
+                                                      : 'bi-caret-down-fill'
+                                                  }`}
+                                                  aria-hidden="true"
+                                                />
+                                              </button>
+                                            </td>
+                                          </tr>
+                                          {isCompanyExpanded && (
+                                            <tr>
+                                              <td colSpan={8} className="bg-white border-top">
+                                                <div className="px-2 py-3">
+                                                  <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                                    <div className="fw-semibold small">
+                                                      Users in {company.name}
+                                                    </div>
+                                                    {usersLoaded && !usersLoading && (
+                                                      <div className="emails-search admin-accounts-user-search">
+                                                        <i
+                                                          className="bi bi-search"
+                                                          aria-hidden="true"
+                                                        />
+                                                        <input
+                                                          type="search"
+                                                          className="emails-search-input"
+                                                          placeholder="Search users…"
+                                                          value={userSearch}
+                                                          onChange={(e) =>
+                                                            handleCompanyUserSearch(
+                                                              key,
+                                                              e.target.value,
+                                                            )
+                                                          }
+                                                          aria-label={`Search users in ${company.name}`}
+                                                        />
+                                                        {userSearch && (
+                                                          <button
+                                                            type="button"
+                                                            className="emails-search-clear"
+                                                            onClick={() =>
+                                                              handleCompanyUserSearch(key, '')
+                                                            }
+                                                            aria-label="Clear user search"
+                                                          >
+                                                            <i className="bi bi-x-lg" />
+                                                          </button>
+                                                        )}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                  {usersLoading ? (
+                                                    <div className="small text-muted">
+                                                      Loading users…
+                                                    </div>
+                                                  ) : companyUsersError[key] ? (
+                                                    <div className="small text-danger">
+                                                      {companyUsersError[key]}
+                                                    </div>
+                                                  ) : !usersLoaded ? (
+                                                    <div className="small text-muted">
+                                                      Loading users…
+                                                    </div>
+                                                  ) : allCompanyUsers.length === 0 ? (
+                                                    <div className="small text-muted">
+                                                      No users found.
+                                                    </div>
+                                                  ) : filteredCompanyUsers.length === 0 ? (
+                                                    <div className="small text-muted">
+                                                      No users match your search.
+                                                    </div>
+                                                  ) : (
+                                                    <div className="table-responsive">
+                                                      <table className="table table-sm mb-0 align-middle">
+                                                        <thead>
+                                                          <tr>
+                                                            <th>Name</th>
+                                                            <th>Email</th>
+                                                            <th>Active</th>
+                                                            <th />
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                          {visibleCompanyUsers.map((user) => (
+                                                            <tr key={user.id}>
+                                                              <td>{userDisplayName(user)}</td>
+                                                              <td>{user.email}</td>
+                                                              <td>
+                                                                <span
+                                                                  className={`badge ${
+                                                                    user.is_active
+                                                                      ? 'text-bg-success'
+                                                                      : 'text-bg-secondary'
+                                                                  }`}
+                                                                >
+                                                                  {user.is_active
+                                                                    ? 'Active'
+                                                                    : 'Inactive'}
+                                                                </span>
+                                                              </td>
+                                                              <td className="text-end">
+                                                                <button
+                                                                  type="button"
+                                                                  className="btn btn-sm btn-outline-primary"
+                                                                  disabled={
+                                                                    !user.can_impersonate ||
+                                                                    impersonatingUserId != null
+                                                                  }
+                                                                  onClick={() =>
+                                                                    void handleViewAsUser(user)
+                                                                  }
+                                                                >
+                                                                  {impersonatingUserId === user.id
+                                                                    ? 'Starting…'
+                                                                    : 'View as user'}
+                                                                </button>
+                                                              </td>
+                                                            </tr>
+                                                          ))}
+                                                        </tbody>
+                                                      </table>
+                                                      {hasMoreCompanyUsers && (
+                                                        <div className="text-center py-2 border-top">
+                                                          <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-link"
+                                                            onClick={() => showMoreUsers(key)}
+                                                          >
+                                                            Show more (
+                                                            {filteredCompanyUsers.length -
+                                                              visibleUserCount}{' '}
+                                                            remaining)
+                                                          </button>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </Fragment>
+                                      )
+                                    })}
                                   </tbody>
                                 </table>
                               </div>

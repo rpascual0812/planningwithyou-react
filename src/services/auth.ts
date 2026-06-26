@@ -35,6 +35,12 @@ export const TOKEN_STORAGE_KEYS = {
   refresh: 'auth.refreshToken',
 } as const
 
+/** Saved admin session while viewing as another user. */
+export const IMPERSONATION_STORAGE_KEYS = {
+  adminAccess: 'auth.adminAccessToken',
+  adminRefresh: 'auth.adminRefreshToken',
+} as const
+
 const AUTH_BROADCAST_CHANNEL = 'pwu-auth'
 
 /** Fired in the tab that wrote tokens (BroadcastChannel does not echo locally). */
@@ -206,9 +212,42 @@ export function clearStoredTokens() {
   localStorage.removeItem(TOKEN_STORAGE_KEYS.refresh)
   sessionStorage.removeItem(TOKEN_STORAGE_KEYS.access)
   sessionStorage.removeItem(TOKEN_STORAGE_KEYS.refresh)
+  clearImpersonationAdminBackup()
 }
 
-function getRefreshToken(): string | null {
+export function isImpersonatingSession(): boolean {
+  return Boolean(localStorage.getItem(IMPERSONATION_STORAGE_KEYS.adminAccess))
+}
+
+export function saveAdminSessionForImpersonation(): void {
+  const access = getAccessToken()
+  const refresh = getRefreshToken()
+  if (!access) {
+    throw new Error('No active session to preserve.')
+  }
+  localStorage.setItem(IMPERSONATION_STORAGE_KEYS.adminAccess, access)
+  if (refresh) {
+    localStorage.setItem(IMPERSONATION_STORAGE_KEYS.adminRefresh, refresh)
+  } else {
+    localStorage.removeItem(IMPERSONATION_STORAGE_KEYS.adminRefresh)
+  }
+}
+
+export function restoreAdminSessionFromImpersonation(): boolean {
+  const adminAccess = localStorage.getItem(IMPERSONATION_STORAGE_KEYS.adminAccess)
+  if (!adminAccess) return false
+  const adminRefresh = localStorage.getItem(IMPERSONATION_STORAGE_KEYS.adminRefresh)
+  clearImpersonationAdminBackup()
+  updateStoredAccessToken(adminAccess, adminRefresh ?? undefined)
+  return true
+}
+
+export function clearImpersonationAdminBackup(): void {
+  localStorage.removeItem(IMPERSONATION_STORAGE_KEYS.adminAccess)
+  localStorage.removeItem(IMPERSONATION_STORAGE_KEYS.adminRefresh)
+}
+
+export function getRefreshToken(): string | null {
   return (
     localStorage.getItem(TOKEN_STORAGE_KEYS.refresh) ??
     sessionStorage.getItem(TOKEN_STORAGE_KEYS.refresh)

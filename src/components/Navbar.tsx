@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../context/AuthSessionContext'
-import { logout } from '../services/auth'
+import { logout, isImpersonatingSession } from '../services/auth'
+import { endImpersonation } from '../services/impersonation'
 import { htmlToPlainText } from '../lib/emailBody'
 import {
   fetchActiveSystemNotifications,
@@ -26,7 +27,7 @@ function getDisplayName(user: UserRecord): string {
 }
 
 const Navbar = ({ onToggleSidebar }: NavbarProps) => {
-  const { currentUser: user } = useAuthSession()
+  const { currentUser: user, syncAuthState } = useAuthSession()
   const navigate = useNavigate()
   const location = useLocation()
   const [notifications, setNotifications] = useState<ActiveSystemNotification[]>([])
@@ -164,6 +165,12 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
                 type="button"
                 className="dropdown-item nav-profile-logout"
                 onClick={async () => {
+                  if (isImpersonatingSession()) {
+                    await endImpersonation()
+                    syncAuthState()
+                    navigate('/admin')
+                    return
+                  }
                   await logout()
                   navigate('/login')
                 }}

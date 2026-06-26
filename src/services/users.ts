@@ -20,6 +20,8 @@ export type UserRecord = {
   permissions?: Record<string, 'none' | 'read' | 'write'>
   /** ``subscriptions.plan`` via user.account → account_subscriptions → subscriptions. */
   subscription_plan?: string
+  /** True when a platform admin is viewing the app as this user. */
+  impersonating?: boolean
   last_login: string | null
   tour_completed_at: string | null
   created_at: string
