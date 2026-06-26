@@ -1339,12 +1339,21 @@ body,
   overflow: hidden;
 }
 
-.user-notification-modal {
-  z-index: 1085;
+.user-notification-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
 }
 
-.user-notification-modal + .modal-backdrop {
-  z-index: 1080;
+.user-notification-modal.modal {
+  z-index: 1210;
+  overflow-y: auto;
+}
+
+.user-notification-modal .modal-content {
+  border: 1px solid var(--brand-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 18px 40px rgba(31, 58, 95, 0.18);
 }
 
 /* User profile dropdown in the top navbar */
