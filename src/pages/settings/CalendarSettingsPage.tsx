@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Swal from 'sweetalert2'
 
+import CalendarAppointmentRemindersPanel from './calendar/CalendarAppointmentRemindersPanel'
 import CalendarEmailTemplatesPanel from './calendar/CalendarEmailTemplatesPanel'
 import CalendarStatusesPanel from './calendar/CalendarStatusesPanel'
 import IntegrationGroupContent from './integrations/IntegrationGroupContent'
@@ -10,6 +11,7 @@ import { groupMetaFor } from './integrations/integrationData'
 const CalendarSettingsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [statusesOpen, setStatusesOpen] = useState(false)
+  const [remindersOpen, setRemindersOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [integrationsOpen, setIntegrationsOpen] = useState(false)
   const calendarIntegrations = groupMetaFor('calendar')
@@ -37,6 +39,12 @@ const CalendarSettingsPage = () => {
     next.delete('google_calendar_message')
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (searchParams.get('section') === 'appointment-reminders') {
+      setRemindersOpen(true)
+    }
+  }, [searchParams])
 
   return (
     <div className="account-settings integrations-settings">
@@ -66,6 +74,36 @@ const CalendarSettingsPage = () => {
             </div>
           )}
         </li>
+        <li className={`faq-item${remindersOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="faq-toggle"
+            data-tour="settings-calendar-appointment-reminders"
+            aria-expanded={remindersOpen}
+            onClick={() => setRemindersOpen((prev) => !prev)}
+          >
+            <span className="faq-icon" aria-hidden="true">
+              <i className="bi bi-bell" />
+            </span>
+            <span className="faq-question">Appointment reminders</span>
+            <span className="faq-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down" />
+            </span>
+          </button>
+          {remindersOpen && (
+            <div
+              className="faq-answer faq-answer--form"
+              data-tour="settings-calendar-appointment-reminders-panel"
+            >
+              <p className="text-muted small mb-3">
+                Schedule email or SMS reminders before appointments. Filter by company,
+                appointment status, and how long before the event start or end they should
+                send.
+              </p>
+              <CalendarAppointmentRemindersPanel />
+            </div>
+          )}
+        </li>
         <li className={`faq-item${templatesOpen ? ' is-open' : ''}`}>
           <button
             type="button"
@@ -85,10 +123,11 @@ const CalendarSettingsPage = () => {
           {templatesOpen && (
             <div className="faq-answer faq-answer--form">
               <p className="text-muted small mb-3">
-                Customize emails sent when appointments are created or updated.
+                Customize emails sent when appointments are created, updated, or reminded.
                 Default templates include{' '}
-                <code>calendar_event_creation</code> and{' '}
-                <code>calendar_event_updated</code>.
+                <code>calendar_event_creation</code>,{' '}
+                <code>calendar_event_updated</code>, and{' '}
+                <code>calendar_event_reminder</code>.
               </p>
               <CalendarEmailTemplatesPanel />
             </div>

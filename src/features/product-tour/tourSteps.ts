@@ -22,7 +22,7 @@ const SETTINGS_TABS: { id: SettingsSection; label: string; tour: string; descrip
   { id: 'companies', label: 'Company Settings', tour: 'settings-companies', description: 'Company Settings lets you manage your companies, packages, and package pricing.' },
   { id: 'user-settings', label: 'User Settings', tour: 'settings-user-settings', description: 'User Settings lets you manage user-related email templates.' },
   { id: 'suppliers', label: 'Supplier Settings', tour: 'settings-suppliers', description: 'Supplier Settings select specific suppliers that will be available for your clients to choose from when quoting.' },
-  { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
+  { id: 'calendar', label: 'Calendar Settings', tour: 'settings-calendar', description: 'Calendar Settings lets you manage appointment statuses, appointment reminders, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', tour: 'settings-email-settings', description: 'Email Settings lets you connect Gmail, Outlook, Apple Mail, and Yahoo to your account.' },
   { id: 'quotations', label: 'Quotation Settings', tour: 'settings-bookings', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, form templates, and email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', tour: 'settings-permissions', description: 'Roles and Permissions lets you manage your user\'s roles and permissions.' },
@@ -50,7 +50,7 @@ const SIDEBAR_ITEMS: {
   { feature: 'quotations', label: 'Quotations', tour: 'nav-bookings', path: '/quotations', description: 'Quotations simplifies the entire client quotation process—from quotation to payment. Create and send professional quotations, accept online payments through secure payment links, and keep clients engaged with automated reminder emails.' },
   { feature: 'contacts', label: 'Contacts', tour: 'nav-contacts', path: '/contacts', description: 'Contacts lets you manage your clients and their contact information.' },
   { feature: 'users', label: 'Users', tour: 'nav-users', path: '/users', description: 'Users lets you manage your users and their permissions.' },
-  { feature: 'emails', label: 'Emails', tour: 'nav-emails', path: '/emails', description: 'Emails lists all the emails sent by the system.' },
+  { feature: 'emails', label: 'Emails', tour: 'nav-emails', path: '/emails', description: 'Emails shows messages sent by the system and upcoming appointment reminder emails scheduled to send.' },
   {
     feature: 'file_manager',
     label: 'File Manager',
@@ -72,6 +72,8 @@ type AccordionTourDef = {
   tour: string
   title: string
   description: string
+  /** Override navigation path (e.g. open a settings accordion via `section`). */
+  path?: string
 }
 
 const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> = {
@@ -80,6 +82,15 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       tour: 'settings-companies-companies',
       title: 'Companies',
       description: 'Manage companies linked to your account.',
+      path: '/settings?tab=companies&section=companies',
+    },
+    {
+      tour: 'settings-companies-business-verification',
+      title: 'Business verification',
+      description:
+        'Use the shield button in Actions to verify your business with PayMongo and Xendit. ' +
+        'Approved verification is required before you can accept live payments and connect payment integrations.',
+      path: '/settings?tab=companies&section=companies',
     },
     {
       tour: 'settings-companies-package-definitions',
@@ -104,6 +115,20 @@ const SETTINGS_ACCORDIONS: Partial<Record<SettingsSection, AccordionTourDef[]>> 
       tour: 'settings-calendar-statuses',
       title: 'Appointment statuses',
       description: 'Customize status labels and colors on the calendar.',
+    },
+    {
+      tour: 'settings-calendar-appointment-reminders',
+      title: 'Appointment reminders',
+      description:
+        'Open this section to configure automated email or SMS reminders before appointments.',
+      path: '/settings?tab=calendar&section=appointment-reminders',
+    },
+    {
+      tour: 'settings-calendar-appointment-reminders-panel',
+      title: 'Reminder rules',
+      description:
+        'Create reminder rules by company and appointment status. Set how long before the event start or end each reminder should send, and view scheduled sends under Emails → Scheduled.',
+      path: '/settings?tab=calendar&section=appointment-reminders',
     },
     {
       tour: 'settings-calendar-email-templates',
@@ -167,6 +192,23 @@ const BOOKINGS_VIEW_STEPS: AccordionTourDef[] = [
     tour: 'bookings-view-list',
     title: 'List',
     description: 'A sortable table with quotation details in rows.',
+  },
+]
+
+const EMAILS_TAB_STEPS: AccordionTourDef[] = [
+  {
+    tour: 'emails-tab-sent',
+    title: 'Sent',
+    description:
+      'View the email log for messages already queued or delivered—search, filter by status, and open any message to resend.',
+    path: '/emails',
+  },
+  {
+    tour: 'emails-tab-scheduled',
+    title: 'Scheduled',
+    description:
+      'See upcoming and past appointment reminder emails. Cancel future reminders or restore ones you previously cancelled.',
+    path: '/emails?view=scheduled',
   },
 ]
 
@@ -240,7 +282,12 @@ function appendAccordionSteps(
   const basePath = settingsTabPath(tab)
   for (const accordion of accordions) {
     steps.push(
-      step(accordion.tour, accordion.title, accordion.description, basePath),
+      step(
+        accordion.tour,
+        accordion.title,
+        accordion.description,
+        accordion.path ?? basePath,
+      ),
     )
   }
 }
@@ -314,6 +361,19 @@ export function buildProductTourSteps(user: UserRecord): TourStepMeta[] {
             viewStep.title,
             viewStep.description,
             `/quotations?view=${viewId}`,
+          ),
+        )
+      }
+    }
+
+    if (item.tour === 'nav-emails') {
+      for (const tabStep of EMAILS_TAB_STEPS) {
+        steps.push(
+          step(
+            tabStep.tour,
+            tabStep.title,
+            tabStep.description,
+            tabStep.path ?? item.path,
           ),
         )
       }

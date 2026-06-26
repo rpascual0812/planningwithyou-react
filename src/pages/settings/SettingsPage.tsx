@@ -27,7 +27,7 @@ const NAV_ITEMS: SettingsNavItem[] = [
   { id: 'companies', label: 'Company Settings', icon: 'bi-building', description: 'Company Settings lets you manage your companies and their settings.' },
   { id: 'user-settings', label: 'User Settings', icon: 'bi-people', description: 'User Settings lets you manage user-related email templates.' },
   { id: 'suppliers', label: 'Supplier Settings', icon: 'bi-truck', description: 'Supplier Settings lets you manage your suppliers and their settings.' },
-  { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3', description: 'Calendar Settings lets you manage appointment statuses, email templates, and calendar integrations.' },
+  { id: 'calendar', label: 'Calendar Settings', icon: 'bi-calendar3', description: 'Calendar Settings lets you manage appointment statuses, appointment reminders, email templates, and calendar integrations.' },
   { id: 'email-settings', label: 'Email Settings', icon: 'bi-envelope-at', description: 'Email Settings lets you connect email providers to send and receive messages from your account.' },
   { id: 'quotations', label: 'Quotation Settings', icon: 'bi-bookmark-check', description: 'Quotation Settings lets you manage your quotation view, group name, statuses, form templates, and email templates.' },
   { id: 'permissions', label: 'Roles and Permissions', icon: 'bi-shield-lock', description: 'Roles and Permissions lets you manage your roles and permissions.' },

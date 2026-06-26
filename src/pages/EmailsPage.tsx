@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import EmailSenderModal from '../components/EmailSenderModal'
+import EmailsScheduledPanel from './EmailsScheduledPanel'
 import {
   fetchEmailsPage,
   sendEmail,
@@ -18,6 +19,9 @@ import {
 } from '../lib/formatDateTime'
 
 const EDIT_PARAM = 'edit'
+const TAB_PARAM = 'view'
+
+type EmailsTab = 'sent' | 'scheduled'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -45,6 +49,8 @@ const formatRecipients = (addrs: string[]) => {
 const EmailsPage = () => {
   const { canWrite: emailsWrite } = useFeatureAccess('emails')
   const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab: EmailsTab =
+    searchParams.get(TAB_PARAM) === 'scheduled' ? 'scheduled' : 'sent'
   const [error, setError] = useState<string | null>(null)
   const {
     companies,
@@ -279,10 +285,53 @@ const EmailsPage = () => {
     }
   }
 
+  const setActiveTab = (tab: EmailsTab) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (tab === 'sent') {
+        next.delete(TAB_PARAM)
+      } else {
+        next.set(TAB_PARAM, tab)
+      }
+      return next
+    }, { replace: true })
+  }
+
   return (
     <div className="app-content">
       <div className="container-fluid">
         <div className="emails-table-card">
+          <ul className="nav nav-tabs px-2 pt-2" role="tablist">
+            <li className="nav-item" role="presentation">
+              <button
+                type="button"
+                className={`nav-link${activeTab === 'sent' ? ' active' : ''}`}
+                role="tab"
+                aria-selected={activeTab === 'sent'}
+                data-tour="emails-tab-sent"
+                onClick={() => setActiveTab('sent')}
+              >
+                Sent
+              </button>
+            </li>
+            <li className="nav-item" role="presentation">
+              <button
+                type="button"
+                className={`nav-link${activeTab === 'scheduled' ? ' active' : ''}`}
+                role="tab"
+                aria-selected={activeTab === 'scheduled'}
+                data-tour="emails-tab-scheduled"
+                onClick={() => setActiveTab('scheduled')}
+              >
+                Scheduled
+              </button>
+            </li>
+          </ul>
+
+          {activeTab === 'scheduled' ? (
+            <EmailsScheduledPanel />
+          ) : (
+            <>
           <div className="row g-2 align-items-end mb-3 px-2 pt-2">
             <CompanyFilterSelect
               id="emails-company"
@@ -455,6 +504,8 @@ const EmailsPage = () => {
               </table>
             )}
           </div>
+            </>
+          )}
         </div>
       </div>
 

@@ -384,7 +384,12 @@ const CompaniesPanel = () => {
                 <th className="bookings-tiers-table__active">Main</th>
                 <th className="bookings-tiers-table__active">Active</th>
                 <th className="text-end">Order</th>
-                <th className="text-end">Actions</th>
+                <th
+                  className="text-end"
+                  data-tour="settings-companies-business-verification"
+                >
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>

@@ -1,12 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import CompaniesPanel from './companies/CompaniesPanel'
 import CompanyPackagesPanel from './companies/CompanyPackagesPanel'
 import PackagesPanel from './companies/PackagesPanel'
 
 const CompaniesSettingsPage = () => {
+  const [searchParams] = useSearchParams()
   const [companiesOpen, setCompaniesOpen] = useState(false)
   const [companyPackagesOpen, setCompanyPackagesOpen] = useState(false)
   const [packagesOpen, setPackagesOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get('section') === 'companies') {
+      setCompaniesOpen(true)
+    }
+  }, [searchParams])
 
   return (
     <div className="account-settings">
