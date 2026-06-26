@@ -189,10 +189,6 @@ const SupplierSettingsPage = () => {
     try {
       const data = await fetchActiveSupplierTypes()
       setTypes(data)
-      setSelectedId((prev) => {
-        if (prev && data.some((t) => String(t.id) === prev)) return prev
-        return data.length > 0 ? String(data[0].id) : ''
-      })
     } catch (e) {
       setTypesError(e instanceof Error ? e.message : 'Failed to load supplier types')
       setTypes([])
@@ -212,15 +208,11 @@ const SupplierSettingsPage = () => {
   }, [search])
 
   const loadCompanies = useCallback(async () => {
-    if (!selectedId) {
-      setCompanies([])
-      return
-    }
     setCompaniesLoading(true)
     setCompaniesError(null)
     try {
       const data = await fetchCompaniesBySupplierType(
-        Number(selectedId),
+        selectedId ? Number(selectedId) : null,
         debouncedSearch,
       )
       setCompanies(data)
@@ -364,18 +356,20 @@ const SupplierSettingsPage = () => {
           className="form-select form-select-sm settings-supplier-select"
           value={selectedId}
           onChange={(e) => setSelectedId(e.target.value)}
-          disabled={typesLoading || types.length === 0}
+          disabled={typesLoading}
         >
-          {typesLoading && <option value="">Loading…</option>}
-          {!typesLoading && types.length === 0 && (
-            <option value="">No supplier types</option>
+          {typesLoading ? (
+            <option value="">Loading…</option>
+          ) : (
+            <>
+              <option value="">All active suppliers</option>
+              {types.map((t) => (
+                <option key={t.id} value={String(t.id)}>
+                  {t.name}
+                </option>
+              ))}
+            </>
           )}
-          {!typesLoading &&
-            types.map((t) => (
-              <option key={t.id} value={String(t.id)}>
-                {t.name}
-              </option>
-            ))}
         </select>
       </div>
 
@@ -417,7 +411,6 @@ const SupplierSettingsPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search companies"
-              disabled={!selectedId}
             />
             {search && (
               <button
@@ -447,6 +440,7 @@ const SupplierSettingsPage = () => {
                 <tr>
                   <th className="suppliers-th-active">Active</th>
                   <th>Name</th>
+                  <th>Supplier type</th>
                   <th>Original price</th>
                   <th>Discount</th>
                   <th>Mark-up</th>
@@ -471,6 +465,7 @@ const SupplierSettingsPage = () => {
                       </button>
                     </td>
                     <td className="users-table-name">{row.name}</td>
+                    <td>{row.supplier_type_name || '—'}</td>
                     <td>
                       {formatPackageColumn(
                         row.supplier_packages,
@@ -513,12 +508,10 @@ const SupplierSettingsPage = () => {
                 ))}
                 {pageRows.length === 0 && !companiesLoading && (
                   <tr>
-                    <td colSpan={7} className="users-table-empty">
-                      {!selectedId
-                        ? 'Select a supplier type.'
-                        : debouncedSearch
-                          ? 'No companies match your search.'
-                          : 'No companies for this supplier type.'}
+                    <td colSpan={8} className="users-table-empty">
+                      {debouncedSearch
+                        ? 'No companies match your search.'
+                        : 'No active suppliers found.'}
                     </td>
                   </tr>
                 )}

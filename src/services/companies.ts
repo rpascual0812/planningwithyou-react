@@ -145,11 +145,13 @@ function supplierDirectoryQuery(): string {
 }
 
 export async function fetchCompaniesBySupplierType(
-  supplierTypeId: number,
+  supplierTypeId: number | null | undefined,
   search = '',
 ): Promise<CompanyRecord[]> {
   const params = new URLSearchParams()
-  params.set('supplier_type', String(supplierTypeId))
+  if (supplierTypeId != null) {
+    params.set('supplier_type', String(supplierTypeId))
+  }
   params.set('supplier_directory', '1')
   if (search) params.set('search', search)
   const res = await apiFetch(buildApiUrl(`/companies/?${params.toString()}`), {
