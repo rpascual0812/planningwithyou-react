@@ -1219,7 +1219,97 @@ body,
 
 .app-header-actions {
   flex: 0 0 auto;
-  margin-left: 0;
+  margin-left: auto;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.nav-notifications-dropdown {
+  position: relative;
+}
+
+.nav-notifications-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: 999px;
+}
+
+.nav-notifications-toggle:hover,
+.nav-notifications-toggle:focus {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.nav-notifications-badge {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.15rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--bs-danger, #dc3545);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+.nav-notifications-menu {
+  width: min(22rem, 92vw);
+  max-height: 24rem;
+  overflow-y: auto;
+  padding-top: 0;
+}
+
+.nav-notifications-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bs-dropdown-bg, #fff);
+  font-weight: 600;
+}
+
+.nav-notifications-item-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  white-space: normal;
+  text-align: left;
+}
+
+.nav-notifications-item-row--unread {
+  background: rgba(31, 58, 95, 0.06);
+}
+
+.nav-notifications-item-title {
+  font-weight: 600;
+  color: var(--bs-body-color);
+}
+
+.nav-notifications-item-preview {
+  font-size: 0.8rem;
+  color: var(--bs-secondary-color);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.user-notification-modal {
+  z-index: 1085;
+}
+
+.user-notification-modal + .modal-backdrop {
+  z-index: 1080;
 }
 
 /* User profile dropdown in the top navbar */

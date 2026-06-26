@@ -10,6 +10,7 @@ import {
 import { canAccessAdmin } from '../lib/adminNavAccess'
 import { canAccessAnySettings } from '../lib/settingsNavAccess'
 import { UserAvatar } from './UserAvatar'
+import UserNotificationsDropdown from './UserNotificationsDropdown'
 import type { UserRecord } from '../services/users'
 
 type NavbarProps = {
@@ -109,6 +110,7 @@ const Navbar = ({ onToggleSidebar }: NavbarProps) => {
         )}
 
         <ul className="navbar-nav app-header-actions">
+          <UserNotificationsDropdown />
           <li className="nav-item dropdown nav-profile-item">
             <a
               className="nav-link nav-profile-toggle"
