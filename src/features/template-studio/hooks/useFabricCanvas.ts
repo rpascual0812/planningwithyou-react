@@ -9,7 +9,7 @@ import {
   fabricTextTransformPlacement,
   getElementId,
   patchFabricObjectFromElement,
-  refreshFabricTextMetrics,
+  refreshFabricTextMetricsForElement,
   textTransformPlacementChanged,
 } from '../lib/fabricSync'
 import { persistDraft } from '../store/templateStudioStore'
@@ -58,7 +58,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
   const batchUpdateElementTransforms = useTemplateStudioStore((s) => s.batchUpdateElementTransforms)
   const textSyncInProgressRef = useRef(false)
 
-  const syncTextDimensionsToStore = useCallback((scale: number) => {
+  const syncTextDimensionsToStore = useCallback(async (scale: number) => {
     const canvas = fabricRef.current
     if (!canvas || textSyncInProgressRef.current) return false
 
@@ -71,7 +71,9 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       if (!obj || (obj.type !== 'i-text' && obj.type !== 'IText' && obj.type !== 'text')) {
         continue
       }
-      const measured = fabricTextTransformPlacement(obj as IText, scale)
+      const text = obj as IText
+      await refreshFabricTextMetricsForElement(text, el, scale)
+      const measured = fabricTextTransformPlacement(text, scale)
       if (!textTransformPlacementChanged(el.transform, measured)) continue
       updates.push({ id: el.id, transform: measured })
     }
@@ -148,7 +150,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       }
       await restoreCanvasSelection(canvas, preserveIds)
       if (textReflowed) {
-        syncTextDimensionsToStore(scale)
+        await syncTextDimensionsToStore(scale)
       }
       canvas.requestRenderAll()
     } finally {
@@ -195,7 +197,7 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       )
 
       if (token !== rebuildTokenRef.current) return
-      syncTextDimensionsToStore(scale)
+      await syncTextDimensionsToStore(scale)
       canvas.requestRenderAll()
     } finally {
       if (token === rebuildTokenRef.current) {
@@ -238,27 +240,6 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       const active = canvas.getActiveObjects()
       const ids = active.map(getElementId).filter((id): id is string => Boolean(id))
       selectElements(ids)
-    }
-
-    const remeasureActiveTextBox = async () => {
-      if (syncingRef.current) return
-      const active = canvas.getActiveObject()
-      if (!active) return
-      const type = active.type
-      if (type !== 'i-text' && type !== 'IText' && type !== 'text') return
-      syncingRef.current = true
-      try {
-        await refreshFabricTextMetrics(active as IText)
-        syncTextDimensionsToStore(Math.max(displayScaleRef.current, 0.01))
-        canvas.requestRenderAll()
-      } finally {
-        syncingRef.current = false
-      }
-    }
-
-    const onSelectionWithMetrics = () => {
-      onSelection()
-      void remeasureActiveTextBox()
     }
 
     const finishTransformSync = () => {
@@ -365,8 +346,8 @@ export function useFabricCanvas({ width, height, displayScale, enabled }: UseFab
       void syncTargetToStore()
     }
 
-    canvas.on('selection:created', onSelectionWithMetrics)
-    canvas.on('selection:updated', onSelectionWithMetrics)
+    canvas.on('selection:created', onSelection)
+    canvas.on('selection:updated', onSelection)
     canvas.on('selection:cleared', () => {
       if (syncingRef.current) return
       selectElements([])

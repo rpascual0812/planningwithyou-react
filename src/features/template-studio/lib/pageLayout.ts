@@ -1,6 +1,9 @@
 import type { CSSProperties } from 'react'
 import type { ElementTransform } from '../types/schema'
 
+/** Extra space below text ink so descenders are not clipped (design pixels). */
+export const TEXT_BOX_BOTTOM_PAD = 5
+
 function transformStyle(
   t: ElementTransform,
   pageScale: number,
@@ -48,8 +51,10 @@ export function designPixelStyle(t: ElementTransform, pageScale: number): CSSPro
 
 /** Text box matches Fabric IText frame (fixed height, clipped like editor canvas). */
 export function designTextStyle(t: ElementTransform, pageScale: number): CSSProperties {
+  const s = pageScale
   return {
     ...transformStyle(t, pageScale),
+    height: (t.height + TEXT_BOX_BOTTOM_PAD) * s,
     overflow: 'hidden',
   }
 }
